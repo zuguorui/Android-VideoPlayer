@@ -1,0 +1,14 @@
+//
+// Created by 祖国瑞 on 2020-04-12.
+//
+
+#ifndef ANDROID_VIDEOPLAYER_IAUDIOPLAYER_H
+#define ANDROID_VIDEOPLAYER_IAUDIOPLAYER_H
+
+
+class IAudioPlayer {
+
+};
+
+
+#endif //ANDROID_VIDEOPLAYER_IAUDIOPLAYER_H

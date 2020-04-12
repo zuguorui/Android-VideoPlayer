@@ -1,0 +1,14 @@
+//
+// Created by 祖国瑞 on 2020-04-12.
+//
+
+#ifndef ANDROID_VIDEOPLAYER_IVIDEOPLAYER_H
+#define ANDROID_VIDEOPLAYER_IVIDEOPLAYER_H
+
+
+class IVideoPlayer {
+
+};
+
+
+#endif //ANDROID_VIDEOPLAYER_IVIDEOPLAYER_H
