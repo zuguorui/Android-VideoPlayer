@@ -13,6 +13,7 @@
 #include "IAudioFrameProvider.h"
 #include "IVideoFrameProvider.h"
 #include "IMediaDataReceiver.h"
+#include "BlockRecyclerQueue.h"
 
 extern "C"
 {
@@ -39,15 +40,24 @@ public:
     void setDataReceiver(IMediaDataReceiver *receiver);
     void removeDataReceiber(IMediaDataReceiver *receiver);
 
+    int32_t getVideoWidth();
+    int32_t getVideoHeight();
+
 private:
     bool initComponents(const char *path);
     void resetComponents();
 
     void decodeAudio();
     void decodeVideo();
+    void readFile();
+
+    AVPacket *getFreePacket();
 
     static void *audioThreadCallback(void *context);
     static void *videoThreadCallback(void *context);
+    static void *readThreadCallback(void *context);
+
+    void recyclePackets();
 
     AVFormatContext *formatCtx = NULL;
 
@@ -68,6 +78,7 @@ private:
 
     thread *audioDecodeThread = NULL;
     thread *videoDecodeThread = NULL;
+    thread *readThread = NULL;
 
     bool stopDecodeFlag = false;
 
@@ -76,6 +87,12 @@ private:
     int32_t audioSampleCountLimit = 0;
 
     static const int32_t AUDIO_SAMPLE_RATE = 44100;
+
+    bool audioDecodeFinished = false;
+    bool videoDecodeFinished = false;
+
+    BlockRecyclerQueue<AVPacket *> *audioPacketQueue;
+    BlockRecyclerQueue<AVPacket *> *videoPacketQueue;
 
 
 };

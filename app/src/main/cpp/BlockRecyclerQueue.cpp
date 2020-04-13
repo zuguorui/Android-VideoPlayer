@@ -43,18 +43,26 @@ T BlockRecyclerQueue<T>::get() {
     T *element = queue.front();
     queue.pop_front();
     queueLock->unlock();
+    notFullSignal.notify_all();
     return element;
 }
 
 template <class T>
 void BlockRecyclerQueue<T>::put(T t) {
     queueLock->lock();
-    while(queue.size() >= this->size)
+    if(this->size == -1)
     {
-        notFullSignal.wait(*queueLock);
+        queue.push_back(t);
+    } else
+    {
+        while(queue.size() >= this->size)
+        {
+            notFullSignal.wait(*queueLock);
+        }
+        queue.push_back(t);
     }
-    queue.push_back(t);
     queueLock->unlock();
+    notEmptySignal.notify_all();
 }
 
 template <class T>

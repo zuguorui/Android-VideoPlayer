@@ -13,11 +13,11 @@
 #include <list>
 
 using namespace std;
-
+// TODO: add notify lockers to avoid dead waiting. Add get element immediately interfaces.
 template <class T>
 class BlockRecyclerQueue {
 public:
-    BlockRecyclerQueue(int size);
+    BlockRecyclerQueue(int size = -1);
     ~BlockRecyclerQueue();
     int getSize();
 

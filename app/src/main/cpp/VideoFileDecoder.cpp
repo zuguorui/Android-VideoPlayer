@@ -26,10 +26,24 @@ static void log_callback(void *ctx, int level, const char *fmt, va_list args)
 VideoFileDecoder::VideoFileDecoder() {
     av_register_all();
     av_log_set_callback(log_callback);
+
+    audioPacketQueue = new BlockRecyclerQueue<AVPacket *>(100);
+    videoPacketQueue = new BlockRecyclerQueue<AVPacket *>(5);
 }
 
 VideoFileDecoder::~VideoFileDecoder() {
 
+}
+
+void VideoFileDecoder::recyclePackets() {
+    if(audioPacketQueue != NULL)
+    {
+        AVPacket *p;
+        while((p = audioPacketQueue->get()) != NULL)
+        {
+
+        }
+    }
 }
 
 void VideoFileDecoder::openFile(const char *inputFile) {
@@ -49,6 +63,7 @@ void VideoFileDecoder::openFile(const char *inputFile) {
         resetComponents();
         return;
     }
+    readThread = new thread(readThreadCallback, this);
     if(hasAudio())
     {
         audioDecodeThread = new thread(audioThreadCallback, this);
@@ -238,6 +253,7 @@ bool VideoFileDecoder::initComponents(const char *path) {
         }
 
         videoFPS = videoStream->avg_frame_rate.num * 1.0f / videoStream->avg_frame_rate.den;
+
     }
 
     if(videoIndex != -1)
@@ -337,7 +353,32 @@ void* VideoFileDecoder::videoThreadCallback(void *context) {
     ((VideoFileDecoder *)context) -> decodeVideo();
 }
 
+void* VideoFileDecoder::readThreadCallback(void *context) {
+    ((VideoFileDecoder *)context) -> readFile();
+}
+
+AVPacket* VideoFileDecoder::getFreePacket() {
+
+}
+
+int32_t VideoFileDecoder::getVideoHeight() {
+    if(videoStream != NULL)
+    {
+        return videoStream->codecpar->height;
+    }
+    return -1;
+}
+
+int32_t VideoFileDecoder::getVideoWidth() {
+    if(videoStream != NULL)
+    {
+        return videoStream->codecpar->width;
+    }
+    return -1;
+}
+
 void VideoFileDecoder::decodeAudio() {
+    audioDecodeFinished = false;
     if(formatCtx == NULL)
     {
         LOGE("formatCtx is NULL when start decode");
@@ -367,7 +408,7 @@ void VideoFileDecoder::decodeAudio() {
 
     bool readFinish = false;
     int err = 0;
-    while(!stopDecodeFlag)
+    while(!stopDecodeFlag && !readFinish)
     {
         if(seekAudioReq)
         {
@@ -377,7 +418,7 @@ void VideoFileDecoder::decodeAudio() {
         if(av_read_frame(formatCtx, packet) < 0)
         {
             //can not read more, regard as EOF
-            LOGD("Finished reading file");
+            LOGD("Finished reading audio stream");
             readFinish = true;
             //set packet size 0 to let codec flush.
             packet->size = 0;
@@ -411,6 +452,7 @@ void VideoFileDecoder::decodeAudio() {
                 {
                     while(1)
                     {
+                        // convert audio until there is no more data
                         AudioFrame *audioFrame = dataReceiver->getUsedAudioFrame();
                         if(audioFrame == NULL)
                         {
@@ -422,20 +464,130 @@ void VideoFileDecoder::decodeAudio() {
                         audioFrame->sampleCount = swr_convert(audioSwrCtx, &(tempData), audioSampleCountLimit, (const uint8_t **)frame->data, frame->nb_samples);
                         if(audioFrame->sampleCount < 0)
                         {
+                            // there is no more data, continue to read data from file
                             dataReceiver->putUsedAudioFrame(audioFrame);
                             break;
                         } else
                         {
-
+                            dataReceiver->receiveAudioFrame(audioFrame);
                         }
                     }
                 }
             }
         }
+        av_packet_unref(packet);
 
     }
+    av_frame_free(&frame);
+    av_free(packet);
+
+    audioDecodeFinished = true;
+    if(videoDecodeFinished)
+    {
+        resetComponents();
+    }
+
 }
 
 void VideoFileDecoder::decodeVideo() {
+    videoDecodeFinished = true;
 
+    if(formatCtx == NULL)
+    {
+        LOGE("formatCtx is NULL when start decode");
+        return;
+    }
+    if(videoCodecCtx == NULL)
+    {
+        LOGE("videoCodecCtx is NULL when start decode");
+        return;
+    }
+
+    if(videoCodec == NULL)
+    {
+        LOGE("videoCodec is NULL when start decode");
+        return;
+    }
+    if(videoStream == NULL)
+    {
+        LOGE("videoStream is NULL when start decode");
+        return;
+    }
+
+    AVPacket *packet = (AVPacket *)av_malloc(sizeof(AVPacket));
+    av_init_packet(packet);
+
+    AVFrame *frame = av_frame_alloc();
+
+    bool readFinish = false;
+    int err = 0;
+    while(!stopDecodeFlag && !readFinish)
+    {
+        if(seekVideoReq)
+        {
+            seekVideoReq = false;
+            av_seek_frame(formatCtx, videoIndex, videoSeekPosition, 0);
+        }
+        if(av_read_frame(formatCtx, packet) < 0)
+        {
+            //can not read more, regard as EOF
+            LOGD("Finished reading video stream");
+            readFinish = true;
+            //set packet size 0 to let codec flush.
+            packet->size = 0;
+        }
+
+        err = avcodec_send_packet(audioCodecCtx, packet);
+        if(err == AVERROR(EAGAIN))
+        {
+            // This must not happen
+        } else if (err == AVERROR_EOF){
+            // codec says is EOF, cause we set the packet->size = 0.
+        } else if (err != 0){
+            LOGE("call avcodec_send_packet() returns %d\n", err);
+        } else //err == 0
+        {
+            //read until can not read more to ensure codec won't be full
+            while(1)
+            {
+                err = avcodec_receive_frame(audioCodecCtx, frame);
+                if(err == AVERROR(EAGAIN))
+                {
+                    //Can not read until send a new packet
+                    break;
+                } else if(err == AVERROR_EOF)
+                {
+                    //The codec is flushed, no more frame will be output
+                    break;
+                } else if (err != 0){
+                    LOGE("call avcodec_send_packet() returns %d\n", err);
+                } else // err == 0
+                {
+                    while(1)
+                    {
+                        // convert audio until there is no more data
+                        AudioFrame *audioFrame = dataReceiver->getUsedAudioFrame();
+                        if(audioFrame == NULL)
+                        {
+                            audioFrame = new AudioFrame();
+                            audioFrame->data = (int16_t *)malloc(audioSampleCountLimit * 2 * sizeof(int16_t));
+                        }
+                        memset(audioFrame, 0, audioSampleCountLimit * 2 * sizeof(int16_t));
+                        uint8_t *tempData = (uint8_t *)audioFrame->data;
+                        audioFrame->sampleCount = swr_convert(audioSwrCtx, &(tempData), audioSampleCountLimit, (const uint8_t **)frame->data, frame->nb_samples);
+                        if(audioFrame->sampleCount < 0)
+                        {
+                            // there is no more data, continue to read data from file
+                            dataReceiver->putUsedAudioFrame(audioFrame);
+                            break;
+                        } else
+                        {
+                            dataReceiver->receiveAudioFrame(audioFrame);
+                        }
+                    }
+                }
+            }
+        }
+        av_packet_unref(packet);
+    }
 }
