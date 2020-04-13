@@ -16,6 +16,11 @@ class IMediaDataReceiver {
 public:
     virtual void receiveAudioFrame(AudioFrame *audioData) = 0;
     virtual void receiveVideoFrame(VideoFrame *videoData) = 0;
+    virtual AudioFrame* getUsedAudioFrame() = 0;
+    virtual VideoFrame* getUsedVideoFrame() = 0;
+
+    virtual void putUsedAudioFrame(AudioFrame *audioData) = 0;
+    virtual void putUsedVideoFrame(VideoFrame *videoData) = 0;
 };
 
 

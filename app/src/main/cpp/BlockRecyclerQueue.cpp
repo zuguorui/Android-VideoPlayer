@@ -6,17 +6,19 @@
 
 using namespace std;
 
-BlockRecyclerQueue::BlockRecyclerQueue(int size) {
+template <class T>
+BlockRecyclerQueue<T>::BlockRecyclerQueue(int size) {
     this->size = size;
-    queueLock = new unique_lock(queueMu);
+    queueLock = new unique_lock<mutex>(queueMu);
     queueLock->unlock();
 
-    usedQueueLock = new unique_lock(usedQueueMu);
+    usedQueueLock = new unique_lock<mutex>(usedQueueMu);
     usedQueueLock->unlock();
 
 }
 
-BlockRecyclerQueue::~BlockRecyclerQueue() {
+template <class T>
+BlockRecyclerQueue<T>::~BlockRecyclerQueue() {
     if(queueLock != NULL)
     {
         queueLock->unlock();
@@ -31,7 +33,7 @@ BlockRecyclerQueue::~BlockRecyclerQueue() {
 }
 
 template <class T>
-T* BlockRecyclerQueue::get() {
+T BlockRecyclerQueue<T>::get() {
     queueLock->lock();
     while(queue.size() == 0)
     {
@@ -45,7 +47,7 @@ T* BlockRecyclerQueue::get() {
 }
 
 template <class T>
-void BlockRecyclerQueue::put(T *t) {
+void BlockRecyclerQueue<T>::put(T t) {
     queueLock->lock();
     while(queue.size() >= this->size)
     {
@@ -55,13 +57,14 @@ void BlockRecyclerQueue::put(T *t) {
     queueLock->unlock();
 }
 
-int BlockRecyclerQueue::getSize() {
+template <class T>
+int BlockRecyclerQueue<T>::getSize() {
     return this->size;
 }
 
 template <class T>
-T* BlockRecyclerQueue::getUsed() {
-    T* element = NULL;
+T BlockRecyclerQueue<T>::getUsed() {
+    T element = NULL;
     usedQueueLock->lock();
     if(usedQueue.size() != 0)
     {
@@ -73,7 +76,7 @@ T* BlockRecyclerQueue::getUsed() {
 }
 
 template <class T>
-void BlockRecyclerQueue::putToUsed(T* t) {
+void BlockRecyclerQueue<T>::putToUsed(T t) {
     usedQueueLock->lock();
     usedQueue.push_back(t);
     usedQueueLock->unlock();

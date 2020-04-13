@@ -46,8 +46,8 @@ private:
     void decodeAudio();
     void decodeVideo();
 
-    void *audioThreadCallback(void *context);
-    void *videoThreadCallback(void *context);
+    static void *audioThreadCallback(void *context);
+    static void *videoThreadCallback(void *context);
 
     AVFormatContext *formatCtx = NULL;
 
@@ -71,7 +71,11 @@ private:
 
     bool stopDecodeFlag = false;
 
-    int32_t videoFPS = 0;
+    float videoFPS = 0;
+
+    int32_t audioSampleCountLimit = 0;
+
+    static const int32_t AUDIO_SAMPLE_RATE = 44100;
 
 
 };

@@ -20,10 +20,15 @@ public:
     BlockRecyclerQueue(int size);
     ~BlockRecyclerQueue();
     int getSize();
-    void put(T* t);
-    T* get();
-    void putToUsed(T* t);
-    T* getUsed();
+
+
+    void put(T t);
+
+    T get();
+
+    void putToUsed(T t);
+
+    T getUsed();
 
 private:
     int size = 0;
@@ -31,8 +36,8 @@ private:
     mutex usedQueueMu;
     condition_variable notFullSignal;
     condition_variable notEmptySignal;
-    list<T*> queue;
-    list<T*> usedQueue;
+    list<T> queue;
+    list<T> usedQueue;
 
     unique_lock<mutex> *queueLock = NULL;
     unique_lock<mutex> *usedQueueLock = NULL;
@@ -40,6 +45,7 @@ private:
 
 
 };
+
 
 
 #endif //ANDROID_VIDEOPLAYER_BLOCKRECYCLERQUEUE_H
