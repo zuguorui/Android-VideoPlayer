@@ -17,18 +17,31 @@ using namespace std;
 template <class T>
 class BlockRecyclerQueue {
 public:
+    // if size == -1, then we don't limit the size of data queue, and all the put option will not wait.
     BlockRecyclerQueue(int size = -1);
     ~BlockRecyclerQueue();
     int getSize();
 
+    // put a element, if wait = true, put option will wait until the length of data queue is less than specified size.
+    void put(T t, bool wait = true);
 
-    void put(T t);
-
-    T get();
+    // get a element, if wait = true, it will wait until the data queue is not empty. If wait = false, it will return NULL if the data queue is empty.
+    // It will still return NULL even wait = true, in this case, it must be someone call notifyWaitGet() but the data queue is still empty.
+    T get(bool wait = true);
 
     void putToUsed(T t);
 
     T getUsed();
+
+    // notify all the put option to not wait. This will cause put option succeed immediately
+    void notifyWaitPut();
+
+    // notify all the get option to return immediately. if data queue is still empty, get option will return a NULL.
+    void notifyWaitGet();
+
+
+
+
 
 private:
     int size = 0;
@@ -41,7 +54,6 @@ private:
 
     unique_lock<mutex> *queueLock = NULL;
     unique_lock<mutex> *usedQueueLock = NULL;
-
 
 
 };

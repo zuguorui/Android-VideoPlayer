@@ -32,7 +32,9 @@ VideoFileDecoder::VideoFileDecoder() {
 }
 
 VideoFileDecoder::~VideoFileDecoder() {
-
+    closeInput();
+    delete(audioPacketQueue);
+    delete(videoPacketQueue);
 }
 
 void VideoFileDecoder::recyclePackets() {
@@ -41,7 +43,26 @@ void VideoFileDecoder::recyclePackets() {
         AVPacket *p;
         while((p = audioPacketQueue->get()) != NULL)
         {
+            av_packet_unref(p);
+            av_packet_free(&p);
+        }
+        while((p = audioPacketQueue->getUsed()) != NULL)
+        {
+            av_packet_free(&p);
+        }
+    }
 
+    if(videoPacketQueue != NULL)
+    {
+        AVPacket *p;
+        while((p = videoPacketQueue->get()) != NULL)
+        {
+            av_packet_unref(p);
+            av_packet_free(&p);
+        }
+        while((p = videoPacketQueue->getUsed()) != NULL)
+        {
+            av_packet_free(&p);
         }
     }
 }
@@ -55,8 +76,7 @@ void VideoFileDecoder::openFile(const char *inputFile) {
     }
     closeInput();
     stopDecodeFlag = false;
-    seekAudioReq = false;
-    seekVideoReq = false;
+    seekReq = false;
     if(!initComponents(inputFile))
     {
         LOGE("init components error");
@@ -309,14 +329,23 @@ void VideoFileDecoder::resetComponents() {
 
 void VideoFileDecoder::closeInput() {
     stopDecodeFlag = true;
+    if(readThread != NULL && readThread->joinable())
+    {
+        readThread->join();
+        readThread = NULL;
+    }
     if(audioDecodeThread != NULL && audioDecodeThread->joinable())
     {
         audioDecodeThread->join();
+        audioDecodeThread = NULL;
     }
     if(videoDecodeThread != NULL && videoDecodeThread->joinable())
     {
         videoDecodeThread->join();
+        videoDecodeThread = NULL;
     }
+    discardAllReadPackets();
+    recyclePackets();
     resetComponents();
 }
 
@@ -326,10 +355,8 @@ void VideoFileDecoder::seekTo(int64_t position) {
         LOGE("Neither audio nor video thread is NULL when seek");
         return;
     }
-    audioSeekPosition = (int64_t)(position / 1000 / av_q2d(audioStream->time_base));
-    videoSeekPosition = (int64_t)(position / 1000 / av_q2d(videoStream->time_base));
-    seekAudioReq = true;
-    seekVideoReq = true;
+    seekReq = true;
+    seekPosition = position;
 }
 
 void VideoFileDecoder::setDataReceiver(IMediaDataReceiver *receiver) {
@@ -358,7 +385,19 @@ void* VideoFileDecoder::readThreadCallback(void *context) {
 }
 
 AVPacket* VideoFileDecoder::getFreePacket() {
+    AVPacket *packet = NULL;
+    packet = audioPacketQueue->getUsed();
+    if(packet == NULL)
+    {
+        packet = videoPacketQueue->getUsed();
+    }
 
+    if(packet == NULL)
+    {
+        packet = av_packet_alloc();
+        av_init_packet(packet);
+    }
+    return packet;
 }
 
 int32_t VideoFileDecoder::getVideoHeight() {
@@ -377,13 +416,55 @@ int32_t VideoFileDecoder::getVideoWidth() {
     return -1;
 }
 
-void VideoFileDecoder::decodeAudio() {
-    audioDecodeFinished = false;
+void VideoFileDecoder::readFile() {
     if(formatCtx == NULL)
     {
         LOGE("formatCtx is NULL when start decode");
         return;
     }
+    bool readFinish = false;
+    while(!stopDecodeFlag && !readFinish)
+    {
+        if(seekReq)
+        {
+            discardAllReadPackets();
+            seekReq = false;
+            int64_t pos = (int64_t)(seekPosition / 1000 * AV_TIME_BASE);
+            av_seek_frame(formatCtx, -1, pos, 0);
+
+        }
+        AVPacket *packet = getFreePacket();
+        if(av_read_frame(formatCtx, packet) < 0)
+        {
+            //can not read more, regard as EOF
+            LOGD("Finished reading audio stream");
+            readFinish = true;
+            //set packet size 0 to let codec flush.
+            packet->size = 0;
+            audioPacketQueue->put(packet);
+            AVPacket *packet1 = getFreePacket();
+            packet1->size = 0;
+            videoPacketQueue->put(packet1);
+        } else
+        {
+            if(packet->stream_index == audioIndex)
+            {
+                audioPacketQueue->put(packet);
+            } else if(packet->stream_index == videoIndex)
+            {
+                videoPacketQueue->put(packet);
+            } else
+            {
+                LOGE("unknow packet stream %d", packet->stream_index);
+            }
+        }
+
+    }
+}
+
+void VideoFileDecoder::decodeAudio() {
+    audioDecodeFinished = false;
+
     if(audioCodecCtx == NULL)
     {
         LOGE("audioCodecCtx is NULL when start decode");
@@ -401,27 +482,20 @@ void VideoFileDecoder::decodeAudio() {
         return;
     }
 
-    AVPacket *packet = (AVPacket *)av_malloc(sizeof(AVPacket));
-    av_init_packet(packet);
 
     AVFrame *frame = av_frame_alloc();
 
-    bool readFinish = false;
     int err = 0;
-    while(!stopDecodeFlag && !readFinish)
+    bool readFinished = false;
+    while(!stopDecodeFlag && !readFinished)
     {
-        if(seekAudioReq)
+
+        AVPacket *packet = audioPacketQueue->get();
+        // Someone stop decode and call notifyGetWiat(), if so, we should finish decoding.
+        if(packet == NULL)
         {
-            seekAudioReq = false;
-            av_seek_frame(formatCtx, audioIndex, audioSeekPosition, 0);
-        }
-        if(av_read_frame(formatCtx, packet) < 0)
-        {
-            //can not read more, regard as EOF
-            LOGD("Finished reading audio stream");
-            readFinish = true;
-            //set packet size 0 to let codec flush.
-            packet->size = 0;
+            readFinished = true;
+            break;
         }
 
         err = avcodec_send_packet(audioCodecCtx, packet);
@@ -430,6 +504,7 @@ void VideoFileDecoder::decodeAudio() {
             // This must not happen
         } else if (err == AVERROR_EOF){
             // codec says is EOF, cause we set the packet->size = 0.
+            readFinished = true;
         } else if (err != 0){
             LOGE("call avcodec_send_packet() returns %d\n", err);
         } else //err == 0
@@ -459,7 +534,8 @@ void VideoFileDecoder::decodeAudio() {
                             audioFrame = new AudioFrame();
                             audioFrame->data = (int16_t *)malloc(audioSampleCountLimit * 2 * sizeof(int16_t));
                         }
-                        memset(audioFrame, 0, audioSampleCountLimit * 2 * sizeof(int16_t));
+                        memset(audioFrame->data, 0, audioSampleCountLimit * 2 * sizeof(int16_t));
+                        audioFrame->pts = (int64_t)(frame->pts * av_q2d(audioStream->time_base) * 1000);
                         uint8_t *tempData = (uint8_t *)audioFrame->data;
                         audioFrame->sampleCount = swr_convert(audioSwrCtx, &(tempData), audioSampleCountLimit, (const uint8_t **)frame->data, frame->nb_samples);
                         if(audioFrame->sampleCount < 0)
@@ -476,10 +552,9 @@ void VideoFileDecoder::decodeAudio() {
             }
         }
         av_packet_unref(packet);
-
+        audioPacketQueue->putToUsed(packet);
     }
     av_frame_free(&frame);
-    av_free(packet);
 
     audioDecodeFinished = true;
     if(videoDecodeFinished)
@@ -492,11 +567,6 @@ void VideoFileDecoder::decodeAudio() {
 void VideoFileDecoder::decodeVideo() {
     videoDecodeFinished = true;
 
-    if(formatCtx == NULL)
-    {
-        LOGE("formatCtx is NULL when start decode");
-        return;
-    }
     if(videoCodecCtx == NULL)
     {
         LOGE("videoCodecCtx is NULL when start decode");
@@ -514,35 +584,27 @@ void VideoFileDecoder::decodeVideo() {
         return;
     }
 
-    AVPacket *packet = (AVPacket *)av_malloc(sizeof(AVPacket));
-    av_init_packet(packet);
-
     AVFrame *frame = av_frame_alloc();
 
     bool readFinish = false;
     int err = 0;
     while(!stopDecodeFlag && !readFinish)
     {
-        if(seekVideoReq)
+        AVPacket *packet = videoPacketQueue->get();
+
+        if(packet == NULL)
         {
-            seekVideoReq = false;
-            av_seek_frame(formatCtx, videoIndex, videoSeekPosition, 0);
-        }
-        if(av_read_frame(formatCtx, packet) < 0)
-        {
-            //can not read more, regard as EOF
-            LOGD("Finished reading video stream");
             readFinish = true;
-            //set packet size 0 to let codec flush.
-            packet->size = 0;
+            break;
         }
 
-        err = avcodec_send_packet(audioCodecCtx, packet);
+        err = avcodec_send_packet(videoCodecCtx, packet);
         if(err == AVERROR(EAGAIN))
         {
             // This must not happen
         } else if (err == AVERROR_EOF){
             // codec says is EOF, cause we set the packet->size = 0.
+            readFinish = true;
         } else if (err != 0){
             LOGE("call avcodec_send_packet() returns %d\n", err);
         } else //err == 0
@@ -550,7 +612,7 @@ void VideoFileDecoder::decodeVideo() {
             //read until can not read more to ensure codec won't be full
             while(1)
             {
-                err = avcodec_receive_frame(audioCodecCtx, frame);
+                err = avcodec_receive_frame(videoCodecCtx, frame);
                 if(err == AVERROR(EAGAIN))
                 {
                     //Can not read until send a new packet
@@ -566,28 +628,52 @@ void VideoFileDecoder::decodeVideo() {
                     while(1)
                     {
                         // convert audio until there is no more data
-                        AudioFrame *audioFrame = dataReceiver->getUsedAudioFrame();
-                        if(audioFrame == NULL)
+                        VideoFrame *videoFrame = dataReceiver->getUsedVideoFrame();
+                        if(videoFrame == NULL)
                         {
-                            audioFrame = new AudioFrame();
-                            audioFrame->data = (int16_t *)malloc(audioSampleCountLimit * 2 * sizeof(int16_t));
+                            videoFrame = new VideoFrame();
+                            int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 0);
+
+                            videoFrame->data = (uint8_t *)malloc(numBytes * sizeof(uint8_t));
                         }
-                        memset(audioFrame, 0, audioSampleCountLimit * 2 * sizeof(int16_t));
-                        uint8_t *tempData = (uint8_t *)audioFrame->data;
-                        audioFrame->sampleCount = swr_convert(audioSwrCtx, &(tempData), audioSampleCountLimit, (const uint8_t **)frame->data, frame->nb_samples);
-                        if(audioFrame->sampleCount < 0)
+                        if(av_image_fill_arrays(&(videoFrame->data), 0, &(frame->data), AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 0) < 0)
                         {
-                            // there is no more data, continue to read data from file
-                            dataReceiver->putUsedAudioFrame(audioFrame);
-                            break;
-                        } else
-                        {
-                            dataReceiver->receiveAudioFrame(audioFrame);
+                            LOGE("fill data to videoFrame error");
                         }
+                        videoFrame->pts = (int64_t)(frame->pts * av_q2d(videoStream->time_base) * 1000);
+
                     }
                 }
             }
         }
         av_packet_unref(packet);
+        videoPacketQueue->putToUsed(packet);
     }
+    videoDecodeFinished = true;
+    if(audioDecodeFinished)
+    {
+        resetComponents();
+    }
+}
+
+void VideoFileDecoder::discardAllReadPackets() {
+    AVPacket *p;
+    if(audioPacketQueue != NULL)
+    {
+        while((p = audioPacketQueue->get()) != NULL)
+        {
+            av_packet_unref(p);
+            audioPacketQueue->putToUsed(p);
+        }
+    }
+
+    if(videoPacketQueue != NULL)
+    {
+        while((p = videoPacketQueue->get()) != NULL)
+        {
+            av_packet_unref(p);
+            videoPacketQueue->putToUsed(p);
+        }
+    }
+
 }

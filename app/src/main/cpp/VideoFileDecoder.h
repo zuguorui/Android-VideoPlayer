@@ -22,6 +22,7 @@ extern "C"
 #include "libavutil/mem.h"
 #include "libavformat/avformat.h"
 #include "libswresample/swresample.h"
+#include "libavutil/imgutils.h"
 }
 
 using namespace std;
@@ -59,6 +60,8 @@ private:
 
     void recyclePackets();
 
+    void discardAllReadPackets();
+
     AVFormatContext *formatCtx = NULL;
 
     int audioIndex = -1, videoIndex = -1;
@@ -69,10 +72,8 @@ private:
 
     int64_t duration = 0;
 
-    int64_t audioSeekPosition = 0;
-    int64_t videoSeekPosition = 0;
-    bool seekAudioReq = false;
-    bool seekVideoReq = false;
+    bool seekReq = false;
+    int64_t seekPosition = 0;
 
     IMediaDataReceiver *dataReceiver = NULL;
 

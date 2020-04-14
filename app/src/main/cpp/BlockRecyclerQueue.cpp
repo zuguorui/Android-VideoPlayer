@@ -33,24 +33,31 @@ BlockRecyclerQueue<T>::~BlockRecyclerQueue() {
 }
 
 template <class T>
-T BlockRecyclerQueue<T>::get() {
+T BlockRecyclerQueue<T>::get(bool wait) {
     queueLock->lock();
-    while(queue.size() == 0)
+    if(wait)
     {
-        notEmptySignal.wait(*queueLock);
+        while(queue.size() == 0)
+        {
+            notEmptySignal.wait(*queueLock);
+        }
     }
 
-    T *element = queue.front();
-    queue.pop_front();
+    T *element = NULL;
+    if(queue.size() != 0)
+    {
+        element = queue.front();
+        queue.pop_front();
+    }
     queueLock->unlock();
     notFullSignal.notify_all();
     return element;
 }
 
 template <class T>
-void BlockRecyclerQueue<T>::put(T t) {
+void BlockRecyclerQueue<T>::put(T t, bool wait) {
     queueLock->lock();
-    if(this->size == -1)
+    if(this->size == -1 || !wait)
     {
         queue.push_back(t);
     } else
@@ -85,7 +92,21 @@ T BlockRecyclerQueue<T>::getUsed() {
 
 template <class T>
 void BlockRecyclerQueue<T>::putToUsed(T t) {
+
     usedQueueLock->lock();
     usedQueue.push_back(t);
     usedQueueLock->unlock();
 }
+
+template <class T>
+void BlockRecyclerQueue<T>::notifyWaitGet() {
+    this->notEmptySignal.notify_all();
+}
+
+template <class T>
+void BlockRecyclerQueue<T>::notifyWaitPut() {
+    this->notFullSignal.notify_all();
+}
+
+
+

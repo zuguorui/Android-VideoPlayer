@@ -11,10 +11,18 @@
 #include <stdint.h>
 #include "IAudioFrameProvider.h"
 #include "IVideoFrameProvider.h"
+#include "IMediaDataReceiver.h"
 
 using namespace std;
 
-class VideoPlayController{
+class VideoPlayController: public IMediaDataReceiver, public IAudioFrameProvider, public IVideoFrameProvider{
+public:
+    VideoPlayController();
+    ~VideoPlayController();
+
+    bool openFile();
+
+private:
 
 };
 
