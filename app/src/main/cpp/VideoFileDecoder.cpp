@@ -222,7 +222,7 @@ bool VideoFileDecoder::initComponents(const char *path) {
 
         if(err != 0)
         {
-            LOGE("swr init failed, err = %d", err);
+            LOGE("audio swr init failed, err = %d", err);
         }
 
         // if audio is AAC, we need to deal with duration. FFmpeg can not get AAC duration correctly
@@ -272,6 +272,14 @@ bool VideoFileDecoder::initComponents(const char *path) {
             return false;
         }
 
+        videoSwsCtx = sws_getContext(videoCodecCtx->width, videoCodecCtx->height, videoCodecCtx->pix_fmt, videoCodecCtx->width, videoCodecCtx->height, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
+        if(videoSwsCtx == NULL)
+        {
+            LOGE("init videoSwsCtx failed");
+            return false;
+        }
+
+
         videoFPS = videoStream->avg_frame_rate.num * 1.0f / videoStream->avg_frame_rate.den;
 
     }
@@ -301,6 +309,11 @@ void VideoFileDecoder::resetComponents() {
         audioSwrCtx = NULL;
     }
 
+    if(videoSwsCtx != NULL)
+    {
+        sws_freeContext(videoSwsCtx);
+        videoSwsCtx = NULL;
+    }
     if(audioCodecCtx != NULL)
     {
         avcodec_close(audioCodecCtx);
@@ -481,7 +494,11 @@ void VideoFileDecoder::decodeAudio() {
         LOGE("audioStream is NULL when start decode");
         return;
     }
-
+    if(audioSwrCtx == NULL)
+    {
+        LOGE("audioSwrCtx is NULL when start decode");
+        return;
+    }
 
     AVFrame *frame = av_frame_alloc();
 
@@ -584,7 +601,14 @@ void VideoFileDecoder::decodeVideo() {
         return;
     }
 
+    if(videoSwsCtx == NULL)
+    {
+        LOGE("videoSwsCtx is NULL when start decode");
+        return;
+    }
+
     AVFrame *frame = av_frame_alloc();
+    AVFrame *convertedFrame = av_frame_alloc();
 
     bool readFinish = false;
     int err = 0;
@@ -636,11 +660,11 @@ void VideoFileDecoder::decodeVideo() {
 
                             videoFrame->data = (uint8_t *)malloc(numBytes * sizeof(uint8_t));
                         }
-                        if(av_image_fill_arrays(&(videoFrame->data), 0, &(frame->data), AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 0) < 0)
-                        {
-                            LOGE("fill data to videoFrame error");
-                        }
+
                         videoFrame->pts = (int64_t)(frame->pts * av_q2d(videoStream->time_base) * 1000);
+                        int dstLineSize = 0;
+                        sws_scale(videoSwsCtx, (const uint8_t* const *)frame->data, (const int*)frame->linesize, 0, videoCodecCtx->height, (uint8_t * const)videoFrame->data, &dstLineSize);
+
 
                     }
                 }

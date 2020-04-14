@@ -23,6 +23,7 @@ extern "C"
 #include "libavformat/avformat.h"
 #include "libswresample/swresample.h"
 #include "libavutil/imgutils.h"
+#include "libswscale/swscale.h"
 }
 
 using namespace std;
@@ -68,7 +69,8 @@ private:
     AVStream *audioStream = NULL, *videoStream = NULL;
     AVCodecContext *audioCodecCtx = NULL, *videoCodecCtx = NULL;
     AVCodec *audioCodec, *videoCodec = NULL;
-    SwrContext *audioSwrCtx = NULL, *videoSwrCtx = NULL;
+    SwrContext *audioSwrCtx = NULL;
+    SwsContext *videoSwsCtx = NULL;
 
     int64_t duration = 0;
 
