@@ -12,17 +12,34 @@
 
 using namespace std;
 
-typedef struct
+struct VideoFrame
 {
     int64_t pts;
     uint8_t *data;
     int32_t width;
     int32_t height;
-}VideoFrame;
+
+    int32_t dataLenInByte;
+
+    VideoFrame(int32_t dataLenInByte)
+    {
+        this->dataLenInByte = dataLenInByte;
+        data = (uint8_t *)malloc(dataLenInByte);
+        memset(data, 0, dataLenInByte);
+    }
+
+    ~VideoFrame()
+    {
+        if(data != NULL)
+        {
+            free(data);
+        }
+    }
+};
 class IVideoFrameProvider {
 public:
     virtual VideoFrame* getVideoFrame() = 0;
-    virtual void putbackUsed(VideoFrame* data) = 0;
+    virtual void putBackUsed(VideoFrame* data) = 0;
 };
 
 

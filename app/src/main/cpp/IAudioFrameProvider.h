@@ -12,16 +12,34 @@
 
 using namespace std;
 
-typedef struct {
+struct AudioFrame{
     int64_t pts;
     int16_t *data;
     int32_t sampleCount;
-}AudioFrame;
+
+    int32_t dataLenInByte = 0;
+
+    AudioFrame(int32_t dataLenInByte)
+    {
+        this->dataLenInByte = dataLenInByte;
+        pts = 0;
+        sampleCount = 0;
+        data = (int16_t *)malloc(dataLenInByte);
+        memset(data, 0, dataLenInByte);
+    }
+
+    ~AudioFrame(){
+        if(data != NULL)
+        {
+            free(data);
+        }
+    }
+};
 
 class IAudioFrameProvider {
 public:
     virtual AudioFrame* getAudioFrame() = 0;
-    virtual void putbackUsed(AudioFrame *data) = 0;
+    virtual void putBackUsed(AudioFrame *data) = 0;
 };
 
 

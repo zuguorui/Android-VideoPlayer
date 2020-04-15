@@ -402,7 +402,7 @@ AVPacket* VideoFileDecoder::getFreePacket() {
     packet = audioPacketQueue->getUsed();
     if(packet == NULL)
     {
-        packet = videoPacketQueue->getUsed();
+//        packet = videoPacketQueue->getUsed();
     }
 
     if(packet == NULL)
@@ -469,6 +469,8 @@ void VideoFileDecoder::readFile() {
             } else
             {
                 LOGE("unknow packet stream %d", packet->stream_index);
+                av_packet_unref(packet);
+                videoPacketQueue->putToUsed(packet);
             }
         }
 
@@ -501,6 +503,8 @@ void VideoFileDecoder::decodeAudio() {
     }
 
     AVFrame *frame = av_frame_alloc();
+
+    int maxAudioDataSizeInByte = audioSampleCountLimit * 2 * sizeof(int16_t);
 
     int err = 0;
     bool readFinished = false;
@@ -548,8 +552,7 @@ void VideoFileDecoder::decodeAudio() {
                         AudioFrame *audioFrame = dataReceiver->getUsedAudioFrame();
                         if(audioFrame == NULL)
                         {
-                            audioFrame = new AudioFrame();
-                            audioFrame->data = (int16_t *)malloc(audioSampleCountLimit * 2 * sizeof(int16_t));
+                            audioFrame = new AudioFrame(maxAudioDataSizeInByte);
                         }
                         memset(audioFrame->data, 0, audioSampleCountLimit * 2 * sizeof(int16_t));
                         audioFrame->pts = (int64_t)(frame->pts * av_q2d(audioStream->time_base) * 1000);
@@ -610,6 +613,8 @@ void VideoFileDecoder::decodeVideo() {
     AVFrame *frame = av_frame_alloc();
     AVFrame *convertedFrame = av_frame_alloc();
 
+    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 0);
+
     bool readFinish = false;
     int err = 0;
     while(!stopDecodeFlag && !readFinish)
@@ -655,16 +660,15 @@ void VideoFileDecoder::decodeVideo() {
                         VideoFrame *videoFrame = dataReceiver->getUsedVideoFrame();
                         if(videoFrame == NULL)
                         {
-                            videoFrame = new VideoFrame();
-                            int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 0);
-
-                            videoFrame->data = (uint8_t *)malloc(numBytes * sizeof(uint8_t));
+                            videoFrame = new VideoFrame(numBytes);
                         }
 
                         videoFrame->pts = (int64_t)(frame->pts * av_q2d(videoStream->time_base) * 1000);
-                        int dstLineSize = 0;
-                        sws_scale(videoSwsCtx, (const uint8_t* const *)frame->data, (const int*)frame->linesize, 0, videoCodecCtx->height, (uint8_t * const)videoFrame->data, &dstLineSize);
+                        sws_scale(videoSwsCtx, (const uint8_t* const *)frame->data, (const int*)frame->linesize, 0, videoCodecCtx->height, convertedFrame->data, convertedFrame->linesize);
 
+                        memcpy(videoFrame->data, convertedFrame->data[0], numBytes);
+
+                        dataReceiver->receiveVideoFrame(videoFrame);
 
                     }
                 }
