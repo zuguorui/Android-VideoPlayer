@@ -32,7 +32,8 @@ class VideoFileDecoder{
 public:
     VideoFileDecoder();
     ~VideoFileDecoder();
-    void openFile(const char *inputFile);
+
+    bool openFile(const char *inputFile);
     void closeInput();
     bool hasAudio();
     bool hasVideo();

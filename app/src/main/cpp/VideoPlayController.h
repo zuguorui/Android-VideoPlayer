@@ -76,9 +76,11 @@ private:
     unique_lock<mutex> *audioLock = NULL;
     unique_lock<mutex> *videoLock = NULL;
 
+    bool allowGetVideoFlag = false;
+
     condition_variable allowGetVideoSignal;
 
-    bool allowGetVideoFlag = false;
+
 
     VideoFrame *nextVideoFrame = NULL;
 

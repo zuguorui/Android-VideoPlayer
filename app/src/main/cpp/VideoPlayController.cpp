@@ -101,6 +101,36 @@ VideoPlayController::~VideoPlayController() {
             delete(frame);
         }
     }
+
+    if(nextVideoFrame != NULL)
+    {
+        delete(nextVideoFrame);
+    }
+}
+
+bool VideoPlayController::openFile(const char *path) {
+    if(decoder->openFile(path) == false)
+    {
+        LOGE("decoder open file failed");
+        return false;
+    }
+    return true;
+}
+
+void VideoPlayController::closeFile() {
+    decoder->closeInput();
+}
+
+void VideoPlayController::start() {
+    audioPlayer->start();
+}
+
+void VideoPlayController::stop() {
+    audioPlayer->stop();
+}
+
+void VideoPlayController::seek(int64_t posMS) {
+
 }
 
 void VideoPlayController::receiveAudioFrame(AudioFrame *audioData) {
@@ -130,34 +160,62 @@ void VideoPlayController::putUsedVideoFrame(VideoFrame *videoData) {
 
 AudioFrame *VideoPlayController::getAudioFrame() {
     AudioFrame *frame = audioQueue->get();
+    allowGetVideoFlag = false;
+    videoLock->lock();
     currentPositionMS = frame->pts;
-    if(nextVideoFrame != NULL)
+    if(nextVideoFrame == NULL)
     {
-        if(currentPositionMS - nextVideoFrame->pts > 20)
+        nextVideoFrame = videoQueue->get();
+    }
+    while(1)
+    {
+        if(currentPositionMS - nextVideoFrame->pts > 10)
         {
-            // audio is faster 20ms than video, discard this video frame
+            // if audio position is 10ms earlier than video, discard this video frame and get next
             videoQueue->putToUsed(nextVideoFrame);
-            nextVideoFrame = NULL;
-        } else if(currentPositionMS - nextVideoFrame->pts < -20)
+            nextVideoFrame = videoQueue->get();
+            continue;
+        } else if(currentPositionMS - nextVideoFrame->pts < -10)
         {
-
+            // if audio position is 10ms later than video, just let video frame wait
+            allowGetVideoFlag = false;
+            break;
         } else
         {
-
+            // if audio position is 10ms close to the video, allow video refresh
+            allowGetVideoFlag = true;
         }
     }
+
+    videoLock->unlock();
+    if(allowGetVideoFlag)
+    {
+        allowGetVideoSignal.notify_all();
+    }
+
+
+    return frame;
 }
 
 void VideoPlayController::putBackUsed(AudioFrame *data) {
-
+    audioQueue->putToUsed(data);
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    return nullptr;
+    videoLock->lock();
+    while(!allowGetVideoFlag)
+    {
+        allowGetVideoSignal.wait(*videoLock);
+    }
+    VideoFrame *f = nextVideoFrame;
+    nextVideoFrame = NULL;
+    allowGetVideoFlag = false;
+    videoLock->unlock();
+    return f;
 }
 
 void VideoPlayController::putBackUsed(VideoFrame *data) {
-
+    videoQueue->putToUsed(data);
 }
 
 

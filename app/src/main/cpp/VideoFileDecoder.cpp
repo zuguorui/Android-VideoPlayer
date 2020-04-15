@@ -67,12 +67,12 @@ void VideoFileDecoder::recyclePackets() {
     }
 }
 
-void VideoFileDecoder::openFile(const char *inputFile) {
+bool VideoFileDecoder::openFile(const char *inputFile) {
 
     if(dataReceiver == NULL)
     {
         LOGE("MediaDataReceiver is NULL when start decode");
-        return;
+        return false;
     }
     closeInput();
     stopDecodeFlag = false;
@@ -81,7 +81,7 @@ void VideoFileDecoder::openFile(const char *inputFile) {
     {
         LOGE("init components error");
         resetComponents();
-        return;
+        return false;
     }
     readThread = new thread(readThreadCallback, this);
     if(hasAudio())
@@ -92,6 +92,11 @@ void VideoFileDecoder::openFile(const char *inputFile) {
     {
         videoDecodeThread = new thread(videoThreadCallback, this);
     }
+    if(!hasAudio() && !hasVideo())
+    {
+        return false;
+    }
+    return true;
 }
 
 bool VideoFileDecoder::hasVideo() {
