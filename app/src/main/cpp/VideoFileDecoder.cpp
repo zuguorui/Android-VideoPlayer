@@ -23,6 +23,8 @@ static void log_callback(void *ctx, int level, const char *fmt, va_list args)
     }
 }
 
+
+
 VideoFileDecoder::VideoFileDecoder() {
     av_register_all();
     av_log_set_callback(log_callback);
@@ -690,23 +692,7 @@ void VideoFileDecoder::decodeVideo() {
 }
 
 void VideoFileDecoder::discardAllReadPackets() {
-    AVPacket *p;
-    if(audioPacketQueue != NULL)
-    {
-        while((p = audioPacketQueue->get()) != NULL)
-        {
-            av_packet_unref(p);
-            audioPacketQueue->putToUsed(p);
-        }
-    }
-
-    if(videoPacketQueue != NULL)
-    {
-        while((p = videoPacketQueue->get()) != NULL)
-        {
-            av_packet_unref(p);
-            videoPacketQueue->putToUsed(p);
-        }
-    }
+    videoPacketQueue->discardAll(av_packet_unref);
+    audioPacketQueue->discardAll(av_packet_unref);
 
 }

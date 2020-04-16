@@ -62,6 +62,8 @@ public:
 
 private:
 
+    void discardAllFrame();
+
     VideoFileDecoder *decoder = NULL;
 
     IAudioPlayer *audioPlayer = NULL;
@@ -85,6 +87,8 @@ private:
     VideoFrame *nextVideoFrame = NULL;
 
     int64_t currentPositionMS = 0;
+
+
 };
 
 

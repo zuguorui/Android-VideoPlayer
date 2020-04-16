@@ -33,6 +33,8 @@ public:
 
     T getUsed();
 
+    void discardAll(void (*discardCallback)(T));
+
     // notify all the put option to not wait. This will cause put option succeed immediately
     void notifyWaitPut();
 
@@ -85,7 +87,7 @@ BlockRecyclerQueue<T>::~BlockRecyclerQueue() {
 }
 
 template <class T>
-T BlockRecyclerQueue<T>::get(bool wait) {
+T BlockRecyclerQueue<T>::get(bool wait = true) {
     queueLock->lock();
     if(wait)
     {
@@ -107,7 +109,7 @@ T BlockRecyclerQueue<T>::get(bool wait) {
 }
 
 template <class T>
-void BlockRecyclerQueue<T>::put(T t, bool wait) {
+void BlockRecyclerQueue<T>::put(T t, bool wait = true) {
     queueLock->lock();
     if(this->size == -1 || !wait)
     {
@@ -160,5 +162,23 @@ void BlockRecyclerQueue<T>::notifyWaitPut() {
     this->notFullSignal.notify_all();
 }
 
+template <class T>
+void BlockRecyclerQueue<T>::discardAll(void (*discardCallback)(T)) {
+    queueLock->lock();
+    usedQueueLock->lock();
+    while(queue.size() != 0)
+    {
+        T t = queue.front();
+        queue.pop_front();
+        if(discardCallback != NULL)
+        {
+            (*discardCallback)(t);
+        }
+        usedQueue.push_back(t);
+    }
+    usedQueueLock->unlock();
+    queueLock->unlock();
+
+}
 
 #endif //ANDROID_VIDEOPLAYER_BLOCKRECYCLERQUEUE_H

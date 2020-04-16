@@ -11,6 +11,8 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, MODULE_NAME, __VA_ARGS__)
 
+
+
 VideoPlayController::VideoPlayController() {
     decoder = new VideoFileDecoder();
     audioLock = new unique_lock<mutex>(audioMu);
@@ -130,7 +132,13 @@ void VideoPlayController::stop() {
 }
 
 void VideoPlayController::seek(int64_t posMS) {
+    decoder->seekTo(posMS);
+    discardAllFrame();
+}
 
+void VideoPlayController::discardAllFrame() {
+    videoQueue->discardAll(NULL);
+    audioQueue->discardAll(NULL);
 }
 
 void VideoPlayController::receiveAudioFrame(AudioFrame *audioData) {
