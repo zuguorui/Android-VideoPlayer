@@ -154,7 +154,7 @@ void VideoPlayController::putUsedVideoFrame(VideoFrame *videoData) {
 AudioFrame *VideoPlayController::getAudioFrame() {
     AudioFrame *frame = audioQueue->get();
     allowGetVideoFlag = false;
-    unique_lock videoLock = unique_lock<mutex>(videoMu);
+    unique_lock<mutex> videoLock = unique_lock<mutex>(videoMu);
     currentPositionMS = frame->pts;
     if(nextVideoFrame == NULL)
     {
@@ -195,7 +195,7 @@ void VideoPlayController::putBackUsed(AudioFrame *data) {
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    unique_lock videoLock = unique_lock<mutex>(videoMu);
+    unique_lock<mutex> videoLock = unique_lock<mutex>(videoMu);
     while(!allowGetVideoFlag)
     {
         allowGetVideoSignal.wait(videoLock);
