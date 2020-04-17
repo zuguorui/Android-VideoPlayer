@@ -17,15 +17,15 @@ struct AudioFrame{
     int16_t *data;
     int32_t sampleCount;
 
-    int32_t dataLenInByte = 0;
+    int32_t maxDataSizeInByte = 0;
 
     AudioFrame(int32_t dataLenInByte)
     {
-        this->dataLenInByte = dataLenInByte;
+        this->maxDataSizeInByte = dataLenInByte;
         pts = 0;
         sampleCount = 0;
-        data = (int16_t *)malloc(dataLenInByte);
-        memset(data, 0, dataLenInByte);
+        data = (int16_t *)malloc(maxDataSizeInByte);
+        memset(data, 0, maxDataSizeInByte);
     }
 
     ~AudioFrame(){

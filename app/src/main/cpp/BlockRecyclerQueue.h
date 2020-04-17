@@ -87,7 +87,7 @@ BlockRecyclerQueue<T>::~BlockRecyclerQueue() {
 }
 
 template <class T>
-T BlockRecyclerQueue<T>::get(bool wait = true) {
+T BlockRecyclerQueue<T>::get(bool wait) {
     queueLock->lock();
     if(wait)
     {
@@ -109,7 +109,7 @@ T BlockRecyclerQueue<T>::get(bool wait = true) {
 }
 
 template <class T>
-void BlockRecyclerQueue<T>::put(T t, bool wait = true) {
+void BlockRecyclerQueue<T>::put(T t, bool wait) {
     queueLock->lock();
     if(this->size == -1 || !wait)
     {

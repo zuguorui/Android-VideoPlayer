@@ -12,6 +12,11 @@
 #include <EGL/eglext.h>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
+#include <thread>
+
+#include "Texture.h"
+#include "Render.h"
+#include "EGLCore.h"
 
 #include "IVideoPlayer.h"
 
@@ -34,6 +39,33 @@ public:
     void removeVideoFrameProvider(IVideoFrameProvider *provider) override;
 
     void setWindow(void *window) override;
+
+private:
+    Texture *texture;
+    Render *render;
+    EGLCore *eglCore;
+    EGLSurface surface;
+
+    int width;
+    int height;
+
+    thread *renderThread = NULL;
+    mutex renderMu;
+    condition_variable newMsgSignal;
+
+
+
+    ANativeWindow *window;
+
+
+
+    bool init();
+
+    void updateTexImage();
+
+    void drawFrame();
+
+    static void *threadCallback(void *self);
 };
 
 
