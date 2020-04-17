@@ -37,6 +37,7 @@ void OpenSLESPlayer::processAudio() {
         } else
         {
             (*playerBufferQueue)->Enqueue(playerBufferQueue, data->data, data->sampleCount * 2 * sizeof(int16_t));
+            provider->putBackUsed(data);
         }
 
     }

@@ -17,6 +17,7 @@ public:
     virtual void setVideoFrameProvider(IVideoFrameProvider *provider) = 0;
     virtual void removeVideoFrameProvider(IVideoFrameProvider *provider) = 0;
     virtual void setWindow(void *window) = 0;
+    virtual void setSize(int32_t width, int32_t height) = 0;
 };
 
 

@@ -17,6 +17,7 @@
 #include "Texture.h"
 #include "Render.h"
 #include "EGLCore.h"
+#include "BlockRecyclerQueue.h"
 
 #include "IVideoPlayer.h"
 
@@ -40,7 +41,22 @@ public:
 
     void setWindow(void *window) override;
 
+    void setSize(int32_t width, int32_t height) override;
+
 private:
+
+    void renderLoop();
+
+    bool initComponents();
+
+    void releaseComponents();
+
+    void updateTexImage();
+
+    void drawFrame();
+
+    static void *threadCallback(void *self);
+
     Texture *texture;
     Render *render;
     EGLCore *eglCore;
@@ -50,22 +66,18 @@ private:
     int height;
 
     thread *renderThread = NULL;
-    mutex renderMu;
-    condition_variable newMsgSignal;
+
+    ANativeWindow *window = NULL;
+    mutex windowMu;
+    condition_variable setWindowSignal;
 
 
+    IVideoFrameProvider *provider = NULL;
+    mutex providerMu;
 
-    ANativeWindow *window;
+    bool setSizeFlag = false;
+    bool exitFlag = false;
 
-
-
-    bool init();
-
-    void updateTexImage();
-
-    void drawFrame();
-
-    static void *threadCallback(void *self);
 };
 
 

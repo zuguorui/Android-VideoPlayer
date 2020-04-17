@@ -15,10 +15,6 @@
 
 VideoPlayController::VideoPlayController() {
     decoder = new VideoFileDecoder();
-    audioLock = new unique_lock<mutex>(audioMu);
-    audioLock->unlock();
-    videoLock = new unique_lock<mutex>(videoMu);
-    videoLock->unlock();
 
     audioQueue = new BlockRecyclerQueue<AudioFrame *>();
     videoQueue = new BlockRecyclerQueue<VideoFrame *>();
@@ -65,18 +61,7 @@ VideoPlayController::~VideoPlayController() {
         delete(videoPlayer);
         videoPlayer = NULL;
     }
-    if(audioLock != NULL)
-    {
-        audioLock->unlock();
-        delete(audioLock);
-        audioLock = NULL;
-    }
-    if(videoLock != NULL)
-    {
-        videoLock->unlock();
-        delete(videoLock);
-        videoLock = NULL;
-    }
+
 
     if(audioQueue != NULL)
     {
@@ -169,7 +154,7 @@ void VideoPlayController::putUsedVideoFrame(VideoFrame *videoData) {
 AudioFrame *VideoPlayController::getAudioFrame() {
     AudioFrame *frame = audioQueue->get();
     allowGetVideoFlag = false;
-    videoLock->lock();
+    unique_lock videoLock = unique_lock<mutex>(videoMu);
     currentPositionMS = frame->pts;
     if(nextVideoFrame == NULL)
     {
@@ -195,7 +180,7 @@ AudioFrame *VideoPlayController::getAudioFrame() {
         }
     }
 
-    videoLock->unlock();
+    videoLock.unlock();
     if(allowGetVideoFlag)
     {
         allowGetVideoSignal.notify_all();
@@ -210,15 +195,15 @@ void VideoPlayController::putBackUsed(AudioFrame *data) {
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    videoLock->lock();
+    unique_lock videoLock = unique_lock<mutex>(videoMu);
     while(!allowGetVideoFlag)
     {
-        allowGetVideoSignal.wait(*videoLock);
+        allowGetVideoSignal.wait(videoLock);
     }
     VideoFrame *f = nextVideoFrame;
     nextVideoFrame = NULL;
     allowGetVideoFlag = false;
-    videoLock->unlock();
+    videoLock.unlock();
     return f;
 }
 
