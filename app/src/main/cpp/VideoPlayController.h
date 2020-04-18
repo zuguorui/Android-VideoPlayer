@@ -39,6 +39,9 @@ public:
 
     void seek(int64_t posMS);
 
+    void setWindow(void *window);
+
+    void setSize(int width, int height);
 
     void receiveAudioFrame(AudioFrame *audioData) override;
 
@@ -59,6 +62,9 @@ public:
     VideoFrame *getVideoFrame() override;
 
     void putBackUsed(VideoFrame* data) override;
+
+
+
 
 private:
 

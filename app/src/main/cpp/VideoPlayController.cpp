@@ -126,6 +126,14 @@ void VideoPlayController::discardAllFrame() {
     audioQueue->discardAll(NULL);
 }
 
+void VideoPlayController::setWindow(void *window) {
+    videoPlayer->setWindow(window);
+}
+
+void VideoPlayController::setSize(int width, int height) {
+    videoPlayer->setSize(width, height);
+}
+
 void VideoPlayController::receiveAudioFrame(AudioFrame *audioData) {
     audioQueue->put(audioData);
 }
@@ -177,6 +185,7 @@ AudioFrame *VideoPlayController::getAudioFrame() {
         {
             // if audio position is 10ms close to the video, allow video refresh
             allowGetVideoFlag = true;
+            break;
         }
     }
 
