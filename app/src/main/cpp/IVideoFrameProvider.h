@@ -19,13 +19,13 @@ struct VideoFrame
     int32_t width;
     int32_t height;
 
-    int32_t dataLenInByte;
+    int32_t maxDataSizeInByte = 0;;
 
     VideoFrame(int32_t dataLenInByte)
     {
-        this->dataLenInByte = dataLenInByte;
-        data = (uint8_t *)malloc(dataLenInByte);
-        memset(data, 0, dataLenInByte);
+        this->maxDataSizeInByte = dataLenInByte;
+        data = (uint8_t *)malloc(maxDataSizeInByte);
+        memset(data, 0, maxDataSizeInByte);
     }
 
     ~VideoFrame()

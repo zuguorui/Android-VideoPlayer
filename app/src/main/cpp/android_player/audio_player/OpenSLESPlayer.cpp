@@ -8,25 +8,18 @@
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, MODULE_NAME, __VA_ARGS__)
 
-OpenSLESPlayer::OpenSLESPlayer() {
+FILE *pcmFile;
 
+OpenSLESPlayer::OpenSLESPlayer() {
+//    pcmFile = fopen("/sdcard/video.pcm", "wb");
 }
 
 OpenSLESPlayer::~OpenSLESPlayer() {
-
+//    fclose(pcmFile);
 }
 
 void OpenSLESPlayer::processAudio() {
-    if(waitProvider != NULL)
-    {
-        provider = waitProvider;
-        waitProvider = NULL;
-    }
-    if(removeAudioDataProviderFlag)
-    {
-        removeAudioDataProviderFlag = false;
-        provider = NULL;
-    }
+    unique_lock<mutex> providerLock(providerMu);
     if(provider != NULL)
     {
         AudioFrame *data = provider->getAudioFrame();
@@ -36,11 +29,16 @@ void OpenSLESPlayer::processAudio() {
             (*playerBufferQueue)->Enqueue(playerBufferQueue, emptyBuffer, EMPTY_BUFFER_SAMPLES * 2 * sizeof(int16_t));
         } else
         {
-            (*playerBufferQueue)->Enqueue(playerBufferQueue, data->data, data->sampleCount * 2 * sizeof(int16_t));
+//            LOGD("audio frame sample count = %d, pts = %ld", data->sampleCount, data->pts);
+            memcpy(emptyBuffer, data->data, data->sampleCount * 2 * sizeof(int16_t));
+            (*playerBufferQueue)->Enqueue(playerBufferQueue, emptyBuffer, data->sampleCount * 2 * sizeof(int16_t));
+//            fwrite(data->data, sizeof(int16_t), data->sampleCount * 2, pcmFile);
             provider->putBackUsed(data);
         }
 
+
     }
+    providerLock.unlock();
 }
 
 void OpenSLESPlayer::audioCallback(SLAndroidSimpleBufferQueueItf bq, void *context)
@@ -203,10 +201,13 @@ void OpenSLESPlayer::stop() {
 }
 
 void OpenSLESPlayer::setAudioFrameProvider(IAudioFrameProvider *provider) {
-    waitProvider = provider;
+    unique_lock<mutex> providerLock(providerMu);
+    this->provider = provider;
+    providerLock.unlock();
 }
 
 void OpenSLESPlayer::removeAudioFrameProvider(IAudioFrameProvider *provider) {
+    unique_lock<mutex> providerLock(providerMu);
     if(this->provider == NULL || provider == NULL)
     {
         return;
@@ -215,5 +216,5 @@ void OpenSLESPlayer::removeAudioFrameProvider(IAudioFrameProvider *provider) {
     {
         removeAudioDataProviderFlag = true;
     }
-
+    providerLock.unlock();
 }

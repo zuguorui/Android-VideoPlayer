@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
+#include <thread>
 
 #include "IAudioPlayer.h"
 #include "IAudioFrameProvider.h"
@@ -49,11 +50,15 @@ private:
     bool removeAudioDataProviderFlag = false;
 
     IAudioFrameProvider *provider = NULL;
+    mutex providerMu;
 
-    IAudioFrameProvider *waitProvider = NULL;
 
-    static const int EMPTY_BUFFER_SAMPLES = 100;
+
+    static const int EMPTY_BUFFER_SAMPLES = 512;
     int16_t emptyBuffer[2 * EMPTY_BUFFER_SAMPLES];
+
+    AudioFrame *audioFrame = NULL;
+    int audioFrameIndex = 0;
 };
 
 

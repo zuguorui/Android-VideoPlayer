@@ -18,8 +18,8 @@ VideoPlayController::VideoPlayController() {
     decoder = new VideoFileDecoder();
 
     decoder->setDataReceiver(this);
-    audioQueue = new BlockRecyclerQueue<AudioFrame *>();
-    videoQueue = new BlockRecyclerQueue<VideoFrame *>();
+    audioQueue = new BlockRecyclerQueue<AudioFrame *>(20);
+    videoQueue = new BlockRecyclerQueue<VideoFrame *>(5);
 
     audioPlayer = new OpenSLESPlayer();
 
@@ -168,9 +168,9 @@ void VideoPlayController::putUsedVideoFrame(VideoFrame *videoData) {
 }
 
 AudioFrame *VideoPlayController::getAudioFrame() {
-    AudioFrame *frame = audioQueue->get();
+    AudioFrame *frame = audioQueue->get(false);
     allowGetVideoFlag = false;
-    unique_lock<mutex> videoLock = unique_lock<mutex>(videoMu);
+    unique_lock<mutex> videoLock(videoMu);
     currentPositionMS = frame->pts;
     if(nextVideoFrame == NULL)
     {
@@ -212,7 +212,7 @@ void VideoPlayController::putBackUsed(AudioFrame *data) {
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    unique_lock<mutex> videoLock = unique_lock<mutex>(videoMu);
+    unique_lock<mutex> videoLock(videoMu);
     while(!allowGetVideoFlag)
     {
         allowGetVideoSignal.wait(videoLock);

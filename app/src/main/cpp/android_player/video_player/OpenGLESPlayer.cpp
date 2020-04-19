@@ -95,6 +95,7 @@ void OpenGLESPlayer::updateTexImage() {
         return;
     }
     VideoFrame *frame = provider->getVideoFrame();
+    LOGD("video frame width = %d, height = %d, pts = %ld", frame->width, frame->height, frame->pts);
     texture->updateDataToTexture(frame->data, frame->width, frame->height);
     provider->putBackUsed(frame);
     providerLock.unlock();
@@ -102,7 +103,7 @@ void OpenGLESPlayer::updateTexImage() {
 
 void OpenGLESPlayer::renderLoop() {
     LOGD("render loop enter");
-    unique_lock<mutex> windowLock = unique_lock<mutex>(windowMu);
+    unique_lock<mutex> windowLock(windowMu);
     while(window == NULL)
     {
         setWindowSignal.wait(windowLock);
@@ -159,7 +160,7 @@ void OpenGLESPlayer::stop() {
 }
 
 void OpenGLESPlayer::setVideoFrameProvider(IVideoFrameProvider *provider) {
-    unique_lock<mutex> providerLock = unique_lock<mutex>(providerMu);
+    unique_lock<mutex> providerLock(providerMu);
     this->provider = provider;
     providerLock.unlock();
 }
@@ -167,7 +168,7 @@ void OpenGLESPlayer::setVideoFrameProvider(IVideoFrameProvider *provider) {
 void OpenGLESPlayer::removeVideoFrameProvider(IVideoFrameProvider *provider) {
     if(this->provider == provider)
     {
-        unique_lock<mutex> providerLock = unique_lock<mutex>(providerMu);
+        unique_lock<mutex> providerLock(providerMu);
         this->provider = NULL;
         providerLock.unlock();
     }
@@ -175,7 +176,8 @@ void OpenGLESPlayer::removeVideoFrameProvider(IVideoFrameProvider *provider) {
 }
 
 void OpenGLESPlayer::setWindow(void *window) {
-    unique_lock<mutex> windowLock = unique_lock<mutex>(windowMu);
+    LOGD("setWindow");
+    unique_lock<mutex> windowLock(windowMu);
     this->window = (ANativeWindow *)window;
     windowLock.unlock();
     setWindowSignal.notify_all();

@@ -69,7 +69,7 @@ BlockRecyclerQueue<T>::~BlockRecyclerQueue() {
 
 template <class T>
 T BlockRecyclerQueue<T>::get(bool wait) {
-    unique_lock<mutex> queueLock = unique_lock<mutex>(queueMu);
+    unique_lock<mutex> queueLock(queueMu);
     if(wait)
     {
         while(queue.size() == 0)
@@ -91,7 +91,7 @@ T BlockRecyclerQueue<T>::get(bool wait) {
 
 template <class T>
 void BlockRecyclerQueue<T>::put(T t, bool wait) {
-    unique_lock<mutex> queueLock = unique_lock<mutex>(queueMu);
+    unique_lock<mutex> queueLock(queueMu);
     if(this->size == -1 || !wait)
     {
         queue.push_back(t);
@@ -115,7 +115,7 @@ int BlockRecyclerQueue<T>::getSize() {
 template <class T>
 T BlockRecyclerQueue<T>::getUsed() {
     T element = NULL;
-    unique_lock<mutex> usedQueueLock = unique_lock<mutex>(queueMu);
+    unique_lock<mutex> usedQueueLock(queueMu);
     if(usedQueue.size() != 0)
     {
         element = usedQueue.front();
@@ -128,7 +128,7 @@ T BlockRecyclerQueue<T>::getUsed() {
 template <class T>
 void BlockRecyclerQueue<T>::putToUsed(T t) {
 
-    unique_lock<mutex> usedQueueLock = unique_lock<mutex>(queueMu);
+    unique_lock<mutex> usedQueueLock(queueMu);
     usedQueue.push_back(t);
     usedQueueLock.unlock();
 }
@@ -145,8 +145,8 @@ void BlockRecyclerQueue<T>::notifyWaitPut() {
 
 template <class T>
 void BlockRecyclerQueue<T>::discardAll(void (*discardCallback)(T)) {
-    unique_lock<mutex> queueLock = unique_lock<mutex>(queueMu);
-    unique_lock<mutex> usedQueueLock = unique_lock<mutex>(usedQueueMu);
+    unique_lock<mutex> queueLock(queueMu);
+    unique_lock<mutex> usedQueueLock(usedQueueMu);
     while(queue.size() != 0)
     {
         T t = queue.front();

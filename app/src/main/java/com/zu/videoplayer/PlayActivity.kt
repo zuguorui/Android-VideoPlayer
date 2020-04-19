@@ -19,6 +19,7 @@ class PlayActivity : AppCompatActivity() {
 
         override fun surfaceCreated(holder: SurfaceHolder?) {
             nSetSurface(holder!!.surface)
+            nStart()
         }
     }
 

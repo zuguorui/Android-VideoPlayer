@@ -27,7 +27,7 @@ static void log_callback(void *ctx, int level, const char *fmt, va_list args)
 
 VideoFileDecoder::VideoFileDecoder() {
     av_register_all();
-    av_log_set_callback(log_callback);
+//    av_log_set_callback(log_callback);
     LOGD("constructor");
     audioPacketQueue = new BlockRecyclerQueue<AVPacket *>(100);
     videoPacketQueue = new BlockRecyclerQueue<AVPacket *>(5);
@@ -206,7 +206,7 @@ bool VideoFileDecoder::initComponents(const char *path) {
         uint64_t in_channel_layout = audioCodecCtx->channel_layout;
         AVSampleFormat in_sample_fmt = audioCodecCtx->sample_fmt;
 
-        const int32_t out_sample_rate = 44100;
+        const int32_t out_sample_rate = AUDIO_SAMPLE_RATE;
         const int32_t out_channels = 2;
         const AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_S16;
         const uint64_t out_channel_layout = AV_CH_LAYOUT_STEREO;
@@ -290,17 +290,21 @@ bool VideoFileDecoder::initComponents(const char *path) {
 
         videoFPS = videoStream->avg_frame_rate.num * 1.0f / videoStream->avg_frame_rate.den;
 
+        LOGD("video FPS = %f", videoFPS);
+
     }
 
-    if(videoIndex != -1)
-    {
-        // If file contains video, we need to limit the output audio data length to let video frame can be refresh in time.
-        audioSampleCountLimit = (int32_t)(AUDIO_SAMPLE_RATE / (1000.0f / videoFPS)) + 1;
-    } else
-    {
-        // If it only has audio, we set it as default
-        audioSampleCountLimit = 512;
-    }
+    audioSampleCountLimit = 512;
+//    if(videoIndex != -1)
+//    {
+//        // If file contains video, we need to limit the output audio data length to let video frame can be refresh in time.
+//        audioSampleCountLimit = (int32_t)(AUDIO_SAMPLE_RATE / (1000.0f / videoFPS)) + 1;
+//
+//    } else
+//    {
+//        // If it only has audio, we set it as default
+//        audioSampleCountLimit = 512;
+//    }
 
     return true;
 
@@ -471,10 +475,12 @@ void VideoFileDecoder::readFile() {
             if(packet->stream_index == audioIndex)
             {
                 audioPacketQueue->put(packet);
-            } else if(packet->stream_index == videoIndex)
+            }
+            else if(packet->stream_index == videoIndex)
             {
                 videoPacketQueue->put(packet);
-            } else
+            }
+            else
             {
                 LOGE("unknow packet stream %d", packet->stream_index);
                 av_packet_unref(packet);
@@ -513,6 +519,8 @@ void VideoFileDecoder::decodeAudio() {
     AVFrame *frame = av_frame_alloc();
 
     int maxAudioDataSizeInByte = audioSampleCountLimit * 2 * sizeof(int16_t);
+
+    LOGD("max audio data size in byte = %d", maxAudioDataSizeInByte);
 
     int err = 0;
     bool readFinished = false;
@@ -554,6 +562,26 @@ void VideoFileDecoder::decodeAudio() {
                     LOGE("call avcodec_send_packet() returns %d\n", err);
                 } else // err == 0
                 {
+                    // convert audio until there is no more data
+                    AudioFrame *audioFrame = dataReceiver->getUsedAudioFrame();
+                    if(audioFrame == NULL)
+                    {
+                        LOGD("get used AudioFrame NULL");
+                        audioFrame = new AudioFrame(maxAudioDataSizeInByte);
+                    }
+
+                    audioFrame->pts = (int64_t)(frame->pts * av_q2d(audioStream->time_base) * 1000);
+                    uint8_t *tempData = (uint8_t *)(audioFrame->data);
+                    audioFrame->sampleCount = swr_convert(audioSwrCtx, &(tempData), audioSampleCountLimit, (const uint8_t **)frame->data, frame->nb_samples);
+                    if(audioFrame->sampleCount <= 0)
+                    {
+                        // there is no more data, continue to read data from file
+                        dataReceiver->putUsedAudioFrame(audioFrame);
+                        break;
+                    } else
+                    {
+                        dataReceiver->receiveAudioFrame(audioFrame);
+                    }
                     while(1)
                     {
                         // convert audio until there is no more data
@@ -564,9 +592,9 @@ void VideoFileDecoder::decodeAudio() {
                         }
                         memset(audioFrame->data, 0, audioSampleCountLimit * 2 * sizeof(int16_t));
                         audioFrame->pts = (int64_t)(frame->pts * av_q2d(audioStream->time_base) * 1000);
-                        uint8_t *tempData = (uint8_t *)audioFrame->data;
-                        audioFrame->sampleCount = swr_convert(audioSwrCtx, &(tempData), audioSampleCountLimit, (const uint8_t **)frame->data, frame->nb_samples);
-                        if(audioFrame->sampleCount < 0)
+                        uint8_t *tempData = (uint8_t *)(audioFrame->data);
+                        audioFrame->sampleCount = swr_convert(audioSwrCtx, &(tempData), audioSampleCountLimit, NULL, 0);
+                        if(audioFrame->sampleCount <= 0)
                         {
                             // there is no more data, continue to read data from file
                             dataReceiver->putUsedAudioFrame(audioFrame);
@@ -662,23 +690,21 @@ void VideoFileDecoder::decodeVideo() {
                     LOGE("call avcodec_send_packet() returns %d\n", err);
                 } else // err == 0
                 {
-                    while(1)
+                    // convert audio until there is no more data
+                    VideoFrame *videoFrame = dataReceiver->getUsedVideoFrame();
+                    if(videoFrame == NULL)
                     {
-                        // convert audio until there is no more data
-                        VideoFrame *videoFrame = dataReceiver->getUsedVideoFrame();
-                        if(videoFrame == NULL)
-                        {
-                            videoFrame = new VideoFrame(numBytes);
-                        }
-
-                        videoFrame->pts = (int64_t)(frame->pts * av_q2d(videoStream->time_base) * 1000);
-                        sws_scale(videoSwsCtx, (const uint8_t* const *)frame->data, (const int*)frame->linesize, 0, videoCodecCtx->height, convertedFrame->data, convertedFrame->linesize);
-
-                        memcpy(videoFrame->data, convertedFrame->data[0], numBytes);
-
-                        dataReceiver->receiveVideoFrame(videoFrame);
-
+                        videoFrame = new VideoFrame(numBytes);
+                        videoFrame->width = videoCodecCtx->width;
+                        videoFrame->height = videoCodecCtx->height;
                     }
+
+                    videoFrame->pts = (int64_t)(frame->pts * av_q2d(videoStream->time_base) * 1000);
+                    sws_scale(videoSwsCtx, (const uint8_t* const *)frame->data, (const int*)frame->linesize, 0, videoCodecCtx->height, convertedFrame->data, convertedFrame->linesize);
+
+                    memcpy(videoFrame->data, convertedFrame->data[0], numBytes);
+
+                    dataReceiver->receiveVideoFrame(videoFrame);
                 }
             }
         }
