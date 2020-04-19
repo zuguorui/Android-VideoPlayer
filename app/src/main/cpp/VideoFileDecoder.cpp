@@ -28,7 +28,7 @@ static void log_callback(void *ctx, int level, const char *fmt, va_list args)
 VideoFileDecoder::VideoFileDecoder() {
     av_register_all();
     av_log_set_callback(log_callback);
-
+    LOGD("constructor");
     audioPacketQueue = new BlockRecyclerQueue<AVPacket *>(100);
     videoPacketQueue = new BlockRecyclerQueue<AVPacket *>(5);
 }
@@ -43,7 +43,7 @@ void VideoFileDecoder::recyclePackets() {
     if(audioPacketQueue != NULL)
     {
         AVPacket *p;
-        while((p = audioPacketQueue->get()) != NULL)
+        while((p = audioPacketQueue->get(false)) != NULL)
         {
             av_packet_unref(p);
             av_packet_free(&p);
@@ -57,7 +57,7 @@ void VideoFileDecoder::recyclePackets() {
     if(videoPacketQueue != NULL)
     {
         AVPacket *p;
-        while((p = videoPacketQueue->get()) != NULL)
+        while((p = videoPacketQueue->get(false)) != NULL)
         {
             av_packet_unref(p);
             av_packet_free(&p);
@@ -110,6 +110,7 @@ bool VideoFileDecoder::hasAudio() {
 }
 
 bool VideoFileDecoder::initComponents(const char *path) {
+    LOGD("initComponents");
     int err = 0;
     formatCtx = avformat_alloc_context();
     if (!formatCtx)

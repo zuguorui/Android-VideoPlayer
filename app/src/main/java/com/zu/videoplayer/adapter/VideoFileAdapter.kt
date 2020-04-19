@@ -1,16 +1,12 @@
-package com.zu.android_videoplayer.adapter
+package com.zu.videoplayer.adapter
 
-import android.media.tv.TvView
-import android.service.autofill.TextValueSanitizer
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import android.widget.VideoView
 import androidx.recyclerview.widget.RecyclerView
-import com.zu.android_videoplayer.R
-import com.zu.android_videoplayer.bean.VideoBean
-import kotlinx.android.synthetic.main.list_item_video.view.*
+import com.zu.videoplayer.R
+import com.zu.videoplayer.bean.VideoBean
 
 class VideoFileAdapter: RecyclerView.Adapter<VideoFileViewHolder>()
 {

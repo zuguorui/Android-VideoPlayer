@@ -14,8 +14,10 @@
 
 
 VideoPlayController::VideoPlayController() {
+    LOGD("constructor");
     decoder = new VideoFileDecoder();
 
+    decoder->setDataReceiver(this);
     audioQueue = new BlockRecyclerQueue<AudioFrame *>();
     videoQueue = new BlockRecyclerQueue<VideoFrame *>();
 
@@ -96,6 +98,7 @@ VideoPlayController::~VideoPlayController() {
 }
 
 bool VideoPlayController::openFile(const char *path) {
+    LOGD("openFile");
     if(decoder->openFile(path) == false)
     {
         LOGE("decoder open file failed");
@@ -105,14 +108,17 @@ bool VideoPlayController::openFile(const char *path) {
 }
 
 void VideoPlayController::closeFile() {
+    LOGD("closeFile");
     decoder->closeInput();
 }
 
 void VideoPlayController::start() {
+    LOGD("start");
     audioPlayer->start();
 }
 
 void VideoPlayController::stop() {
+    LOGD("stop");
     audioPlayer->stop();
 }
 
@@ -127,10 +133,12 @@ void VideoPlayController::discardAllFrame() {
 }
 
 void VideoPlayController::setWindow(void *window) {
+    LOGD("setWindow");
     videoPlayer->setWindow(window);
 }
 
 void VideoPlayController::setSize(int width, int height) {
+    LOGD("setSize");
     videoPlayer->setSize(width, height);
 }
 

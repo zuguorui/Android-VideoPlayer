@@ -1,10 +1,10 @@
-package com.zu.android_videoplayer.util
+package com.zu.videoplayer.util
 
 import android.content.Context
 import android.database.Cursor
 import android.provider.MediaStore
 import androidx.core.database.getIntOrNull
-import com.zu.android_videoplayer.bean.VideoBean
+import com.zu.videoplayer.bean.VideoBean
 
 public fun loadVideoFiles(context: Context): ArrayList<VideoBean>
 {
@@ -15,7 +15,7 @@ public fun loadVideoFiles(context: Context): ArrayList<VideoBean>
     {
         do{
             var path = cursor!!.getString(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.DATA))
-            var name = cursor!!.getString(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE))
+            var name = cursor!!.getString(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME))
             var videoBean = VideoBean(name, path).apply {
                 duration = cursor!!.getInt(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION))
                 size = cursor!!.getInt(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE))

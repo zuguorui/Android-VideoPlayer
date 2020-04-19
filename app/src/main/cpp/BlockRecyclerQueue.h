@@ -146,7 +146,7 @@ void BlockRecyclerQueue<T>::notifyWaitPut() {
 template <class T>
 void BlockRecyclerQueue<T>::discardAll(void (*discardCallback)(T)) {
     unique_lock<mutex> queueLock = unique_lock<mutex>(queueMu);
-    unique_lock<mutex> usedQueueLock = unique_lock<mutex>(queueMu);
+    unique_lock<mutex> usedQueueLock = unique_lock<mutex>(usedQueueMu);
     while(queue.size() != 0)
     {
         T t = queue.front();

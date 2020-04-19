@@ -1,4 +1,4 @@
-package com.zu.android_videoplayer
+package com.zu.videoplayer
 
 import org.junit.Test
 

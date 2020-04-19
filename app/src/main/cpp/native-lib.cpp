@@ -22,13 +22,13 @@ VideoPlayController *controller = NULL;
 ANativeWindow *window = NULL;
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nInit(JNIEnv *env, jobject instance)
+Java_com_zu_videoplayer_PlayActivity_nInit(JNIEnv *env, jobject instance)
 {
     controller = new VideoPlayController();
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nDestroy(JNIEnv *env, jobject instance)
+Java_com_zu_videoplayer_PlayActivity_nDestroy(JNIEnv *env, jobject instance)
 {
     if(controller == NULL)
     {
@@ -39,7 +39,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nDestroy(JNIEnv *env, jobject inst
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nStart(JNIEnv *env, jobject instance)
+Java_com_zu_videoplayer_PlayActivity_nStart(JNIEnv *env, jobject instance)
 {
     if(controller == NULL)
     {
@@ -50,7 +50,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nStart(JNIEnv *env, jobject instan
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nStop(JNIEnv *env, jobject instance)
+Java_com_zu_videoplayer_PlayActivity_nStop(JNIEnv *env, jobject instance)
 {
     if(controller == NULL)
     {
@@ -61,7 +61,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nStop(JNIEnv *env, jobject instanc
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nOpenFile(JNIEnv *env, jobject instance, jstring filePath)
+Java_com_zu_videoplayer_PlayActivity_nOpenFile(JNIEnv *env, jobject instance, jstring filePath)
 {
     if(controller == NULL)
     {
@@ -79,7 +79,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nOpenFile(JNIEnv *env, jobject ins
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nCloseFile(JNIEnv *env, jobject instance)
+Java_com_zu_videoplayer_PlayActivity_nCloseFile(JNIEnv *env, jobject instance)
 {
     if(controller == NULL)
     {
@@ -90,7 +90,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nCloseFile(JNIEnv *env, jobject in
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nSetSurface(JNIEnv *env, jobject instance, jobject surface)
+Java_com_zu_videoplayer_PlayActivity_nSetSurface(JNIEnv *env, jobject instance, jobject surface)
 {
     if(controller == NULL)
     {
@@ -102,7 +102,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nSetSurface(JNIEnv *env, jobject i
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nReleaseSurface(JNIEnv *env, jobject instance, jobject surface)
+Java_com_zu_videoplayer_PlayActivity_nReleaseSurface(JNIEnv *env, jobject instance, jobject surface)
 {
     if(controller == NULL)
     {
@@ -117,7 +117,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nReleaseSurface(JNIEnv *env, jobje
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nSetSize(JNIEnv *env, jobject instance, jint width, jint height)
+Java_com_zu_videoplayer_PlayActivity_nSetSize(JNIEnv *env, jobject instance, jint width, jint height)
 {
     if(controller == NULL)
     {
@@ -129,7 +129,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nSetSize(JNIEnv *env, jobject inst
 
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_zu_android_1videoplayer_PlayActivity_nSeek(JNIEnv *env, jobject instance, jlong position)
+Java_com_zu_videoplayer_PlayActivity_nSeek(JNIEnv *env, jobject instance, jlong position)
 {
     if(controller == NULL)
     {
@@ -146,7 +146,7 @@ Java_com_zu_android_1videoplayer_PlayActivity_nSeek(JNIEnv *env, jobject instanc
 
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_zu_android_1videoplayer_MainActivity_stringFromJNI(
+Java_com_zu_videoplayer_MainActivity_stringFromJNI(
         JNIEnv *env,
         jobject /* this */) {
     std::string hello = "Hello from C++";

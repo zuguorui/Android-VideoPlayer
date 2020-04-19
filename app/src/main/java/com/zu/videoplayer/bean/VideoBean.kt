@@ -1,4 +1,4 @@
-package com.zu.android_videoplayer.bean
+package com.zu.videoplayer.bean
 
 import java.net.URL
 

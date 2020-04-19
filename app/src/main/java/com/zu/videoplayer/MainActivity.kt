@@ -1,4 +1,4 @@
-package com.zu.android_videoplayer
+package com.zu.videoplayer
 
 import android.Manifest
 import android.content.Intent
@@ -9,10 +9,12 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.zu.android_videoplayer.adapter.VideoFileAdapter
-import com.zu.android_videoplayer.bean.VideoBean
-import com.zu.android_videoplayer.util.loadVideoFiles
+import com.zu.videoplayer.adapter.VideoFileAdapter
+import com.zu.videoplayer.bean.VideoBean
+import com.zu.videoplayer.util.loadVideoFiles
 import io.reactivex.Observable
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : AppCompatActivity() {
@@ -45,11 +47,12 @@ class MainActivity : AppCompatActivity() {
         checkPermission()
 
         Observable.fromCallable {
-            var p = loadVideoFiles(this)
-            runOnUiThread {
-                videoList = p
+            loadVideoFiles(this)
+        }.subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe {
+                videoList = it
             }
-        }
     }
 
 
