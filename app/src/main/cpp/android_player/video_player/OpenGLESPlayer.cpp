@@ -12,7 +12,7 @@
 
 OpenGLESPlayer::OpenGLESPlayer() {
     LOGD("OpenGLESPlayer init");
-    surface = EGL_NO_SURFACE;
+    mSurface = EGL_NO_SURFACE;
     width = 1920;
     height = 1080;
 
@@ -34,22 +34,22 @@ bool OpenGLESPlayer::initComponents() {
     LOGD("init");
     eglCore = new EGLCore();
     eglCore->init();
-    surface = eglCore->createWindowSurface(window);
-    eglCore->makeCurrent(surface);
+    mSurface = eglCore->createWindowSurface(window);
+    eglCore->makeCurrent(mSurface);
 
-    texture = new Texture();
+    mTexture = new Texture();
 
-    if(!(texture->createTexture()))
+    if(!(mTexture->createTexture()))
     {
         LOGE("create texture failed");
         releaseComponents();
         return false;
     }
 
-    updateTexImage();
+//    updateTexImage();
 
-    render = new Render();
-    if(!render->init(width, height, texture))
+    mRender = new Render();
+    if(!mRender->init(width, height, mTexture))
     {
         LOGE("init render failed");
         releaseComponents();
@@ -61,27 +61,27 @@ bool OpenGLESPlayer::initComponents() {
 void OpenGLESPlayer::releaseComponents() {
     if(eglCore)
     {
-        eglCore->releaseSurface(surface);
+        eglCore->releaseSurface(mSurface);
         eglCore->release();
         delete(eglCore);
         eglCore = NULL;
     }
 
-    if(texture)
+    if(mTexture)
     {
-        delete(texture);
+        delete(mTexture);
     }
-    if(render)
+    if(mRender)
     {
-        render->dealloc();
-        delete(render);
+        mRender->dealloc();
+        delete(mRender);
     }
 }
 
 void OpenGLESPlayer::drawFrame() {
     LOGD("drawFrame");
-    render->render();
-    if(!eglCore->swapBuffers(render))
+    mRender->render();
+    if(!eglCore->swapBuffers(mRender))
     {
         LOGE("swap buffers failed");
     }
@@ -96,7 +96,17 @@ void OpenGLESPlayer::updateTexImage() {
     }
     VideoFrame *frame = provider->getVideoFrame();
     LOGD("video frame width = %d, height = %d, pts = %ld", frame->width, frame->height, frame->pts);
-    texture->updateDataToTexture(frame->data, frame->width, frame->height);
+    uint8_t *pixel = (uint8_t *)malloc(frame->width * frame->height * 3 * sizeof(uint8_t));
+    for(int i = 0; i < frame->width * frame->height; i++)
+    {
+
+        pixel[3 * i] = 0xff;
+        pixel[3 * i + 1] = 0x00;
+        pixel[3 * i + 2] = 0x00;
+
+    }
+    mTexture->updateDataToTexture(pixel, frame->width, frame->height);
+    free(pixel);
     provider->putBackUsed(frame);
     providerLock.unlock();
 }
@@ -126,11 +136,15 @@ void OpenGLESPlayer::renderLoop() {
         if(setSizeFlag)
         {
             setSizeFlag = false;
-            render->resetRenderSize(0, 0, width, height);
+            mRender->resetRenderSize(0, 0, width, height);
         }
-        updateTexImage();
-        eglCore->makeCurrent(surface);
-        drawFrame();
+        if(eglCore)
+        {
+            updateTexImage();
+            eglCore->makeCurrent(mSurface);
+            drawFrame();
+        }
+
 
     }
 }
@@ -179,8 +193,9 @@ void OpenGLESPlayer::setWindow(void *window) {
     LOGD("setWindow");
     unique_lock<mutex> windowLock(windowMu);
     this->window = (ANativeWindow *)window;
-    windowLock.unlock();
     setWindowSignal.notify_all();
+    windowLock.unlock();
+
 }
 
 void OpenGLESPlayer::setSize(int32_t width, int32_t height) {

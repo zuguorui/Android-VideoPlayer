@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define MODULE_NAME "PicRender"
+#define MODULE_NAME "Render"
 
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, MODULE_NAME, __VA_ARGS__)
@@ -73,7 +73,7 @@ void Render::render() {
     glClear(GL_COLOR_BUFFER_BIT);
     glEnable(GL_BLEND);
 
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+//    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glUseProgram(program);
 

@@ -294,17 +294,17 @@ bool VideoFileDecoder::initComponents(const char *path) {
 
     }
 
-    audioSampleCountLimit = 512;
-//    if(videoIndex != -1)
-//    {
-//        // If file contains video, we need to limit the output audio data length to let video frame can be refresh in time.
-//        audioSampleCountLimit = (int32_t)(AUDIO_SAMPLE_RATE / (1000.0f / videoFPS)) + 1;
-//
-//    } else
-//    {
-//        // If it only has audio, we set it as default
-//        audioSampleCountLimit = 512;
-//    }
+//    audioSampleCountLimit = 512;
+    if(videoIndex != -1)
+    {
+        // If file contains video, we need to limit the output audio data length to let video frame can be refresh in time.
+        audioSampleCountLimit = (int32_t)(AUDIO_SAMPLE_RATE / videoFPS) + 1;
+
+    } else
+    {
+        // If it only has audio, we set it as default
+        audioSampleCountLimit = 512;
+    }
 
     return true;
 

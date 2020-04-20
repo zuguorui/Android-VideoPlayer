@@ -57,10 +57,10 @@ private:
 
     static void *threadCallback(void *self);
 
-    Texture *texture;
-    Render *render;
+    Texture *mTexture;
+    Render *mRender;
     EGLCore *eglCore;
-    EGLSurface surface;
+    EGLSurface mSurface;
 
     int width;
     int height;
