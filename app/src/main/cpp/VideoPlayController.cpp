@@ -19,7 +19,7 @@ VideoPlayController::VideoPlayController() {
 
     decoder->setDataReceiver(this);
     audioQueue = new BlockRecyclerQueue<AudioFrame *>(20);
-    videoQueue = new BlockRecyclerQueue<VideoFrame *>(5);
+    videoQueue = new BlockRecyclerQueue<VideoFrame *>(20);
 
     audioPlayer = new OpenSLESPlayer();
 
@@ -138,10 +138,10 @@ void VideoPlayController::setWindow(void *window) {
 
 void VideoPlayController::setSize(int width, int height) {
     LOGD("setSize");
-//    videoPlayer->setSize(width, height);
-    int32_t videoWidth = decoder->getVideoWidth();
-    int32_t videoHeight = decoder->getVideoHeight();
-    videoPlayer->setSize(videoWidth, videoHeight);
+    videoPlayer->setSize(width, height);
+//    int32_t videoWidth = decoder->getVideoWidth();
+//    int32_t videoHeight = decoder->getVideoHeight();
+//    videoPlayer->setSize(videoWidth, videoHeight);
 }
 
 void VideoPlayController::receiveAudioFrame(AudioFrame *audioData) {
@@ -174,13 +174,16 @@ AudioFrame *VideoPlayController::getAudioFrame() {
     allowGetVideoFlag = false;
     unique_lock<mutex> videoLock(videoMu);
     currentPositionMS = frame->pts;
+    LOGD("get video frame");
     while((nextVideoFrame = videoQueue->get()) != NULL)
     {
+        LOGD("get a video frame");
         if(currentPositionMS - nextVideoFrame->pts > 10)
         {
             // if audio position is 10ms earlier than video, discard this video frame and get next
             videoQueue->putToUsed(nextVideoFrame);
             nextVideoFrame = videoQueue->get();
+            LOGD("this video frame is too late than audio");
             continue;
         } else if(currentPositionMS - nextVideoFrame->pts < -10)
         {

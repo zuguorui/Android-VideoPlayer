@@ -12,7 +12,8 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, MODULE_NAME, __VA_ARGS__)
 
 const EGLint eglConfigAttrs[] = {
-        EGL_BUFFER_SIZE, 24,
+        EGL_BUFFER_SIZE, 32,
+        EGL_ALPHA_SIZE, 8,
         EGL_BLUE_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_RED_SIZE, 8,

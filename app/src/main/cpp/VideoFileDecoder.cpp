@@ -27,7 +27,7 @@ static void log_callback(void *ctx, int level, const char *fmt, va_list args)
 
 VideoFileDecoder::VideoFileDecoder() {
     av_register_all();
-//    av_log_set_callback(log_callback);
+    av_log_set_callback(log_callback);
     LOGD("constructor");
     audioPacketQueue = new BlockRecyclerQueue<AVPacket *>(100);
     videoPacketQueue = new BlockRecyclerQueue<AVPacket *>(5);
@@ -280,7 +280,7 @@ bool VideoFileDecoder::initComponents(const char *path) {
             return false;
         }
 
-        videoSwsCtx = sws_getContext(videoCodecCtx->width, videoCodecCtx->height, videoCodecCtx->pix_fmt, videoCodecCtx->width, videoCodecCtx->height, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
+        videoSwsCtx = sws_getContext(videoCodecCtx->width, videoCodecCtx->height, videoCodecCtx->pix_fmt, videoCodecCtx->width, videoCodecCtx->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL);
         if(videoSwsCtx == NULL)
         {
             LOGE("init videoSwsCtx failed");
@@ -649,7 +649,8 @@ void VideoFileDecoder::decodeVideo() {
     AVFrame *frame = av_frame_alloc();
     AVFrame *convertedFrame = av_frame_alloc();
 
-    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 0);
+//    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, videoCodecCtx->width, videoCodecCtx->height, 0);
+    int numBytes = videoCodecCtx->width * videoCodecCtx->height * 4;
 
     bool readFinish = false;
     int err = 0;
@@ -700,11 +701,18 @@ void VideoFileDecoder::decodeVideo() {
                     }
 
                     videoFrame->pts = (int64_t)(frame->pts * av_q2d(videoStream->time_base) * 1000);
-                    sws_scale(videoSwsCtx, (const uint8_t* const *)frame->data, (const int*)frame->linesize, 0, videoCodecCtx->height, convertedFrame->data, convertedFrame->linesize);
+                    err = sws_scale(videoSwsCtx, (const uint8_t* const *)frame->data, (const int*)frame->linesize, 0, videoCodecCtx->height, convertedFrame->data, convertedFrame->linesize);
+                    if(err > 0)
+                    {
+                        memcpy(videoFrame->data, convertedFrame->data[0], numBytes);
 
-                    memcpy(videoFrame->data, convertedFrame->data[0], numBytes);
+                        dataReceiver->receiveVideoFrame(videoFrame);
+                    }
+                    else{
+                        LOGE("sws_scale return %d", err);
+                        dataReceiver->putUsedVideoFrame(videoFrame);
+                    }
 
-                    dataReceiver->receiveVideoFrame(videoFrame);
                 }
             }
         }

@@ -29,7 +29,7 @@ void OpenSLESPlayer::processAudio() {
             (*playerBufferQueue)->Enqueue(playerBufferQueue, emptyBuffer, EMPTY_BUFFER_SAMPLES * 2 * sizeof(int16_t));
         } else
         {
-            LOGD("audio frame sample count = %d, pts = %ld", data->sampleCount, data->pts);
+//            LOGD("audio frame sample count = %d, pts = %ld", data->sampleCount, data->pts);
             memcpy(emptyBuffer, data->data, data->sampleCount * 2 * sizeof(int16_t));
             (*playerBufferQueue)->Enqueue(playerBufferQueue, emptyBuffer, data->sampleCount * 2 * sizeof(int16_t));
 //            fwrite(data->data, sizeof(int16_t), data->sampleCount * 2, pcmFile);
