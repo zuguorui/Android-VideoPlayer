@@ -165,13 +165,6 @@ void OpenGLESPlayer::release() {
 
 }
 
-void OpenGLESPlayer::start() {
-    LOGD("gl player start called");
-}
-
-void OpenGLESPlayer::stop() {
-    LOGD("gl player stop called");
-}
 
 void OpenGLESPlayer::setVideoFrameProvider(IVideoFrameProvider *provider) {
     unique_lock<mutex> providerLock(providerMu);

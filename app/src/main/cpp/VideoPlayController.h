@@ -18,7 +18,7 @@
 #include "VideoFileDecoder.h"
 #include "IAudioPlayer.h"
 #include "IVideoPlayer.h"
-#include "OpenGLESPlayer.h"
+#include "OpenGLESPlayer2.h"
 #include "OpenSLESPlayer.h"
 
 

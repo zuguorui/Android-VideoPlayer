@@ -12,8 +12,7 @@ class IVideoPlayer {
 public:
     virtual bool create() = 0;
     virtual void release() = 0;
-    virtual void start() = 0;
-    virtual void stop() = 0;
+    virtual void refresh() = 0;
     virtual void setVideoFrameProvider(IVideoFrameProvider *provider) = 0;
     virtual void removeVideoFrameProvider(IVideoFrameProvider *provider) = 0;
     virtual void setWindow(void *window) = 0;

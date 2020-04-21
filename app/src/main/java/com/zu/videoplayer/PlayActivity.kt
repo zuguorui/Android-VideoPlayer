@@ -14,15 +14,13 @@ class PlayActivity : AppCompatActivity() {
         }
 
         override fun surfaceDestroyed(holder: SurfaceHolder?) {
-            nReleaseSurface()
+//            nReleaseSurface()
         }
 
         override fun surfaceCreated(holder: SurfaceHolder?) {
-            nInit()
 
             nSetSurface(holder!!.surface)
-            nOpenFile(filePath!!)
-            nStart()
+
 
         }
     }
@@ -35,7 +33,9 @@ class PlayActivity : AppCompatActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_play)
         filePath = intent.getStringExtra("path")
-
+        nInit()
+        nOpenFile(filePath!!)
+        nStart()
         addSurfaceView()
 
 

@@ -31,7 +31,7 @@ VideoPlayController::VideoPlayController() {
         audioPlayer->setAudioFrameProvider(this);
     }
 
-    videoPlayer = new OpenGLESPlayer();
+    videoPlayer = new OpenGLESPlayer2();
     if(!videoPlayer->create())
     {
         LOGE("video player create failed");
@@ -58,7 +58,6 @@ VideoPlayController::~VideoPlayController() {
     }
     if(videoPlayer != NULL)
     {
-        videoPlayer->stop();
         videoPlayer->release();
         delete(videoPlayer);
         videoPlayer = NULL;
@@ -139,7 +138,10 @@ void VideoPlayController::setWindow(void *window) {
 
 void VideoPlayController::setSize(int width, int height) {
     LOGD("setSize");
-    videoPlayer->setSize(width, height);
+//    videoPlayer->setSize(width, height);
+    int32_t videoWidth = decoder->getVideoWidth();
+    int32_t videoHeight = decoder->getVideoHeight();
+    videoPlayer->setSize(videoWidth, videoHeight);
 }
 
 void VideoPlayController::receiveAudioFrame(AudioFrame *audioData) {
@@ -172,11 +174,7 @@ AudioFrame *VideoPlayController::getAudioFrame() {
     allowGetVideoFlag = false;
     unique_lock<mutex> videoLock(videoMu);
     currentPositionMS = frame->pts;
-    if(nextVideoFrame == NULL)
-    {
-        nextVideoFrame = videoQueue->get();
-    }
-    while(1)
+    while((nextVideoFrame = videoQueue->get()) != NULL)
     {
         if(currentPositionMS - nextVideoFrame->pts > 10)
         {
@@ -200,7 +198,7 @@ AudioFrame *VideoPlayController::getAudioFrame() {
     videoLock.unlock();
     if(allowGetVideoFlag)
     {
-        allowGetVideoSignal.notify_all();
+        videoPlayer->refresh();
     }
 
 
@@ -212,16 +210,7 @@ void VideoPlayController::putBackUsed(AudioFrame *data) {
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    unique_lock<mutex> videoLock(videoMu);
-    while(!allowGetVideoFlag)
-    {
-        allowGetVideoSignal.wait(videoLock);
-    }
-    VideoFrame *f = nextVideoFrame;
-    nextVideoFrame = NULL;
-    allowGetVideoFlag = false;
-    videoLock.unlock();
-    return f;
+    return nextVideoFrame;
 }
 
 void VideoPlayController::putBackUsed(VideoFrame *data) {

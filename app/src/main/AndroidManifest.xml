@@ -13,7 +13,8 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity android:name="com.zu.videoplayer.PlayActivity"
-            android:theme="@style/NoActionBar"></activity>
+            android:theme="@style/NoActionBar"
+            android:screenOrientation="landscape"></activity>
         <activity android:name="com.zu.videoplayer.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
