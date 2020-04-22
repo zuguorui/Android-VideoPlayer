@@ -294,17 +294,17 @@ bool VideoFileDecoder::initComponents(const char *path) {
 
     }
 
-//    audioSampleCountLimit = 512;
-    if(videoIndex != -1)
-    {
-        // If file contains video, we need to limit the output audio data length to let video frame can be refresh in time.
-        audioSampleCountLimit = (int32_t)(AUDIO_SAMPLE_RATE / videoFPS) + 1;
-
-    } else
-    {
-        // If it only has audio, we set it as default
-        audioSampleCountLimit = 512;
-    }
+    audioSampleCountLimit = 512;
+//    if(videoIndex != -1)
+//    {
+//        // If file contains video, we need to limit the output audio data length to let video frame can be refresh in time.
+//        audioSampleCountLimit = (int32_t)(AUDIO_SAMPLE_RATE / videoFPS) + 1;
+//
+//    } else
+//    {
+//        // If it only has audio, we set it as default
+//        audioSampleCountLimit = 512;
+//    }
 
     return true;
 
@@ -650,6 +650,8 @@ void VideoFileDecoder::decodeVideo() {
 
 
 
+
+
     int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 1);
 //    int numBytes = videoCodecCtx->width * videoCodecCtx->height * 3;
 
@@ -702,6 +704,7 @@ void VideoFileDecoder::decodeVideo() {
                     VideoFrame *videoFrame = dataReceiver->getUsedVideoFrame();
                     if(videoFrame == NULL)
                     {
+                        LOGE("get used video frame NULL");
                         videoFrame = new VideoFrame(numBytes);
                         videoFrame->width = videoCodecCtx->width;
                         videoFrame->height = videoCodecCtx->height;

@@ -40,15 +40,31 @@ VideoPlayController::VideoPlayController() {
         videoPlayer->setVideoFrameProvider(this);
     }
 
+    exitFlag = false;
+    imageRefreshThread = new thread(refreshThreadCallback, this);
+
 }
 
 VideoPlayController::~VideoPlayController() {
+
+    videoQueue->notifyWaitGet();
+    exitFlag = true;
+    if(imageRefreshThread != NULL && imageRefreshThread->joinable())
+    {
+        imageRefreshThread->join();
+        delete(imageRefreshThread);
+    }
+
+    videoQueue->notifyWaitPut();
+    audioQueue->notifyWaitPut();
     if(decoder != NULL)
     {
         decoder->closeInput();
         delete(decoder);
         decoder = NULL;
     }
+
+    audioQueue->notifyWaitGet();
     if(audioPlayer != NULL)
     {
         audioPlayer->stop();
@@ -139,9 +155,50 @@ void VideoPlayController::setWindow(void *window) {
 void VideoPlayController::setSize(int width, int height) {
     LOGD("setSize");
     videoPlayer->setSize(width, height);
-//    int32_t videoWidth = decoder->getVideoWidth();
-//    int32_t videoHeight = decoder->getVideoHeight();
-//    videoPlayer->setSize(videoWidth, videoHeight);
+}
+
+void* VideoPlayController::refreshThreadCallback(void *self) {
+    ((VideoPlayController *)self)->imageRefreshLoop();
+}
+
+void VideoPlayController::imageRefreshLoop() {
+    while(!exitFlag)
+    {
+        VideoFrame *f = videoQueue->get();
+        int64_t pos = currentPositionMS;
+        if(f->pts - pos < -50)
+        {
+            //video too slow, discard it
+            LOGD("video too slow, current pos = %ld, video.pts = %ld", pos, f->pts);
+            videoQueue->putToUsed(f);
+        } else if(f->pts - pos > 50)
+        {
+            //video too fast, wait
+            LOGD("video too fast, wait, current pos = %ld, video.pts = %ld", pos, f->pts);
+            unique_lock<mutex> locker(currentPosMu);
+            while(f->pts - currentPositionMS > 50)
+            {
+                updateCurrentPosSignal.wait(locker);
+            }
+            locker.unlock();
+            if(f->pts - pos < -50)
+            {
+                //discard
+                LOGD("after wait pos update, discard video");
+                videoQueue->putToUsed(f);
+            } else
+            {
+                //use it
+                LOGD("after wait pos update, use video");
+                nextVideoFrame = f;
+                videoPlayer->refresh();
+            }
+        } else
+        {
+            nextVideoFrame = f;
+            videoPlayer->refresh();
+        }
+    }
 }
 
 void VideoPlayController::receiveAudioFrame(AudioFrame *audioData) {
@@ -171,6 +228,8 @@ void VideoPlayController::putUsedVideoFrame(VideoFrame *videoData) {
 
 AudioFrame *VideoPlayController::getAudioFrame() {
     AudioFrame *frame = audioQueue->get();
+    currentPositionMS = frame->pts;
+    updateCurrentPosSignal.notify_all();
     return frame;
 }
 
@@ -179,9 +238,7 @@ void VideoPlayController::putBackUsed(AudioFrame *data) {
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    VideoFrame *frame = nextVideoFrame;
-    nextVideoFrame = NULL;
-    return frame;
+    return nextVideoFrame;
 }
 
 void VideoPlayController::putBackUsed(VideoFrame *data) {

@@ -70,6 +70,10 @@ private:
 
     void discardAllFrame();
 
+    static void *refreshThreadCallback(void *self);
+
+    void imageRefreshLoop();
+
     VideoFileDecoder *decoder = NULL;
 
     IAudioPlayer *audioPlayer = NULL;
@@ -83,6 +87,18 @@ private:
     VideoFrame *nextVideoFrame = NULL;
 
     int64_t currentPositionMS = 0;
+    mutex currentPosMu;
+    condition_variable updateCurrentPosSignal;
+
+    thread *imageRefreshThread = NULL;
+
+    bool exitFlag = false;
+
+
+
+
+
+
 
 
 };
