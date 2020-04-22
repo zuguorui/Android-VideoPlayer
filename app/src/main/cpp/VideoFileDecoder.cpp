@@ -27,10 +27,10 @@ static void log_callback(void *ctx, int level, const char *fmt, va_list args)
 
 VideoFileDecoder::VideoFileDecoder() {
     av_register_all();
-    av_log_set_callback(log_callback);
+//    av_log_set_callback(log_callback);
     LOGD("constructor");
-    audioPacketQueue = new BlockRecyclerQueue<AVPacket *>(100);
-    videoPacketQueue = new BlockRecyclerQueue<AVPacket *>(5);
+    audioPacketQueue = new BlockRecyclerQueue<AVPacket *>(30);
+    videoPacketQueue = new BlockRecyclerQueue<AVPacket *>(20);
 }
 
 VideoFileDecoder::~VideoFileDecoder() {
@@ -280,7 +280,7 @@ bool VideoFileDecoder::initComponents(const char *path) {
             return false;
         }
 
-        videoSwsCtx = sws_getContext(videoCodecCtx->width, videoCodecCtx->height, videoCodecCtx->pix_fmt, videoCodecCtx->width, videoCodecCtx->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, NULL, NULL, NULL);
+        videoSwsCtx = sws_getContext(videoCodecCtx->width, videoCodecCtx->height, videoCodecCtx->pix_fmt, videoCodecCtx->width, videoCodecCtx->height, AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
         if(videoSwsCtx == NULL)
         {
             LOGE("init videoSwsCtx failed");
@@ -414,7 +414,7 @@ AVPacket* VideoFileDecoder::getFreePacket() {
     packet = audioPacketQueue->getUsed();
     if(packet == NULL)
     {
-//        packet = videoPacketQueue->getUsed();
+        packet = videoPacketQueue->getUsed();
     }
 
     if(packet == NULL)
@@ -474,17 +474,19 @@ void VideoFileDecoder::readFile() {
         {
             if(packet->stream_index == audioIndex)
             {
+                LOGD("read a audio packet, put it to queue, audioPacketQueue.size = %d", audioPacketQueue->getSize());
                 audioPacketQueue->put(packet);
             }
             else if(packet->stream_index == videoIndex)
             {
+                LOGD("read a video packet, put it to queue, videoPacketQueue.size = %d", videoPacketQueue->getSize());
                 videoPacketQueue->put(packet);
             }
             else
             {
                 LOGE("unknow packet stream %d", packet->stream_index);
                 av_packet_unref(packet);
-                videoPacketQueue->putToUsed(packet);
+                audioPacketQueue->putToUsed(packet);
             }
         }
 
@@ -646,11 +648,16 @@ void VideoFileDecoder::decodeVideo() {
         return;
     }
 
+
+
+    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 1);
+//    int numBytes = videoCodecCtx->width * videoCodecCtx->height * 3;
+
     AVFrame *frame = av_frame_alloc();
     AVFrame *convertedFrame = av_frame_alloc();
 
-//    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, videoCodecCtx->width, videoCodecCtx->height, 0);
-    int numBytes = videoCodecCtx->width * videoCodecCtx->height * 4;
+    uint8_t *outBuffer = new uint8_t[numBytes];
+    av_image_fill_arrays(convertedFrame->data, convertedFrame->linesize, outBuffer, AV_PIX_FMT_RGB24, videoCodecCtx->width, videoCodecCtx->height, 1);
 
     bool readFinish = false;
     int err = 0;

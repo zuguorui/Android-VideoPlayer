@@ -78,13 +78,6 @@ private:
     BlockRecyclerQueue<AudioFrame *> *audioQueue = NULL;
     BlockRecyclerQueue<VideoFrame *> *videoQueue = NULL;
 
-    mutex audioMu;
-    mutex videoMu;
-
-    bool allowGetVideoFlag = false;
-
-    condition_variable allowGetVideoSignal;
-
 
 
     VideoFrame *nextVideoFrame = NULL;

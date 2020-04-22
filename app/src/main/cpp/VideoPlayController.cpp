@@ -170,41 +170,7 @@ void VideoPlayController::putUsedVideoFrame(VideoFrame *videoData) {
 }
 
 AudioFrame *VideoPlayController::getAudioFrame() {
-    AudioFrame *frame = audioQueue->get(false);
-    allowGetVideoFlag = false;
-    unique_lock<mutex> videoLock(videoMu);
-    currentPositionMS = frame->pts;
-    LOGD("get video frame");
-    while((nextVideoFrame = videoQueue->get()) != NULL)
-    {
-        LOGD("get a video frame");
-        if(currentPositionMS - nextVideoFrame->pts > 10)
-        {
-            // if audio position is 10ms earlier than video, discard this video frame and get next
-            videoQueue->putToUsed(nextVideoFrame);
-            nextVideoFrame = videoQueue->get();
-            LOGD("this video frame is too late than audio");
-            continue;
-        } else if(currentPositionMS - nextVideoFrame->pts < -10)
-        {
-            // if audio position is 10ms later than video, just let video frame wait
-            allowGetVideoFlag = false;
-            break;
-        } else
-        {
-            // if audio position is 10ms close to the video, allow video refresh
-            allowGetVideoFlag = true;
-            break;
-        }
-    }
-
-    videoLock.unlock();
-    if(allowGetVideoFlag)
-    {
-        videoPlayer->refresh();
-    }
-
-
+    AudioFrame *frame = audioQueue->get();
     return frame;
 }
 
@@ -213,7 +179,9 @@ void VideoPlayController::putBackUsed(AudioFrame *data) {
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    return nextVideoFrame;
+    VideoFrame *frame = nextVideoFrame;
+    nextVideoFrame = NULL;
+    return frame;
 }
 
 void VideoPlayController::putBackUsed(VideoFrame *data) {

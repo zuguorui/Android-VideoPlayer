@@ -60,7 +60,7 @@ void Texture::updateDataToTexture(uint8_t *pixels, int width, int height) {
             LOGE("update pic glBindTexture error");
             return;
         }
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 
     }
 }

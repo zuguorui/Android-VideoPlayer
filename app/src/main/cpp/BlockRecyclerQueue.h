@@ -18,8 +18,10 @@ template <class T>
 class BlockRecyclerQueue {
 public:
     // if size == -1, then we don't limit the size of data queue, and all the put option will not wait.
-    BlockRecyclerQueue(int size = -1);
+    BlockRecyclerQueue(int capacity = -1);
     ~BlockRecyclerQueue();
+    int getCapacity();
+
     int getSize();
 
     // put a element, if wait = true, put option will wait until the length of data queue is less than specified size.
@@ -46,7 +48,7 @@ public:
 
 
 private:
-    int size = 0;
+    int capacity = 0;
     mutex queueMu;
     mutex usedQueueMu;
     condition_variable notFullSignal;
@@ -58,8 +60,8 @@ private:
 };
 
 template <class T>
-BlockRecyclerQueue<T>::BlockRecyclerQueue(int size) {
-    this->size = size;
+BlockRecyclerQueue<T>::BlockRecyclerQueue(int capacity) {
+    this->capacity = capacity;
 }
 
 template <class T>
@@ -84,20 +86,20 @@ T BlockRecyclerQueue<T>::get(bool wait) {
         element = queue.front();
         queue.pop_front();
     }
-    queueLock.unlock();
     notFullSignal.notify_all();
+    queueLock.unlock();
     return element;
 }
 
 template <class T>
 void BlockRecyclerQueue<T>::put(T t, bool wait) {
     unique_lock<mutex> queueLock(queueMu);
-    if(this->size == -1 || !wait)
+    if(this->capacity == -1 || !wait)
     {
         queue.push_back(t);
     } else
     {
-        while(queue.size() >= this->size)
+        while(queue.size() >= this->capacity)
         {
             notFullSignal.wait(queueLock);
         }
@@ -108,14 +110,22 @@ void BlockRecyclerQueue<T>::put(T t, bool wait) {
 }
 
 template <class T>
+int BlockRecyclerQueue<T>::getCapacity() {
+    return this->capacity;
+}
+
+template <class T>
 int BlockRecyclerQueue<T>::getSize() {
-    return this->size;
+    unique_lock<mutex> queueLock(queueMu);
+    int size = queue.size();
+    queueLock.unlock();
+    return size;
 }
 
 template <class T>
 T BlockRecyclerQueue<T>::getUsed() {
     T element = NULL;
-    unique_lock<mutex> usedQueueLock(queueMu);
+    unique_lock<mutex> usedQueueLock(usedQueueMu);
     if(usedQueue.size() != 0)
     {
         element = usedQueue.front();
@@ -128,7 +138,7 @@ T BlockRecyclerQueue<T>::getUsed() {
 template <class T>
 void BlockRecyclerQueue<T>::putToUsed(T t) {
 
-    unique_lock<mutex> usedQueueLock(queueMu);
+    unique_lock<mutex> usedQueueLock(usedQueueMu);
     usedQueue.push_back(t);
     usedQueueLock.unlock();
 }
