@@ -197,6 +197,7 @@ void OpenSLESPlayer::stop() {
     {
         LOGE("stop play failed");
     }
+    LOGD("stop play");
     return;
 }
 

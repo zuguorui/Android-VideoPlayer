@@ -353,25 +353,44 @@ void VideoFileDecoder::resetComponents() {
 }
 
 void VideoFileDecoder::closeInput() {
+    LOGD("call closeInput");
     stopDecodeFlag = true;
-    if(readThread != NULL && readThread->joinable())
+
+    if(readThread != NULL)
     {
-        readThread->join();
-        readThread = NULL;
+        audioPacketQueue->notifyWaitPut();
+        videoPacketQueue->notifyWaitPut();
+//        if(readThread->joinable())
+//        {
+//            readThread->join();
+//        }
+//        delete(readThread);
+//        readThread = NULL;
     }
+    LOGD("readThread stopped");
+
     if(audioDecodeThread != NULL && audioDecodeThread->joinable())
     {
+        audioPacketQueue->notifyWaitGet();
         audioDecodeThread->join();
+        delete(audioDecodeThread);
         audioDecodeThread = NULL;
     }
+    LOGD("decodeAudioThread stopped");
     if(videoDecodeThread != NULL && videoDecodeThread->joinable())
     {
+        videoPacketQueue->notifyWaitGet();
         videoDecodeThread->join();
+        delete(videoDecodeThread);
         videoDecodeThread = NULL;
     }
+    LOGD("decodeVideoThread stopped");
+
+
     discardAllReadPackets();
     recyclePackets();
     resetComponents();
+    LOGD("exit closeInput");
 }
 
 void VideoFileDecoder::seekTo(int64_t position) {
@@ -476,11 +495,13 @@ void VideoFileDecoder::readFile() {
             {
                 LOGD("read a audio packet, put it to queue, audioPacketQueue.size = %d", audioPacketQueue->getSize());
                 audioPacketQueue->put(packet);
+                LOGD("put audio packet finished");
             }
             else if(packet->stream_index == videoIndex)
             {
                 LOGD("read a video packet, put it to queue, videoPacketQueue.size = %d", videoPacketQueue->getSize());
                 videoPacketQueue->put(packet);
+                LOGD("put video packet finished");
             }
             else
             {
@@ -491,6 +512,8 @@ void VideoFileDecoder::readFile() {
         }
 
     }
+    LOGD("readThread quit");
+
 }
 
 void VideoFileDecoder::decodeAudio() {
@@ -619,7 +642,7 @@ void VideoFileDecoder::decodeAudio() {
     {
         resetComponents();
     }
-
+    LOGD("decodeAudioThread quit");
 }
 
 void VideoFileDecoder::decodeVideo() {
@@ -729,11 +752,13 @@ void VideoFileDecoder::decodeVideo() {
         av_packet_unref(packet);
         videoPacketQueue->putToUsed(packet);
     }
+    free(outBuffer);
     videoDecodeFinished = true;
     if(audioDecodeFinished)
     {
         resetComponents();
     }
+    LOGD("decodeVideoThread quit");
 }
 
 void VideoFileDecoder::discardAllReadPackets() {

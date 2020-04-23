@@ -24,12 +24,14 @@ ANativeWindow *window = NULL;
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nInit(JNIEnv *env, jobject instance)
 {
+    LOGD("call nInit");
     controller = new VideoPlayController();
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nDestroy(JNIEnv *env, jobject instance)
 {
+    LOGD("call nDestroy");
     if(controller == NULL)
     {
         LOGE("controller is NULL when call nDestroy");
@@ -41,6 +43,7 @@ Java_com_zu_videoplayer_PlayActivity_nDestroy(JNIEnv *env, jobject instance)
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nStart(JNIEnv *env, jobject instance)
 {
+    LOGD("call nStart");
     if(controller == NULL)
     {
         LOGE("controller is NULL when call nStart");
@@ -52,6 +55,7 @@ Java_com_zu_videoplayer_PlayActivity_nStart(JNIEnv *env, jobject instance)
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nStop(JNIEnv *env, jobject instance)
 {
+    LOGD("call nStop");
     if(controller == NULL)
     {
         LOGE("controller is NULL when call nStop");
@@ -63,6 +67,7 @@ Java_com_zu_videoplayer_PlayActivity_nStop(JNIEnv *env, jobject instance)
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_zu_videoplayer_PlayActivity_nOpenFile(JNIEnv *env, jobject instance, jstring filePath)
 {
+    LOGD("nOpenFile");
     if(controller == NULL)
     {
         LOGE("controller is NULL when call nOpenFile");
@@ -81,6 +86,7 @@ Java_com_zu_videoplayer_PlayActivity_nOpenFile(JNIEnv *env, jobject instance, js
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nCloseFile(JNIEnv *env, jobject instance)
 {
+    LOGD("call nCloseFile");
     if(controller == NULL)
     {
         LOGE("controller is NULL when call nCloseFile");
@@ -92,6 +98,7 @@ Java_com_zu_videoplayer_PlayActivity_nCloseFile(JNIEnv *env, jobject instance)
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nSetSurface(JNIEnv *env, jobject instance, jobject surface)
 {
+    LOGD("call nSetSurface");
     if(controller == NULL)
     {
         LOGE("controller is NULL when call nSetSurface");
@@ -101,24 +108,12 @@ Java_com_zu_videoplayer_PlayActivity_nSetSurface(JNIEnv *env, jobject instance, 
     controller->setWindow(window);
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_zu_videoplayer_PlayActivity_nReleaseSurface(JNIEnv *env, jobject instance, jobject surface)
-{
-    if(controller == NULL)
-    {
-        LOGE("controller is NULL when call nReleaseSurface");
-        return;
-    }
-    if(window != NULL)
-    {
-        ANativeWindow_release(window);
-        window = NULL;
-    }
-}
+
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nSetSize(JNIEnv *env, jobject instance, jint width, jint height)
 {
+    LOGD("call nSetSize");
     if(controller == NULL)
     {
         LOGE("controller is NULL when call nSetSize");
@@ -131,6 +126,7 @@ Java_com_zu_videoplayer_PlayActivity_nSetSize(JNIEnv *env, jobject instance, jin
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nSeek(JNIEnv *env, jobject instance, jlong position)
 {
+    LOGD("call nSeek");
     if(controller == NULL)
     {
         LOGE("controller is NULL when call nSetSize");

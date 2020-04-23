@@ -44,7 +44,7 @@ class PlayActivity : AppCompatActivity() {
     override fun onDestroy() {
         nStop()
         nCloseFile()
-        nDestroy()
+//        nDestroy()
         super.onDestroy()
     }
 
@@ -68,12 +68,12 @@ class PlayActivity : AppCompatActivity() {
     external fun nOpenFile(filePath: String): Boolean
     external fun nCloseFile()
     external fun nSetSurface(surfaceView: Any)
-    external fun nReleaseSurface()
     external fun nSetSize(width: Int, height: Int)
     external fun nSeek(position: Long)
 
 
     companion object{
+        private val TAG = "PlayActivity"
         init {
             System.loadLibrary("native-lib")
         }

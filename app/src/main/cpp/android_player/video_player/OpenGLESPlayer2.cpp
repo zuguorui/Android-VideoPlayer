@@ -33,6 +33,12 @@ void OpenGLESPlayer2::release() {
     {
         renderThread->join();
     }
+
+    if(window != NULL)
+    {
+        ANativeWindow_release(window);
+        window = NULL;
+    }
 }
 
 void OpenGLESPlayer2::refresh() {

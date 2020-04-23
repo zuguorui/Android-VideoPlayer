@@ -47,27 +47,29 @@ VideoPlayController::VideoPlayController() {
 
 VideoPlayController::~VideoPlayController() {
 
-    videoQueue->notifyWaitGet();
-    exitFlag = true;
-    if(imageRefreshThread != NULL && imageRefreshThread->joinable())
-    {
-        imageRefreshThread->join();
-        delete(imageRefreshThread);
-    }
 
-    videoQueue->notifyWaitPut();
-    audioQueue->notifyWaitPut();
+//    exitFlag = true;
+//    if(imageRefreshThread != NULL && imageRefreshThread->joinable())
+//    {
+//        imageRefreshThread->join();
+//        delete(imageRefreshThread);
+//    }
+
+
     if(decoder != NULL)
     {
         decoder->closeInput();
+        videoQueue->notifyWaitPut();
+        audioQueue->notifyWaitPut();
         delete(decoder);
         decoder = NULL;
     }
 
-    audioQueue->notifyWaitGet();
+
     if(audioPlayer != NULL)
     {
         audioPlayer->stop();
+        audioQueue->notifyWaitGet();
         audioPlayer->release();
         delete(audioPlayer);
         audioPlayer = NULL;
@@ -75,6 +77,7 @@ VideoPlayController::~VideoPlayController() {
     if(videoPlayer != NULL)
     {
         videoPlayer->release();
+        videoQueue->notifyWaitGet();
         delete(videoPlayer);
         videoPlayer = NULL;
     }
@@ -82,24 +85,19 @@ VideoPlayController::~VideoPlayController() {
 
     if(audioQueue != NULL)
     {
+        audioQueue->discardAll(NULL);
         AudioFrame *frame = NULL;
-        while((frame = audioQueue->get(false)) != NULL)
-        {
-            delete(frame);
-        }
         while((frame = audioQueue->getUsed()) != NULL)
         {
             delete(frame);
         }
     }
 
+
     if(videoQueue != NULL)
     {
+        videoQueue->discardAll(NULL);
         VideoFrame *frame = NULL;
-        while((frame = videoQueue->get(false)) != NULL)
-        {
-            delete(frame);
-        }
         while((frame = videoQueue->getUsed()) != NULL)
         {
             delete(frame);
@@ -110,6 +108,11 @@ VideoPlayController::~VideoPlayController() {
     {
         delete(nextVideoFrame);
     }
+    if(waitVideoFrame != NULL)
+    {
+        delete(waitVideoFrame);
+    }
+
 }
 
 bool VideoPlayController::openFile(const char *path) {
@@ -232,31 +235,31 @@ AudioFrame *VideoPlayController::getAudioFrame() {
     LOGD("get a audio frame, pts = %ld", currentPositionMS);
 //    updateCurrentPosSignal.notify_all();
 
-    unique_lock<mutex> locker(videoMu);
+
     while(1)
     {
 
-        if(nextVideoFrame == NULL)
+        if(waitVideoFrame == NULL)
         {
-            nextVideoFrame = videoQueue->get();
-            if(nextVideoFrame == NULL)
+            waitVideoFrame = videoQueue->get();
+            if(waitVideoFrame == NULL)
             {
                 ///if get a NULL videoFrame, means this controller will terminate
                 break;
             }
-            LOGD("get a video frame, pts = %ld", nextVideoFrame->pts);
+            LOGD("get a video frame, pts = %ld", waitVideoFrame->pts);
         }
 
-        LOGD("this video frame, pts = %ld", nextVideoFrame->pts);
+        LOGD("this video frame, pts = %ld", waitVideoFrame->pts);
 
-        if(nextVideoFrame->pts - currentPositionMS < -50)
+        if(waitVideoFrame->pts - currentPositionMS < -50)
         {
             ///this video too late, discard it. And continue this loop until get a videoFrame is not too late
             LOGD("video too late, discard");
-            videoQueue->putToUsed(nextVideoFrame);
-            nextVideoFrame = NULL;
+            videoQueue->putToUsed(waitVideoFrame);
+            waitVideoFrame = NULL;
             continue;
-        } else if(nextVideoFrame->pts - currentPositionMS > 50)
+        } else if(waitVideoFrame->pts - currentPositionMS > 50)
         {
             ///this video is still too early, wait. break this loop to let the audioFrame return. And will check this video frame at next getAudioFrame call.
             LOGD("video too early, wait");
@@ -267,18 +270,22 @@ AudioFrame *VideoPlayController::getAudioFrame() {
             if(videoPlayer->isReady())
             {
                 LOGD("refresh image");
+                unique_lock<mutex> locker(videoMu);
+                nextVideoFrame = waitVideoFrame;
+                waitVideoFrame = NULL;
                 videoPlayer->refresh();
+                locker.unlock();
             } else
             {
                 ///videoPlayer not ready(caused window not set), discard this video frame
                 LOGE("videoPlayer not prepared, discard this videoFrame");
-                videoQueue->putToUsed(nextVideoFrame);
-                nextVideoFrame = NULL;
+                videoQueue->putToUsed(waitVideoFrame);
+                waitVideoFrame = NULL;
             }
             break;
         }
     }
-    locker.unlock();
+
 
     return frame;
 }

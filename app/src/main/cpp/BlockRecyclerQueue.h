@@ -56,12 +56,17 @@ private:
     list<T> queue;
     list<T> usedQueue;
 
+    bool allowNotifyPut = false;
+    bool allowNotifyGet = false;
+
 
 };
 
 template <class T>
 BlockRecyclerQueue<T>::BlockRecyclerQueue(int capacity) {
     this->capacity = capacity;
+    allowNotifyPut = false;
+    allowNotifyGet = false;
 }
 
 template <class T>
@@ -77,6 +82,11 @@ T BlockRecyclerQueue<T>::get(bool wait) {
         while(queue.size() == 0)
         {
             notEmptySignal.wait(queueLock);
+            if(allowNotifyGet)
+            {
+                allowNotifyGet = false;
+                break;
+            }
         }
     }
 
@@ -102,6 +112,11 @@ void BlockRecyclerQueue<T>::put(T t, bool wait) {
         while(queue.size() >= this->capacity)
         {
             notFullSignal.wait(queueLock);
+            if(allowNotifyPut)
+            {
+                allowNotifyPut = false;
+                break;
+            }
         }
         queue.push_back(t);
     }
@@ -145,11 +160,13 @@ void BlockRecyclerQueue<T>::putToUsed(T t) {
 
 template <class T>
 void BlockRecyclerQueue<T>::notifyWaitGet() {
+    allowNotifyGet = true;
     this->notEmptySignal.notify_all();
 }
 
 template <class T>
 void BlockRecyclerQueue<T>::notifyWaitPut() {
+    allowNotifyPut = true;
     this->notFullSignal.notify_all();
 }
 
