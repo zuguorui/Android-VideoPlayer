@@ -196,3 +196,11 @@ void OpenGLESPlayer::setSize(int32_t width, int32_t height) {
     this->height = height;
     setSizeFlag = true;
 }
+
+void OpenGLESPlayer::refresh() {
+
+}
+
+bool OpenGLESPlayer::isReady() {
+    return false;
+}

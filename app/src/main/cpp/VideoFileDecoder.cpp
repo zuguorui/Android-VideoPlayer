@@ -29,7 +29,7 @@ VideoFileDecoder::VideoFileDecoder() {
     av_register_all();
 //    av_log_set_callback(log_callback);
     LOGD("constructor");
-    audioPacketQueue = new BlockRecyclerQueue<AVPacket *>(30);
+    audioPacketQueue = new BlockRecyclerQueue<AVPacket *>();
     videoPacketQueue = new BlockRecyclerQueue<AVPacket *>(20);
 }
 

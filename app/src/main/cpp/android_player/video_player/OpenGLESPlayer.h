@@ -40,6 +40,10 @@ public:
 
     void setSize(int32_t width, int32_t height) override;
 
+    void refresh() override;
+
+    bool isReady() override;
+
 private:
 
     void renderLoop();

@@ -37,6 +37,8 @@ public:
 
     void setSize(int32_t width, int32_t height) override;
 
+    bool isReady() override;
+
 private:
     EGLCore *eglCore = NULL;
     Texture *texture = NULL;

@@ -85,6 +85,7 @@ private:
 
 
     VideoFrame *nextVideoFrame = NULL;
+    mutex videoMu;
 
     int64_t currentPositionMS = 0;
     mutex currentPosMu;

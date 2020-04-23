@@ -41,7 +41,7 @@ VideoPlayController::VideoPlayController() {
     }
 
     exitFlag = false;
-    imageRefreshThread = new thread(refreshThreadCallback, this);
+//    imageRefreshThread = new thread(refreshThreadCallback, this);
 
 }
 
@@ -229,7 +229,57 @@ void VideoPlayController::putUsedVideoFrame(VideoFrame *videoData) {
 AudioFrame *VideoPlayController::getAudioFrame() {
     AudioFrame *frame = audioQueue->get();
     currentPositionMS = frame->pts;
-    updateCurrentPosSignal.notify_all();
+    LOGD("get a audio frame, pts = %ld", currentPositionMS);
+//    updateCurrentPosSignal.notify_all();
+
+    unique_lock<mutex> locker(videoMu);
+    while(1)
+    {
+
+        if(nextVideoFrame == NULL)
+        {
+            nextVideoFrame = videoQueue->get();
+            if(nextVideoFrame == NULL)
+            {
+                ///if get a NULL videoFrame, means this controller will terminate
+                break;
+            }
+            LOGD("get a video frame, pts = %ld", nextVideoFrame->pts);
+        }
+
+        LOGD("this video frame, pts = %ld", nextVideoFrame->pts);
+
+        if(nextVideoFrame->pts - currentPositionMS < -50)
+        {
+            ///this video too late, discard it. And continue this loop until get a videoFrame is not too late
+            LOGD("video too late, discard");
+            videoQueue->putToUsed(nextVideoFrame);
+            nextVideoFrame = NULL;
+            continue;
+        } else if(nextVideoFrame->pts - currentPositionMS > 50)
+        {
+            ///this video is still too early, wait. break this loop to let the audioFrame return. And will check this video frame at next getAudioFrame call.
+            LOGD("video too early, wait");
+            break;
+        } else
+        {
+            ///it is time to refresh this videoFrame.
+            if(videoPlayer->isReady())
+            {
+                LOGD("refresh image");
+                videoPlayer->refresh();
+            } else
+            {
+                ///videoPlayer not ready(caused window not set), discard this video frame
+                LOGE("videoPlayer not prepared, discard this videoFrame");
+                videoQueue->putToUsed(nextVideoFrame);
+                nextVideoFrame = NULL;
+            }
+            break;
+        }
+    }
+    locker.unlock();
+
     return frame;
 }
 
@@ -238,7 +288,12 @@ void VideoPlayController::putBackUsed(AudioFrame *data) {
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    return nextVideoFrame;
+    LOGD("the videoPlayer call getVideoFrame");
+    unique_lock<mutex> locker(videoMu);
+    VideoFrame *f = nextVideoFrame;
+    nextVideoFrame = NULL;
+    locker.unlock();
+    return f;
 }
 
 void VideoPlayController::putBackUsed(VideoFrame *data) {

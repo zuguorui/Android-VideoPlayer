@@ -89,7 +89,7 @@ void OpenGLESPlayer2::renderLoop() {
         }
         message = messageQueue.front();
         messageQueue.pop_front();
-
+        locker.unlock();
         switch (message)
         {
             case SET_WINDOW:
@@ -112,7 +112,7 @@ void OpenGLESPlayer2::renderLoop() {
             default:
                 break;
         }
-        locker.unlock();
+
     }
 
     releaseComponents();
@@ -176,6 +176,10 @@ void OpenGLESPlayer2::updateTexImage() {
         return;
     }
     VideoFrame *f = frameProvider->getVideoFrame();
+    if(f == NULL)
+    {
+        return;
+    }
     texture->updateDataToTexture(f->data, f->width, f->height);
     frameProvider->putBackUsed(f);
 }
@@ -187,4 +191,8 @@ void OpenGLESPlayer2::drawFrame() {
     {
         LOGE("swap buffers failed");
     }
+}
+
+bool OpenGLESPlayer2::isReady() {
+    return eglCore && texture && render;
 }
