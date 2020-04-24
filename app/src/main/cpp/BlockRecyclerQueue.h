@@ -13,7 +13,7 @@
 #include <list>
 
 using namespace std;
-// TODO: add notify lockers to avoid dead waiting. Add get element immediately interfaces.
+
 template <class T>
 class BlockRecyclerQueue {
 public:
@@ -184,6 +184,7 @@ void BlockRecyclerQueue<T>::discardAll(void (*discardCallback)(T)) {
         }
         usedQueue.push_back(t);
     }
+    notFullSignal.notify_all();
     usedQueueLock.unlock();
     queueLock.unlock();
 

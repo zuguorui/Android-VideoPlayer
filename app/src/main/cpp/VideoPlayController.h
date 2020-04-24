@@ -70,7 +70,7 @@ private:
 
     void discardAllFrame();
 
-    static void *refreshThreadCallback(void *self);
+    static void refreshThreadCallback(void *self);
 
     void imageRefreshLoop();
 

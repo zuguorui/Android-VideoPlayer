@@ -58,9 +58,7 @@ VideoPlayController::~VideoPlayController() {
 
     if(decoder != NULL)
     {
-        decoder->closeInput();
-        videoQueue->notifyWaitPut();
-        audioQueue->notifyWaitPut();
+        closeFile();
         delete(decoder);
         decoder = NULL;
     }
@@ -127,7 +125,11 @@ bool VideoPlayController::openFile(const char *path) {
 
 void VideoPlayController::closeFile() {
     LOGD("closeFile");
+    audioQueue->discardAll(NULL);
+    videoQueue->discardAll(NULL);
     decoder->closeInput();
+    audioQueue->discardAll(NULL);
+    videoQueue->discardAll(NULL);
 }
 
 void VideoPlayController::start() {
@@ -160,7 +162,7 @@ void VideoPlayController::setSize(int width, int height) {
     videoPlayer->setSize(width, height);
 }
 
-void* VideoPlayController::refreshThreadCallback(void *self) {
+void VideoPlayController::refreshThreadCallback(void *self) {
     ((VideoPlayController *)self)->imageRefreshLoop();
 }
 

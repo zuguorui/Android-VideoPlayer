@@ -56,7 +56,7 @@ private:
 
     void drawFrame();
 
-    static void *threadCallback(void *self);
+    static void threadCallback(void *self);
 
     Texture *mTexture;
     Render *mRender;

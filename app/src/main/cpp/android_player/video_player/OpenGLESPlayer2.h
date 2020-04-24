@@ -68,7 +68,7 @@ private:
     void updateTexImage();
     void drawFrame();
 
-    static void *threadCallback(void *self);
+    static void threadCallback(void *self);
     void renderLoop();
 
 

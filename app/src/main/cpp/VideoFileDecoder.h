@@ -56,9 +56,9 @@ private:
 
     AVPacket *getFreePacket();
 
-    static void *audioThreadCallback(void *context);
-    static void *videoThreadCallback(void *context);
-    static void *readThreadCallback(void *context);
+    static void audioThreadCallback(void *context);
+    static void videoThreadCallback(void *context);
+    static void readThreadCallback(void *context);
 
     void recyclePackets();
 
@@ -97,6 +97,8 @@ private:
 
     BlockRecyclerQueue<AVPacket *> *audioPacketQueue;
     BlockRecyclerQueue<AVPacket *> *videoPacketQueue;
+
+    mutex componentsMu;
 
 
 };

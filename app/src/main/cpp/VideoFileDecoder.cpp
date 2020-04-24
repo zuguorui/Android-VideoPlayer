@@ -5,8 +5,10 @@
 #include "VideoFileDecoder.h"
 #include <stdint.h>
 #include <android/log.h>
+#include <chrono>
 #include "AACUtil.h"
 
+using namespace std;
 
 #define MODULE_NAME  "VideoFileDecoder"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
@@ -307,7 +309,6 @@ bool VideoFileDecoder::initComponents(const char *path) {
 //    }
 
     return true;
-
 }
 
 /*
@@ -315,6 +316,7 @@ bool VideoFileDecoder::initComponents(const char *path) {
  * at init stage, initing components will crash with SIGNAL FAULT.
  * */
 void VideoFileDecoder::resetComponents() {
+    unique_lock<mutex> locker(componentsMu);
     if(audioSwrCtx != NULL)
     {
         swr_free(&audioSwrCtx);
@@ -350,6 +352,7 @@ void VideoFileDecoder::resetComponents() {
         avformat_free_context(formatCtx);
         formatCtx = NULL;
     }
+    locker.unlock();
 }
 
 void VideoFileDecoder::closeInput() {
@@ -360,12 +363,12 @@ void VideoFileDecoder::closeInput() {
     {
         audioPacketQueue->notifyWaitPut();
         videoPacketQueue->notifyWaitPut();
-//        if(readThread->joinable())
-//        {
-//            readThread->join();
-//        }
-//        delete(readThread);
-//        readThread = NULL;
+        if(readThread->joinable())
+        {
+            readThread->join();
+        }
+        delete(readThread);
+        readThread = NULL;
     }
     LOGD("readThread stopped");
 
@@ -416,15 +419,15 @@ void VideoFileDecoder::removeDataReceiber(IMediaDataReceiver *receiver) {
 
 
 
-void* VideoFileDecoder::audioThreadCallback(void *context) {
+void VideoFileDecoder::audioThreadCallback(void *context) {
     ((VideoFileDecoder *)context) -> decodeAudio();
 }
 
-void* VideoFileDecoder::videoThreadCallback(void *context) {
+void VideoFileDecoder::videoThreadCallback(void *context) {
     ((VideoFileDecoder *)context) -> decodeVideo();
 }
 
-void* VideoFileDecoder::readThreadCallback(void *context) {
+void VideoFileDecoder::readThreadCallback(void *context) {
     ((VideoFileDecoder *)context) -> readFile();
 }
 
@@ -493,15 +496,15 @@ void VideoFileDecoder::readFile() {
         {
             if(packet->stream_index == audioIndex)
             {
-                LOGD("read a audio packet, put it to queue, audioPacketQueue.size = %d", audioPacketQueue->getSize());
+//                LOGD("read a audio packet, put it to queue, audioPacketQueue.size = %d", audioPacketQueue->getSize());
                 audioPacketQueue->put(packet);
-                LOGD("put audio packet finished");
+//                LOGD("put audio packet finished");
             }
             else if(packet->stream_index == videoIndex)
             {
-                LOGD("read a video packet, put it to queue, videoPacketQueue.size = %d", videoPacketQueue->getSize());
+//                LOGD("read a video packet, put it to queue, videoPacketQueue.size = %d", videoPacketQueue->getSize());
                 videoPacketQueue->put(packet);
-                LOGD("put video packet finished");
+//                LOGD("put video packet finished");
             }
             else
             {
@@ -646,7 +649,7 @@ void VideoFileDecoder::decodeAudio() {
 }
 
 void VideoFileDecoder::decodeVideo() {
-    videoDecodeFinished = true;
+    videoDecodeFinished = false;
 
     if(videoCodecCtx == NULL)
     {
@@ -688,6 +691,7 @@ void VideoFileDecoder::decodeVideo() {
     int err = 0;
     while(!stopDecodeFlag && !readFinish)
     {
+
         AVPacket *packet = videoPacketQueue->get();
 
         if(packet == NULL)
@@ -695,8 +699,15 @@ void VideoFileDecoder::decodeVideo() {
             readFinish = true;
             break;
         }
-
+        chrono::system_clock::time_point startTime = chrono::system_clock::now();
         err = avcodec_send_packet(videoCodecCtx, packet);
+        if(err == 0)
+        {
+            chrono::system_clock::time_point endTime = chrono::system_clock::now();
+            chrono::milliseconds decodeDuration = chrono::duration_cast<chrono::milliseconds>(endTime - startTime);
+            LOGD("decode a video frame use %ld ms", decodeDuration.count());
+        }
+
         if(err == AVERROR(EAGAIN))
         {
             // This must not happen
@@ -710,7 +721,11 @@ void VideoFileDecoder::decodeVideo() {
             //read until can not read more to ensure codec won't be full
             while(1)
             {
+
                 err = avcodec_receive_frame(videoCodecCtx, frame);
+
+
+
                 if(err == AVERROR(EAGAIN))
                 {
                     //Can not read until send a new packet
@@ -748,6 +763,7 @@ void VideoFileDecoder::decodeVideo() {
 
                 }
             }
+
         }
         av_packet_unref(packet);
         videoPacketQueue->putToUsed(packet);

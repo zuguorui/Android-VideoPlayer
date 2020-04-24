@@ -25,7 +25,7 @@ OpenGLESPlayer::~OpenGLESPlayer() {
 
 }
 
-void* OpenGLESPlayer::threadCallback(void *self) {
+void OpenGLESPlayer::threadCallback(void *self) {
     OpenGLESPlayer *player = (OpenGLESPlayer *)self;
     player->renderLoop();
 }

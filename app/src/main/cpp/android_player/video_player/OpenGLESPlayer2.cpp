@@ -48,7 +48,7 @@ void OpenGLESPlayer2::refresh() {
     locker.unlock();
 }
 
-void* OpenGLESPlayer2::threadCallback(void *self) {
+void OpenGLESPlayer2::threadCallback(void *self) {
     ((OpenGLESPlayer2 *)self)->renderLoop();
 }
 
