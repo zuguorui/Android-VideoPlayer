@@ -27,6 +27,8 @@ public:
 
     void stop() override;
 
+    bool isPlaying() override;
+
     void setAudioFrameProvider(IAudioFrameProvider *provider) override;
 
     void removeAudioFrameProvider(IAudioFrameProvider *provider) override;

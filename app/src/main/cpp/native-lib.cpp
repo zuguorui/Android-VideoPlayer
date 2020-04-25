@@ -10,6 +10,7 @@
 #include <GLES2/gl2ext.h>
 
 #include "VideoPlayController.h"
+#include "JavaStateListener.h"
 
 using namespace std;
 
@@ -20,6 +21,7 @@ using namespace std;
 
 VideoPlayController *controller = NULL;
 ANativeWindow *window = NULL;
+JavaStateListener *stateListener = NULL;
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nInit(JNIEnv *env, jobject instance)
@@ -120,6 +122,62 @@ Java_com_zu_videoplayer_PlayActivity_nSetSize(JNIEnv *env, jobject instance, jin
         return;
     }
     controller->setSize(width, height);
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_zu_videoplayer_PlayActivity_nGetDuration(JNIEnv *env, jobject instance)
+{
+    LOGD("call nSetSize");
+    if(controller == NULL)
+    {
+        LOGE("controller is NULL when call nSetSize");
+        return 0;
+    }
+    return controller->getDuration();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_zu_videoplayer_PlayActivity_nSetPlayStateListener(JNIEnv *env, jobject instance, jobject listener)
+{
+    LOGD("call nSetSize");
+    if(controller == NULL)
+    {
+        LOGE("controller is NULL when call nSetSize");
+        return;
+    }
+    stateListener = new JavaStateListener(env, listener);
+    controller->setPlayStateListener(stateListener);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_zu_videoplayer_PlayActivity_nRemovePlayStateListener(JNIEnv *env, jobject instance)
+{
+    LOGD("call nSetSize");
+    if(controller == NULL)
+    {
+        LOGE("controller is NULL when call nSetSize");
+        return;
+    }
+
+    controller->removePlayStateListener();
+    if(stateListener)
+    {
+        delete(stateListener);
+    }
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_zu_videoplayer_PlayActivity_nIsPlaying(JNIEnv *env, jobject instance)
+{
+    LOGD("call nSetSize");
+    if(controller == NULL)
+    {
+        LOGE("controller is NULL when call nSetSize");
+        return false;
+    }
+
+    return controller->isPlaying();
+
 }
 
 

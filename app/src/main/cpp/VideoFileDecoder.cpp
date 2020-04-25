@@ -41,6 +41,10 @@ VideoFileDecoder::~VideoFileDecoder() {
     delete(videoPacketQueue);
 }
 
+int64_t VideoFileDecoder::getDuration() {
+    return duration;
+}
+
 void VideoFileDecoder::recyclePackets() {
     if(audioPacketQueue != NULL)
     {
@@ -73,6 +77,7 @@ void VideoFileDecoder::recyclePackets() {
 
 bool VideoFileDecoder::openFile(const char *inputFile) {
 
+    duration = -1;
     if(dataReceiver == NULL)
     {
         LOGE("MediaDataReceiver is NULL when start decode");
@@ -235,24 +240,25 @@ bool VideoFileDecoder::initComponents(const char *path) {
             LOGE("audio swr init failed, err = %d", err);
         }
 
+        duration = (int64_t)(audioStream->duration * av_q2d(audioStream->time_base) * 1000);
         // if audio is AAC, we need to deal with duration. FFmpeg can not get AAC duration correctly
-        if(audioCodec->id == AV_CODEC_ID_AAC)
-        {
-            FILE *aacFile = fopen(path, "rb");
-            if(aacFile != NULL)
-            {
-                duration = get_aac_duration(aacFile);
-                fclose(aacFile);
-            }else{
-                LOGE("open aac file error");
-            }
-
-            if(duration == -1)
-            {
-                LOGE("get aac duration error, now we use audio stream duration, it may be wrong for aac");
-                duration = (int64_t)(audioStream->duration * av_q2d(audioStream->time_base) * 1000);
-            }
-        }
+//        if(audioCodec->id == AV_CODEC_ID_AAC)
+//        {
+//            FILE *aacFile = fopen(path, "rb");
+//            if(aacFile != NULL)
+//            {
+//                duration = get_aac_duration(aacFile);
+//                fclose(aacFile);
+//            }else{
+//                LOGE("open aac file error");
+//            }
+//
+//            if(duration == -1)
+//            {
+//                LOGE("get aac duration error, now we use audio stream duration, it may be wrong for aac");
+//                duration = (int64_t)(audioStream->duration * av_q2d(audioStream->time_base) * 1000);
+//            }
+//        }
     }
 
     if(videoIndex != -1)
@@ -477,7 +483,22 @@ void VideoFileDecoder::readFile() {
             discardAllReadPackets();
             seekReq = false;
             int64_t pos = (int64_t)(seekPosition / 1000 * AV_TIME_BASE);
-            av_seek_frame(formatCtx, -1, pos, 0);
+            if(av_seek_frame(formatCtx, -1, pos, 0) < 0)
+            {
+                LOGE("seek audio return error");
+            }
+
+//            if(av_seek_frame(formatCtx, videoIndex, pos, 0) < 0)
+//            {
+//                LOGE("seek video return error");
+//            }
+//            AVPacket *videoFlushPacket = getFreePacket();
+//            videoFlushPacket->size = 0;
+//            videoPacketQueue->put(videoFlushPacket);
+//
+//            AVPacket *audioFlushPacket = getFreePacket();
+//            audioFlushPacket->size = 0;
+//            videoPacketQueue->put(audioFlushPacket);
 
         }
         AVPacket *packet = getFreePacket();
@@ -496,15 +517,15 @@ void VideoFileDecoder::readFile() {
         {
             if(packet->stream_index == audioIndex)
             {
-//                LOGD("read a audio packet, put it to queue, audioPacketQueue.size = %d", audioPacketQueue->getSize());
+                LOGD("read a audio packet, put it to queue, audioPacketQueue.size = %d", audioPacketQueue->getSize());
                 audioPacketQueue->put(packet);
-//                LOGD("put audio packet finished");
+                LOGD("put audio packet finished");
             }
             else if(packet->stream_index == videoIndex)
             {
-//                LOGD("read a video packet, put it to queue, videoPacketQueue.size = %d", videoPacketQueue->getSize());
+                LOGD("read a video packet, put it to queue, videoPacketQueue.size = %d", videoPacketQueue->getSize());
                 videoPacketQueue->put(packet);
-//                LOGD("put video packet finished");
+                LOGD("put video packet finished");
             }
             else
             {
@@ -556,6 +577,7 @@ void VideoFileDecoder::decodeAudio() {
     {
 
         AVPacket *packet = audioPacketQueue->get();
+        LOGD("get a audio packet, audioPacketQueue.size = %d", audioPacketQueue->getSize());
         // Someone stop decode and call notifyGetWiat(), if so, we should finish decoding.
         if(packet == NULL)
         {
@@ -571,7 +593,8 @@ void VideoFileDecoder::decodeAudio() {
             // codec says is EOF, cause we set the packet->size = 0.
             readFinished = true;
         } else if (err != 0){
-            LOGE("call avcodec_send_packet() returns %d\n", err);
+            LOGE("audio call avcodec_send_packet() returns %d\n", err);
+            continue;
         } else //err == 0
         {
             //read until can not read more to ensure codec won't be full
@@ -588,6 +611,7 @@ void VideoFileDecoder::decodeAudio() {
                     break;
                 } else if (err != 0){
                     LOGE("call avcodec_send_packet() returns %d\n", err);
+                    break;
                 } else // err == 0
                 {
                     // convert audio until there is no more data
@@ -691,8 +715,9 @@ void VideoFileDecoder::decodeVideo() {
     int err = 0;
     while(!stopDecodeFlag && !readFinish)
     {
-
+        LOGD("start get video packet");
         AVPacket *packet = videoPacketQueue->get();
+        LOGD("get a video packet, videoPacketQueue.size = %d", videoPacketQueue->getSize());
 
         if(packet == NULL)
         {
@@ -711,33 +736,40 @@ void VideoFileDecoder::decodeVideo() {
         if(err == AVERROR(EAGAIN))
         {
             // This must not happen
+            LOGE("video send packet returns EAGAIN");
         } else if (err == AVERROR_EOF){
             // codec says is EOF, cause we set the packet->size = 0.
+            LOGE("video send packet returns EOF");
             readFinish = true;
         } else if (err != 0){
-            LOGE("call avcodec_send_packet() returns %d\n", err);
+            LOGE("video send packet returns %d\n", err);
+            continue;
         } else //err == 0
         {
             //read until can not read more to ensure codec won't be full
             while(1)
             {
-
+                LOGD("video start receive frame");
                 err = avcodec_receive_frame(videoCodecCtx, frame);
-
+                LOGD("video end receive frame");
 
 
                 if(err == AVERROR(EAGAIN))
                 {
                     //Can not read until send a new packet
+                    LOGE("video receive frame returns EAGAIN");
                     break;
                 } else if(err == AVERROR_EOF)
                 {
                     //The codec is flushed, no more frame will be output
+                    LOGE("video receive frame returns EOF");
                     break;
                 } else if (err != 0){
-                    LOGE("call avcodec_send_packet() returns %d\n", err);
+                    LOGE("video receive frame returns %d\n", err);
+                    break;
                 } else // err == 0
                 {
+                    LOGE("video receive frame returns %d\n", err);
                     // convert audio until there is no more data
                     VideoFrame *videoFrame = dataReceiver->getUsedVideoFrame();
                     if(videoFrame == NULL)

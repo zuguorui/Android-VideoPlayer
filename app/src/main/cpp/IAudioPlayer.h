@@ -16,6 +16,7 @@ public:
     virtual void release() = 0;
     virtual void start() = 0;
     virtual void stop() = 0;
+    virtual bool isPlaying() = 0;
     virtual void setAudioFrameProvider(IAudioFrameProvider *provider) = 0;
     virtual void removeAudioFrameProvider(IAudioFrameProvider *provider) = 0;
 };

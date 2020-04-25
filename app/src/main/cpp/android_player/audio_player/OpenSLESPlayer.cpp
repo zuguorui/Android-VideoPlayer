@@ -219,3 +219,17 @@ void OpenSLESPlayer::removeAudioFrameProvider(IAudioFrameProvider *provider) {
     }
     providerLock.unlock();
 }
+
+bool OpenSLESPlayer::isPlaying() {
+    if(playerPlay == NULL)
+    {
+        return false;
+    }
+    SLuint32 state;
+    SLresult result = (*playerPlay)->GetPlayState(playerPlay, &state);
+    if(result != SL_RESULT_SUCCESS)
+    {
+        return false;
+    }
+    return state == SL_PLAYSTATE_PLAYING;
+}

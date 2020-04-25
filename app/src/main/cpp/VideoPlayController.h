@@ -20,6 +20,7 @@
 #include "IVideoPlayer.h"
 #include "OpenGLESPlayer2.h"
 #include "OpenSLESPlayer.h"
+#include "IPlayStateListener.h"
 
 
 using namespace std;
@@ -42,6 +43,14 @@ public:
     void setWindow(void *window);
 
     void setSize(int width, int height);
+
+    int64_t getDuration();
+
+    bool isPlaying();
+
+    void setPlayStateListener(IPlayStateListener *listener);
+
+    void removePlayStateListener();
 
     void receiveAudioFrame(AudioFrame *audioData) override;
 
@@ -74,6 +83,9 @@ private:
 
     void imageRefreshLoop();
 
+    IPlayStateListener *stateListener = NULL;
+    mutex stateListenerMu;
+
     VideoFileDecoder *decoder = NULL;
 
     IAudioPlayer *audioPlayer = NULL;
@@ -96,7 +108,7 @@ private:
 
     bool exitFlag = false;
 
-
+    mutex seekMu;
 
 
 

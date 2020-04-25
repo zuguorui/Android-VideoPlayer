@@ -113,6 +113,18 @@ VideoPlayController::~VideoPlayController() {
 
 }
 
+void VideoPlayController::setPlayStateListener(IPlayStateListener *listener) {
+    unique_lock<mutex> locker(stateListenerMu);
+    this->stateListener = listener;
+    locker.unlock();
+}
+
+void VideoPlayController::removePlayStateListener() {
+    unique_lock<mutex> locker(stateListenerMu);
+    this->stateListener = NULL;
+    locker.unlock();
+}
+
 bool VideoPlayController::openFile(const char *path) {
     LOGD("openFile");
     if(decoder->openFile(path) == false)
@@ -130,21 +142,70 @@ void VideoPlayController::closeFile() {
     decoder->closeInput();
     audioQueue->discardAll(NULL);
     videoQueue->discardAll(NULL);
+    LOGD("closeFile exit");
 }
 
 void VideoPlayController::start() {
     LOGD("start");
     audioPlayer->start();
+    unique_lock<mutex> locker(stateListenerMu);
+    if(stateListener)
+    {
+        stateListener->playStateChanged(true);
+    }
+    locker.unlock();
 }
 
 void VideoPlayController::stop() {
     LOGD("stop");
     audioPlayer->stop();
+    unique_lock<mutex> locker(stateListenerMu);
+    if(stateListener)
+    {
+        stateListener->playStateChanged(false);
+    }
+    locker.unlock();
 }
 
 void VideoPlayController::seek(int64_t posMS) {
+
+    bool seekForward = posMS - currentPositionMS > 0;
     decoder->seekTo(posMS);
+    unique_lock<mutex> locker(seekMu);
+    waitVideoFrame = NULL;
     discardAllFrame();
+
+    VideoFrame *vf = videoQueue->get();
+    while(1)
+    {
+        if(abs(vf->pts - posMS) < 500)
+        {
+            LOGD("seek, find a suitable video frame, seekPos = %ld, vf->pts = %ld", posMS, vf->pts);
+            videoQueue->putToUsed(vf);
+            break;
+        }
+        videoQueue->putToUsed(vf);
+        vf = videoQueue->get();
+    }
+
+    AudioFrame *af = audioQueue->get();
+    while(1)
+    {
+        if(abs(af->pts - vf->pts) < 100)
+        {
+            audioQueue->putToUsed(af);
+            LOGD("seek, find a suitable audio frame, vf->pts = %ld, af->pts = %ld", vf->pts, af->pts);
+            break;
+        }
+        audioQueue->putToUsed(af);
+        af = audioQueue->get();
+    }
+
+
+
+    locker.unlock();
+
+
 }
 
 void VideoPlayController::discardAllFrame() {
@@ -160,6 +221,19 @@ void VideoPlayController::setWindow(void *window) {
 void VideoPlayController::setSize(int width, int height) {
     LOGD("setSize");
     videoPlayer->setSize(width, height);
+}
+
+int64_t VideoPlayController::getDuration() {
+    return decoder->getDuration();
+}
+
+bool VideoPlayController::isPlaying() {
+    //TODO: this need to be completed if use external clock
+    if(audioPlayer)
+    {
+        return audioPlayer->isPlaying();
+    }
+    return false;
 }
 
 void VideoPlayController::refreshThreadCallback(void *self) {
@@ -232,10 +306,23 @@ void VideoPlayController::putUsedVideoFrame(VideoFrame *videoData) {
 }
 
 AudioFrame *VideoPlayController::getAudioFrame() {
+    unique_lock<mutex> seekLock(seekMu);
     AudioFrame *frame = audioQueue->get();
+    if(frame == NULL)
+    {
+        //it means file play over
+        unique_lock<mutex> stateListenerLock(stateListenerMu);
+        if(stateListener)
+        {
+            stateListener->progressChanged(currentPositionMS, true);
+        }
+        stateListenerLock.unlock();
+        return NULL;
+    }
     currentPositionMS = frame->pts;
-    LOGD("get a audio frame, pts = %ld", currentPositionMS);
+//    LOGD("get a audio frame, pts = %ld", currentPositionMS);
 //    updateCurrentPosSignal.notify_all();
+
 
 
     while(1)
@@ -249,10 +336,10 @@ AudioFrame *VideoPlayController::getAudioFrame() {
                 ///if get a NULL videoFrame, means this controller will terminate
                 break;
             }
-            LOGD("get a video frame, pts = %ld", waitVideoFrame->pts);
+//            LOGD("get a video frame, pts = %ld, videoQueue.size = %d", waitVideoFrame->pts, videoQueue->getSize());
         }
 
-        LOGD("this video frame, pts = %ld", waitVideoFrame->pts);
+//        LOGD("this video frame, pts = %ld", waitVideoFrame->pts);
 
         if(waitVideoFrame->pts - currentPositionMS < -50)
         {
@@ -264,23 +351,30 @@ AudioFrame *VideoPlayController::getAudioFrame() {
         } else if(waitVideoFrame->pts - currentPositionMS > 50)
         {
             ///this video is still too early, wait. break this loop to let the audioFrame return. And will check this video frame at next getAudioFrame call.
-            LOGD("video too early, wait");
+//            LOGD("video too early, wait. video is early %ld ms than audio", waitVideoFrame->pts - frame->pts);
+//            if(waitVideoFrame->pts - frame->pts > 500)
+//            {
+//                ///in this case, means seeking backward, need to discard this video frame and read a new one until they are close enough
+//                videoQueue->putToUsed(waitVideoFrame);
+//                waitVideoFrame = NULL;
+//                continue;
+//            }
             break;
         } else
         {
             ///it is time to refresh this videoFrame.
             if(videoPlayer->isReady())
             {
-                LOGD("refresh image");
-                unique_lock<mutex> locker(videoMu);
+//                LOGD("refresh image");
+                unique_lock<mutex> videoFrameLock(videoMu);
                 nextVideoFrame = waitVideoFrame;
                 waitVideoFrame = NULL;
                 videoPlayer->refresh();
-                locker.unlock();
+                videoFrameLock.unlock();
             } else
             {
                 ///videoPlayer not ready(caused window not set), discard this video frame
-                LOGE("videoPlayer not prepared, discard this videoFrame");
+//                LOGE("videoPlayer not prepared, discard this videoFrame");
                 videoQueue->putToUsed(waitVideoFrame);
                 waitVideoFrame = NULL;
             }
@@ -289,6 +383,13 @@ AudioFrame *VideoPlayController::getAudioFrame() {
     }
 
 
+    unique_lock<mutex> stateListenerLock(stateListenerMu);
+    if(stateListener)
+    {
+        stateListener->progressChanged(currentPositionMS, false);
+    }
+    stateListenerLock.unlock();
+    seekLock.unlock();
     return frame;
 }
 
@@ -297,7 +398,7 @@ void VideoPlayController::putBackUsed(AudioFrame *data) {
 }
 
 VideoFrame *VideoPlayController::getVideoFrame() {
-    LOGD("the videoPlayer call getVideoFrame");
+//    LOGD("the videoPlayer call getVideoFrame");
     unique_lock<mutex> locker(videoMu);
     VideoFrame *f = nextVideoFrame;
     nextVideoFrame = NULL;

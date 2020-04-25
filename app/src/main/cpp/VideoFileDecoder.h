@@ -46,6 +46,8 @@ public:
     int32_t getVideoWidth();
     int32_t getVideoHeight();
 
+    int64_t getDuration();
+
 private:
     bool initComponents(const char *path);
     void resetComponents();
