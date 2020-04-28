@@ -140,8 +140,11 @@ void VideoPlayController::closeFile() {
     audioQueue->discardAll(NULL);
     videoQueue->discardAll(NULL);
     decoder->closeInput();
+    LOGD("decoder close input finished");
     audioQueue->discardAll(NULL);
     videoQueue->discardAll(NULL);
+    videoQueue->notifyWaitGet();
+    audioQueue->notifyWaitGet();
     LOGD("closeFile exit");
 }
 
@@ -178,7 +181,7 @@ void VideoPlayController::seek(int64_t posMS) {
     VideoFrame *vf = videoQueue->get();
     while(1)
     {
-        if(abs(vf->pts - posMS) < 500)
+        if(abs(vf->pts - posMS) < 2000)
         {
             LOGD("seek, find a suitable video frame, seekPos = %ld, vf->pts = %ld", posMS, vf->pts);
             videoQueue->putToUsed(vf);

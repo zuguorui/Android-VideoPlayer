@@ -29,7 +29,7 @@ static void log_callback(void *ctx, int level, const char *fmt, va_list args)
 
 VideoFileDecoder::VideoFileDecoder() {
     av_register_all();
-//    av_log_set_callback(log_callback);
+    av_log_set_callback(log_callback);
     LOGD("constructor");
     audioPacketQueue = new BlockRecyclerQueue<AVPacket *>();
     videoPacketQueue = new BlockRecyclerQueue<AVPacket *>(20);
@@ -240,25 +240,7 @@ bool VideoFileDecoder::initComponents(const char *path) {
             LOGE("audio swr init failed, err = %d", err);
         }
 
-        duration = (int64_t)(audioStream->duration * av_q2d(audioStream->time_base) * 1000);
-        // if audio is AAC, we need to deal with duration. FFmpeg can not get AAC duration correctly
-//        if(audioCodec->id == AV_CODEC_ID_AAC)
-//        {
-//            FILE *aacFile = fopen(path, "rb");
-//            if(aacFile != NULL)
-//            {
-//                duration = get_aac_duration(aacFile);
-//                fclose(aacFile);
-//            }else{
-//                LOGE("open aac file error");
-//            }
-//
-//            if(duration == -1)
-//            {
-//                LOGE("get aac duration error, now we use audio stream duration, it may be wrong for aac");
-//                duration = (int64_t)(audioStream->duration * av_q2d(audioStream->time_base) * 1000);
-//            }
-//        }
+
     }
 
     if(videoIndex != -1)
@@ -313,6 +295,10 @@ bool VideoFileDecoder::initComponents(const char *path) {
 //        // If it only has audio, we set it as default
 //        audioSampleCountLimit = 512;
 //    }
+
+
+    duration = formatCtx->duration / AV_TIME_BASE * 1000;
+    LOGD("get duration from format context = %ld", duration);
 
     return true;
 }
@@ -715,9 +701,9 @@ void VideoFileDecoder::decodeVideo() {
     int err = 0;
     while(!stopDecodeFlag && !readFinish)
     {
-        LOGD("start get video packet");
+//        LOGD("start get video packet");
         AVPacket *packet = videoPacketQueue->get();
-        LOGD("get a video packet, videoPacketQueue.size = %d", videoPacketQueue->getSize());
+//        LOGD("get a video packet, videoPacketQueue.size = %d", videoPacketQueue->getSize());
 
         if(packet == NULL)
         {
@@ -749,9 +735,9 @@ void VideoFileDecoder::decodeVideo() {
             //read until can not read more to ensure codec won't be full
             while(1)
             {
-                LOGD("video start receive frame");
+//                LOGD("video start receive frame");
                 err = avcodec_receive_frame(videoCodecCtx, frame);
-                LOGD("video end receive frame");
+//                LOGD("video end receive frame");
 
 
                 if(err == AVERROR(EAGAIN))
@@ -785,7 +771,7 @@ void VideoFileDecoder::decodeVideo() {
                     if(err > 0)
                     {
                         memcpy(videoFrame->data, convertedFrame->data[0], numBytes);
-
+                        LOGD("put a video frame to receiver");
                         dataReceiver->receiveVideoFrame(videoFrame);
                     }
                     else{
