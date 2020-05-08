@@ -179,14 +179,23 @@ void VideoPlayController::seek(int64_t posMS) {
     discardAllFrame();
 
     VideoFrame *vf = videoQueue->get();
+
+    int64_t previousPts = vf->pts;
     while(1)
     {
-        if(abs(vf->pts - posMS) < 2000)
+        if(vf->pts < previousPts || vf->pts - previousPts > 1000)
         {
             LOGD("seek, find a suitable video frame, seekPos = %ld, vf->pts = %ld", posMS, vf->pts);
-            videoQueue->putToUsed(vf);
             break;
         }
+//        if(abs(vf->pts - posMS) < 2000)
+//        {
+//            LOGD("seek, find a suitable video frame, seekPos = %ld, vf->pts = %ld", posMS, vf->pts);
+//            videoQueue->putToUsed(vf);
+//            break;
+//        }
+        LOGE("seek, put a video frame to used, seekPos = %ld, vf->pts = %ld", posMS, vf->pts);
+        previousPts = vf->pts;
         videoQueue->putToUsed(vf);
         vf = videoQueue->get();
     }

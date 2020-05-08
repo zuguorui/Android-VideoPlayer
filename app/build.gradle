@@ -16,7 +16,7 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                arguments '-DANDROID_PLATFORM=26'
+                arguments '-DANDROID_PLATFORM=26', '-DANDROID_ARM_NEON=TRUE'
                 cppFlags '-std=c++11'
             }
         }
