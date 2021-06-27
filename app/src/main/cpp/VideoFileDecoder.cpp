@@ -119,6 +119,7 @@ bool VideoFileDecoder::hasAudio() {
 bool VideoFileDecoder::initComponents(const char *path) {
     LOGD("initComponents");
     int err = 0;
+    char errbuf[256];
     formatCtx = avformat_alloc_context();
     if (!formatCtx)
     {
@@ -129,7 +130,7 @@ bool VideoFileDecoder::initComponents(const char *path) {
     err = avformat_open_input(&formatCtx, path, NULL, NULL);
     if (err < 0)
     {
-        LOGE("Can't open input file\n");
+        LOGE("Can't open input file, err = %s\n", av_make_error_string(errbuf, 256, err));
         return false;
     }
 

@@ -68,5 +68,4 @@ target_link_libraries( # Specifies the target library.
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libavutil.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libswresample.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libswscale.so
-        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libpostproc.so
         )
