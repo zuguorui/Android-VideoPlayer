@@ -17,6 +17,7 @@ include_directories("src/main/cpp/")
 include_directories("src/main/cpp/iconv/")
 include_directories("src/main/cpp/android_player/video_player/")
 include_directories("src/main/cpp/android_player/audio_player/")
+include_directories("src/main/cpp/output/")
 
 
 

@@ -1,0 +1,18 @@
+//
+// Created by 祖国瑞 on 2022/9/5.
+//
+
+#ifndef ANDROID_VIDEOPLAYER_IVIDEOOUTPUT_H
+#define ANDROID_VIDEOPLAYER_IVIDEOOUTPUT_H
+
+class IVideoOutput {
+public:
+    virtual bool create() = 0;
+    virtual void release() = 0;
+    virtual void setWindow(void *window) = 0;
+    virtual void setSize(int32_t width, int32_t height) = 0;
+    virtual bool isReady() = 0;
+};
+
+
+#endif //ANDROID_VIDEOPLAYER_IVIDEOOUTPUT_H

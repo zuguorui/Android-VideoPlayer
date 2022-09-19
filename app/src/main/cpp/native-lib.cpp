@@ -12,6 +12,10 @@
 #include "VideoPlayController.h"
 #include "JavaStateListener.h"
 
+#include "LinkedBlockingQueue.h"
+
+#include "Player.h"
+
 using namespace std;
 
 #define MODULE_NAME "native_lib"

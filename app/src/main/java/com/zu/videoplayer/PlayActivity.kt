@@ -7,6 +7,7 @@ import android.os.Message
 import android.view.*
 import android.widget.SeekBar
 import kotlinx.android.synthetic.main.activity_play.*
+import java.util.concurrent.LinkedBlockingQueue
 
 fun formatDuration(duration: Long): String
 {
@@ -17,7 +18,7 @@ fun formatDuration(duration: Long): String
     val hours: Int = totalMinutes / 60
 
     var result = "${if (hours == 0) "" else String.format("%02d:", hours)}${String.format("%02d", minutes)}:${String.format("%02d", seconds)}"
-
+    var blockQueue = LinkedBlockingQueue<Int>()
 
     return result
 }
