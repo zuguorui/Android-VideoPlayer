@@ -9,6 +9,14 @@ static const char* TAG = "FFmpegDecoder";
 
 using namespace std;
 
+FFmpegDecoder::FFmpegDecoder() {
+
+}
+
+FFmpegDecoder::~FFmpegDecoder() {
+    release();
+}
+
 const char* FFmpegDecoder::getName() {
     if (codec == nullptr) {
         return "Not init";
@@ -62,24 +70,38 @@ void FFmpegDecoder::release() {
     }
 }
 
-DecodingState FFmpegDecoder::sendPacket(const AVPacket *packet) {
+CodecState FFmpegDecoder::sendPacket(const AVPacket *packet) {
     if (!codecCtx) {
-        return DecodingState::NOT_INIT;
+        return CodecState::NOT_INIT;
     }
     int ret = 0;
     ret = avcodec_send_packet(codecCtx, packet);
     if (ret == AVERROR(EAGAIN)) {
-        return DecodingState::AGAIN;
+        return CodecState::AGAIN;
     } else if (ret == AVERROR_EOF) {
-        return DecodingState::IS_EOF;
+        return CodecState::IS_EOF;
     } else if (ret < 0) {
         LOGE(TAG, "avcodec_send_packet failed, err = %d", ret);
-        return DecodingState::UNKNOWN_ERROR;
+        return CodecState::UNKNOWN_ERROR;
     }
 
-    return DecodingState::OK;
+    return CodecState::OK;
 }
 
-std::unique_ptr<void> FFmpegDecoder::receiveFrame() {
-    return NULL;
+int FFmpegDecoder::receiveFrame(AVFrame *frame) {
+    if (!codecCtx) {
+        return CodecState::NOT_INIT;
+    }
+    int ret = 0;
+    ret = avcodec_receive_frame(codecCtx, frame);
+    if (ret == AVERROR(EAGAIN)) {
+        return CodecState::AGAIN;
+    } else if (ret == AVERROR_EOF) {
+        return CodecState::IS_EOF;
+    } else if (ret < 0) {
+        LOGE(TAG, "avcodec_receive_frame failed, err = %d", ret);
+        return CodecState::UNKNOWN_ERROR;
+    }
+
+    return CodecState::OK;
 }

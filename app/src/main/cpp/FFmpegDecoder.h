@@ -13,15 +13,20 @@ extern "C" {
 
 class FFmpegDecoder: public IDecoder{
 public:
+
+    FFmpegDecoder();
+
+    ~FFmpegDecoder();
+
     const char* getName();
 
     bool init(int codecId, AVCodecParameters *params);
 
     void release();
 
-    DecodingState sendPacket(const AVPacket *packet);
+    CodecState sendPacket(const AVPacket *packet);
 
-    std::unique_ptr<void> receiveFrame();
+    int receiveFrame(AVFrame *frame);
 
 private:
 

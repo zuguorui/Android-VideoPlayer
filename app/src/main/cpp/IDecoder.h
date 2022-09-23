@@ -12,7 +12,7 @@ extern "C" {
 #include "FFmpeg/libavcodec/avcodec.h"
 }
 
-enum DecodingState {
+enum CodecState {
     OK, AGAIN, IS_EOF, NOT_INIT, UNKNOWN_ERROR
 };
 
@@ -21,8 +21,8 @@ public:
     virtual const char* getName() = 0;
     virtual bool init(int codecId, AVCodecParameters *params) = 0;
     virtual void release() = 0;
-    virtual DecodingState sendPacket(const AVPacket *packet) = 0;
-    virtual std::unique_ptr<void> receiveFrame() = 0;
+    virtual CodecState sendPacket(const AVPacket *packet) = 0;
+    virtual int receiveFrame(AVFrame *frame) = 0;
 };
 
 #endif //ANDROID_VIDEOPLAYER_IDECODER_H

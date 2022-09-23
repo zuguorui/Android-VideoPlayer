@@ -16,6 +16,8 @@
 #include "PlayerContext.h"
 #include "IDecoder.h"
 #include "FFmpegDecoder.h"
+#include "output/IVideoOutput.h"
+#include "output/IAudioOutput.h"
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
@@ -30,7 +32,19 @@ public:
     ~Player();
 
 
+
 private:
+    IDecoder *videoDecoder;
+    IDecoder *audioDecoder;
+
+    PlayerContext playerContext;
+
+    AVFrame *frame;
+    AVPacket *packet;
+
+    IDecoder *getVideoDecoder();
+    IDecoder *getAudioDecoder();
+
 
 
 
