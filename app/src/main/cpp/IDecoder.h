@@ -19,7 +19,7 @@ enum CodecState {
 class IDecoder {
 public:
     virtual const char* getName() = 0;
-    virtual bool init(int codecId, AVCodecParameters *params) = 0;
+    virtual bool init(AVCodecParameters *params) = 0;
     virtual void release() = 0;
     virtual CodecState sendPacket(const AVPacket *packet) = 0;
     virtual int receiveFrame(AVFrame *frame) = 0;

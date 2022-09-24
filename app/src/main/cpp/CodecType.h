@@ -1,0 +1,12 @@
+//
+// Created by 祖国瑞 on 2022/9/24.
+//
+
+#ifndef ANDROID_VIDEOPLAYER_CODECTYPE_H
+#define ANDROID_VIDEOPLAYER_CODECTYPE_H
+
+enum CodecType {
+    UNKNOWN, NOT_SUPPORTED, HW, SW
+};
+
+#endif //ANDROID_VIDEOPLAYER_CODECTYPE_H

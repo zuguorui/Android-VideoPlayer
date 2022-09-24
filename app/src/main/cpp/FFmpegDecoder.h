@@ -20,7 +20,7 @@ public:
 
     const char* getName();
 
-    bool init(int codecId, AVCodecParameters *params);
+    bool init(AVCodecParameters *params);
 
     void release();
 

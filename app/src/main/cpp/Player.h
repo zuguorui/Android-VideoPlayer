@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <memory>
+#include <map>
 
 #include "Log.h"
 #include "VideoFrame.h"
@@ -18,6 +19,7 @@
 #include "FFmpegDecoder.h"
 #include "output/IVideoOutput.h"
 #include "output/IAudioOutput.h"
+#include "StreamInfo.h"
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
@@ -31,19 +33,44 @@ public:
     Player(Player&&) = delete;
     ~Player();
 
+    bool openFile(std::string pathStr);
+
+    void release();
+
+    bool play();
+
+    void pause();
+
+    int64_t getDurationMS();
+
+    int64_t getCurrentPtsMS();
+
+    bool seek(int64_t ptsMS);
 
 
 private:
-    IDecoder *videoDecoder;
-    IDecoder *audioDecoder;
+    IDecoder *videoDecoder = nullptr;
+    IDecoder *audioDecoder = nullptr;
 
     PlayerContext playerContext;
 
-    AVFrame *frame;
-    AVPacket *packet;
+    AVFrame *frame = nullptr;
+    AVPacket *packet = nullptr;
 
-    IDecoder *getVideoDecoder();
-    IDecoder *getAudioDecoder();
+    AVFormatContext *formatCtx = nullptr;
+
+    std::string filePath = "";
+
+    int audioStreamIndex = -1;
+    int videoStreamIndex = -1;
+
+    std::map<int, StreamInfo> audioStreamMap;
+    std::map<int, StreamInfo> videoStreamMap;
+
+    IDecoder *findHWDecoder(AVCodecParameters *params);
+    IDecoder *findSWDecoder(AVCodecParameters *params);
+
+    void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder, int *streamIndex);
 
 
 

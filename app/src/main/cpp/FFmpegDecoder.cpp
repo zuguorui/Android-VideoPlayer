@@ -24,13 +24,13 @@ const char* FFmpegDecoder::getName() {
     return codec->name;
 }
 
-bool FFmpegDecoder::init(int codecId, AVCodecParameters *params) {
+bool FFmpegDecoder::init(AVCodecParameters *params) {
     int ret;
     AVCodecID ffCodecID = AV_CODEC_ID_NONE;
     try {
-        ffCodecID = AVCodecID(codecId);
+        ffCodecID = AVCodecID(params->codec_id);
     } catch (...) {
-        LOGE(TAG, "failed to convert %d to AVCodecID", codecId);
+        LOGE(TAG, "failed to convert %d to AVCodecID", params->codec_id);
         return false;
     }
     codec = avcodec_find_decoder(ffCodecID);
