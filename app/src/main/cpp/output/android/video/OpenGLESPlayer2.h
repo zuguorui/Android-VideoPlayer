@@ -15,23 +15,19 @@
 #include "Texture.h"
 #include "Render.h"
 #include "EGLCore.h"
-#include "IVideoPlayer.h"
-#include "IVideoFrameProvider.h"
 
-class OpenGLESPlayer2: public IVideoPlayer {
+#include "IVideoOutput.h"
+#include "PlayerContext.h"
+#include "LinkedBlockingQueue.h"
+
+class OpenGLESPlayer2: public IVideoOutput {
 public:
-    OpenGLESPlayer2();
+    OpenGLESPlayer2(PlayerContext *playerContext);
     ~OpenGLESPlayer2();
 
     bool create() override;
 
     void release() override;
-
-    void refresh() override;
-
-    void setVideoFrameProvider(IVideoFrameProvider *provider) override;
-
-    void removeVideoFrameProvider(IVideoFrameProvider *provider) override;
 
     void setWindow(void *window) override;
 
@@ -39,13 +35,15 @@ public:
 
     bool isReady() override;
 
+    void write(std::unique_ptr<VideoFrame> frame) override;
+
 private:
-    EGLCore *eglCore = NULL;
-    Texture *texture = NULL;
-    Render *render = NULL;
+    EGLCore *eglCore = nullptr;
+    Texture *texture = nullptr;
+    Render *render = nullptr;
     EGLSurface surface = EGL_NO_SURFACE;
 
-    ANativeWindow *window = NULL;
+    ANativeWindow *window = nullptr;
 
     int32_t width = 0;
     int32_t height = 0;
@@ -54,13 +52,10 @@ private:
         SET_WINDOW, REFRESH, SET_SIZE, EXIT
     };
 
-    list<RenderMessage> messageQueue;
-    mutex renderMu;
-    condition_variable newMessageSignal;
-    thread *renderThread = NULL;
+    std::thread *renderThread = nullptr;
 
-    IVideoFrameProvider *frameProvider = NULL;
-
+    LinkedBlockingQueue<RenderMessage> messageQueue = LinkedBlockingQueue<RenderMessage>(10);
+    LinkedBlockingQueue<std::unique_ptr<VideoFrame>> frameQueue = LinkedBlockingQueue<std::unique_ptr<VideoFrame>>(10);
 
     bool initComponents();
     void releaseComponents();
@@ -68,7 +63,7 @@ private:
     void updateTexImage();
     void drawFrame();
 
-    static void threadCallback(void *self);
+    static void renderCallback(void *self);
     void renderLoop();
 
 

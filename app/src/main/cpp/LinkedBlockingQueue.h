@@ -51,7 +51,7 @@ public:
      * 1. blocking == false and the queue is full (size >= capacity)
      * 2. A blocking pushing is waked by {setBlockingPush(false)} and the queue is still full.
      */
-    bool push(T &t, bool blocking = true);
+    bool push(const T &t, bool blocking = true);
 
     /**
      * @brief Force push an object in to the queue ignoring capacity.
@@ -235,7 +235,7 @@ int32_t LinkedBlockingQueue<T>::getSize() {
 }
 
 template <typename T>
-bool LinkedBlockingQueue<T>::push(T& t, bool blocking) {
+bool LinkedBlockingQueue<T>::push(const T& t, bool blocking) {
     std::unique_lock<std::mutex> lock(pushMu);
     if (blocking && blockPushFlag) {
         if (capacity > 0) {

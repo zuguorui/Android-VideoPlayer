@@ -4,7 +4,7 @@
 
 #include "VideoPlayController.h"
 #include "OpenSLESPlayer.h"
-#include "OpenGLESPlayer.h"
+#include "output/android/video/OpenGLESPlayer.h"
 #include <android/log.h>
 
 #define MODULE_NAME  "VideoPlayController"

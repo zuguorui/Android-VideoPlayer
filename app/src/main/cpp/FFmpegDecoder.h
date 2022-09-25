@@ -24,7 +24,7 @@ public:
 
     void release();
 
-    CodecState sendPacket(const AVPacket *packet);
+    int sendPacket(const AVPacket *packet);
 
     int receiveFrame(AVFrame *frame);
 

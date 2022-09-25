@@ -10,6 +10,7 @@
 #include <iostream>
 #include <memory>
 #include <map>
+#include <thread>
 
 #include "Log.h"
 #include "VideoFrame.h"
@@ -33,6 +34,10 @@ public:
     Player(Player&&) = delete;
     ~Player();
 
+    bool initVideoOutput(void *window);
+
+    bool initAudioOutput(int32_t sampleRate, int32_t channels);
+
     bool openFile(std::string pathStr);
 
     void release();
@@ -54,11 +59,10 @@ private:
 
     PlayerContext playerContext;
 
-    AVFrame *frame = nullptr;
-    AVPacket *packet = nullptr;
+    IVideoOutput *videoOutput = nullptr;
+    IAudioOutput *audioOutput = nullptr;
 
     AVFormatContext *formatCtx = nullptr;
-
     std::string filePath = "";
 
     int audioStreamIndex = -1;
@@ -67,13 +71,36 @@ private:
     std::map<int, StreamInfo> audioStreamMap;
     std::map<int, StreamInfo> videoStreamMap;
 
+    LinkedBlockingQueue<AVPacket *> audioPacketQueue = LinkedBlockingQueue<AVPacket *>(20);
+    LinkedBlockingQueue<AVPacket *> videoPacketQueue = LinkedBlockingQueue<AVPacket *>(5);
+
+    LinkedBlockingQueue<std::unique_ptr<AudioFrame>> audioFrameQueue = LinkedBlockingQueue<std::unique_ptr<AudioFrame>>(20);
+    LinkedBlockingQueue<std::unique_ptr<VideoFrame>> videoFrameQueue = LinkedBlockingQueue<std::unique_ptr<VideoFrame>>(5);
+
+    std::thread *decodeAudioThread = nullptr;
+    std::thread *decodeVideoThread = nullptr;
+    std::thread *syncThread = nullptr;
+
+    std::atomic_bool stopFlag = false;
+
+
+
     IDecoder *findHWDecoder(AVCodecParameters *params);
     IDecoder *findSWDecoder(AVCodecParameters *params);
 
     void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder, int *streamIndex);
 
+    static void decodeAudioCallback(void *context);
+    void decodeAudioLoop();
 
+    static void decodeVideoCallback(void *context);
+    void decodeVideoLoop();
 
+    static void readPacketCallback(void *context);
+    void readPacketLoop();
+
+    static void syncCallback(void *context);
+    void syncLoop();
 
 };
 

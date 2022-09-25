@@ -70,38 +70,23 @@ void FFmpegDecoder::release() {
     }
 }
 
-CodecState FFmpegDecoder::sendPacket(const AVPacket *packet) {
+int FFmpegDecoder::sendPacket(const AVPacket *packet) {
     if (!codecCtx) {
-        return CodecState::NOT_INIT;
+        LOGE(TAG, "codecCtx is null");
+        return -1001;
     }
     int ret = 0;
     ret = avcodec_send_packet(codecCtx, packet);
-    if (ret == AVERROR(EAGAIN)) {
-        return CodecState::AGAIN;
-    } else if (ret == AVERROR_EOF) {
-        return CodecState::IS_EOF;
-    } else if (ret < 0) {
-        LOGE(TAG, "avcodec_send_packet failed, err = %d", ret);
-        return CodecState::UNKNOWN_ERROR;
-    }
 
-    return CodecState::OK;
+    return ret;
 }
 
 int FFmpegDecoder::receiveFrame(AVFrame *frame) {
     if (!codecCtx) {
-        return CodecState::NOT_INIT;
+        LOGE(TAG, "codecCtx is null");
+        return -1001;
     }
     int ret = 0;
     ret = avcodec_receive_frame(codecCtx, frame);
-    if (ret == AVERROR(EAGAIN)) {
-        return CodecState::AGAIN;
-    } else if (ret == AVERROR_EOF) {
-        return CodecState::IS_EOF;
-    } else if (ret < 0) {
-        LOGE(TAG, "avcodec_receive_frame failed, err = %d", ret);
-        return CodecState::UNKNOWN_ERROR;
-    }
-
-    return CodecState::OK;
+    return ret;
 }

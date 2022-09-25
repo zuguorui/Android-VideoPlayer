@@ -15,19 +15,18 @@ using namespace std;
 Player::Player() {
     av_log_set_callback(ffmpegLogCallback);
 
-    frame = av_frame_alloc();
-    packet = av_packet_alloc();
 }
 
 Player::~Player() {
-    if (frame) {
-        av_frame_free(&frame);
-        frame = nullptr;
-    }
-    if (packet) {
-        av_packet_free(&packet);
-        packet = nullptr;
-    }
+
+}
+
+bool Player::initAudioOutput(int32_t sampleRate, int32_t channels) {
+    return true;
+}
+
+bool Player::initVideoOutput(void *window) {
+    return true;
 }
 
 void Player::release() {
@@ -163,4 +162,140 @@ IDecoder *Player::findSWDecoder(AVCodecParameters *params) {
     }
     return decoder;
 }
+
+void Player::readPacketCallback(void *context) {
+    ((Player *)context)->readPacketLoop();
+}
+
+void Player::readPacketLoop() {
+    if (!formatCtx) {
+        LOGE(TAG, "no format context");
+        return;
+    }
+    int ret;
+    bool pushSuccess = false;
+    while (!stopFlag) {
+        AVPacket *packet = av_packet_alloc();
+        if (!packet) {
+            LOGE(TAG, "av_packet_alloc failed");
+            return;
+        }
+
+        ret = av_read_frame(formatCtx, packet);
+
+        if (ret == AVERROR_EOF) {
+            av_packet_free(&packet);
+            packet = nullptr;
+        } else if (ret < 0) {
+            LOGE(TAG, "av_read_frame failed");
+            av_packet_free(&packet);
+            packet = nullptr;
+            return;
+        }
+
+        if (packet->stream_index == audioStreamIndex) {
+            pushSuccess = audioPacketQueue.push(packet);
+            if (!pushSuccess) {
+                audioPacketQueue.forcePush(packet);
+            }
+        } else if (packet->stream_index == videoStreamIndex) {
+            pushSuccess = videoPacketQueue.push(packet);
+            if (!pushSuccess) {
+                videoPacketQueue.forcePush(packet);
+            }
+        } else {
+            av_packet_unref(packet);
+            av_packet_free(&packet);
+        }
+    }
+}
+
+void Player::decodeAudioCallback(void *context) {
+    ((Player *)context)->decodeAudioLoop();
+}
+
+void Player::decodeAudioLoop() {
+    if (!formatCtx) {
+        return;
+    }
+    if (!audioDecoder) {
+        LOGE(TAG, "audio decoder is null");
+        return;
+    }
+    int ret;
+    optional<AVPacket *> packetOpt;
+    AVPacket *packet = nullptr;
+    AVFrame *frame = av_frame_alloc();
+    while (!stopFlag) {
+        packetOpt = audioPacketQueue.pop();
+        if (!packetOpt.has_value()) {
+            LOGE(TAG, "packetOpt has no value");
+            break;
+        }
+        packet = packetOpt.value();
+        if (packet == nullptr) {
+            LOGD(TAG, "audio stream meets eof");
+        }
+        ret = audioDecoder->sendPacket(packet);
+        if (ret < 0) {
+            LOGE(TAG, "audio decoder send packet failed, err = %d", ret);
+            break;
+        }
+
+        while (true) {
+            ret = audioDecoder->receiveFrame(frame);
+            if (ret < 0) {
+                break;
+            }
+            // todo: convert AVFrame to AudioFrame
+
+            av_frame_unref(frame);
+        }
+
+        if (ret == AVERROR(EAGAIN)) {
+            LOGD(TAG, "audio stream again");
+            continue;
+        } else if (ret == AVERROR_EOF) {
+            LOGD(TAG, "audio stream meets eof");
+            break;
+        } else {
+            LOGE(TAG, "audio decoder error: %d", ret);
+            break;
+        }
+    }
+
+    if (packet) {
+        av_packet_unref(packet);
+        av_packet_free(&packet);
+        packet = nullptr;
+    }
+
+    if (frame) {
+        av_frame_unref(frame);
+        av_frame_free(&frame);
+        frame = nullptr;
+    }
+
+    LOGD(TAG, "audio decode loop finish");
+
+}
+
+void Player::decodeVideoCallback(void *context) {
+    ((Player *)context)->decodeVideoLoop();
+}
+
+void Player::decodeVideoLoop() {
+
+}
+
+
+
+void Player::syncCallback(void *context) {
+    ((Player *)context)->syncLoop();
+}
+
+void Player::syncLoop() {
+
+}
+
 

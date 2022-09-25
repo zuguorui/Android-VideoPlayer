@@ -4,14 +4,13 @@
 
 #include "OpenGLESPlayer2.h"
 
-#include <android/log.h>
+#include "Log.h"
 
-#define MODULE_NAME "OpenGLESPlayer2"
+#define TAG "OpenGLESPlayer2"
 
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, MODULE_NAME, __VA_ARGS__)
+using namespace std;
 
-OpenGLESPlayer2::OpenGLESPlayer2() {
+OpenGLESPlayer2::OpenGLESPlayer2(PlayerContext *playerContext): IVideoOutput(playerContext) {
 
 }
 
@@ -20,82 +19,60 @@ OpenGLESPlayer2::~OpenGLESPlayer2() {
 }
 
 bool OpenGLESPlayer2::create() {
-    renderThread = new thread(threadCallback, this);
+    renderThread = new thread(renderCallback, this);
     return true;
 }
 
 void OpenGLESPlayer2::release() {
-    unique_lock<mutex> locker(renderMu);
-    messageQueue.push_back(RenderMessage::EXIT);
-    newMessageSignal.notify_all();
-    locker.unlock();
-    if(renderThread != NULL && renderThread->joinable())
+    messageQueue.setBlockingPop(false);
+    messageQueue.setBlockingPush(false);
+    messageQueue.push(RenderMessage::EXIT);
+    if(renderThread != nullptr && renderThread->joinable())
     {
         renderThread->join();
     }
 
-    if(window != NULL)
+    if(window != nullptr)
     {
         ANativeWindow_release(window);
-        window = NULL;
+        window = nullptr;
     }
 }
 
-void OpenGLESPlayer2::refresh() {
-    unique_lock<mutex> locker(renderMu);
-    messageQueue.push_back(RenderMessage::REFRESH);
-    newMessageSignal.notify_all();
-    locker.unlock();
-}
 
-void OpenGLESPlayer2::threadCallback(void *self) {
+void OpenGLESPlayer2::renderCallback(void *self) {
     ((OpenGLESPlayer2 *)self)->renderLoop();
 }
 
-void OpenGLESPlayer2::setVideoFrameProvider(IVideoFrameProvider *provider) {
-    unique_lock<mutex> locker(renderMu);
-    this->frameProvider = provider;
-    locker.unlock();
-}
-
-void OpenGLESPlayer2::removeVideoFrameProvider(IVideoFrameProvider *provider) {
-    unique_lock<mutex> locker(renderMu);
-    this->frameProvider = NULL;
-    locker.unlock();
-}
 
 void OpenGLESPlayer2::setWindow(void *window) {
-    unique_lock<mutex> locker(renderMu);
     this->window = (ANativeWindow *)window;
-    messageQueue.push_back(RenderMessage::SET_WINDOW);
-    newMessageSignal.notify_all();
-    locker.unlock();
+    messageQueue.push(RenderMessage::SET_WINDOW);
 }
 
 void OpenGLESPlayer2::setSize(int32_t width, int32_t height) {
-    unique_lock<mutex> locker(renderMu);
+
     this->width = width;
     this->height = height;
-    messageQueue.push_back(RenderMessage::SET_SIZE);
-    newMessageSignal.notify_all();
-    locker.unlock();
+    messageQueue.push(RenderMessage::SET_SIZE);
 }
 
 void OpenGLESPlayer2::renderLoop() {
-    LOGD("renderLoop start");
+    LOGD(TAG, "renderLoop start");
+    optional<RenderMessage> messageOpt;
     RenderMessage message;
     bool exitFlag = false;
 
     while(!exitFlag)
     {
-        unique_lock<mutex> locker(renderMu);
-        while(messageQueue.size() == 0)
-        {
-            newMessageSignal.wait(locker);
+
+        messageOpt = messageQueue.pop();
+        if (!messageOpt.has_value()) {
+            LOGE(TAG, "messageOpt is null");
+            continue;
         }
-        message = messageQueue.front();
-        messageQueue.pop_front();
-        locker.unlock();
+        message = messageOpt.value();
+
         switch (message)
         {
             case SET_WINDOW:
@@ -125,7 +102,7 @@ void OpenGLESPlayer2::renderLoop() {
 }
 
 bool OpenGLESPlayer2::initComponents() {
-    LOGD("init");
+    LOGD(TAG, "init");
     eglCore = new EGLCore();
     eglCore->init();
     surface = eglCore->createWindowSurface(window);
@@ -135,7 +112,7 @@ bool OpenGLESPlayer2::initComponents() {
 
     if(!(texture->createTexture()))
     {
-        LOGE("create texture failed");
+        LOGE(TAG, "create texture failed");
         releaseComponents();
         return false;
     }
@@ -144,7 +121,7 @@ bool OpenGLESPlayer2::initComponents() {
     render = new Render();
     if(!render->init(width, height, texture))
     {
-        LOGE("init render failed");
+        LOGE(TAG, "init render failed");
         releaseComponents();
         return false;
     }
@@ -157,48 +134,75 @@ void OpenGLESPlayer2::releaseComponents() {
         eglCore->releaseSurface(surface);
         eglCore->release();
         delete(eglCore);
-        eglCore = NULL;
+        eglCore = nullptr;
     }
 
     if(texture)
     {
         texture->dealloc();
         delete(texture);
-        texture = NULL;
+        texture = nullptr;
     }
     if(render)
     {
         render->dealloc();
         delete(render);
-        render = NULL;
+        render = nullptr;
     }
 
-    window = NULL;
+    window = nullptr;
+
+    optional<unique_ptr<VideoFrame>> frameOpt;
+    while (frameQueue.getSize() > 0) {
+        frameOpt = frameQueue.pop(false);
+        if (!frameOpt.has_value()) {
+            break;
+        }
+
+        if (frameOpt.value() != nullptr) {
+            frameOpt.value().reset();
+        }
+    }
+
+    frameQueue.setBlockingPush(true);
+    frameQueue.setBlockingPop(true);
 }
 
 void OpenGLESPlayer2::updateTexImage() {
-    if(frameProvider == NULL)
-    {
+    optional<unique_ptr<VideoFrame>> frameOpt = frameQueue.pop();
+    if (!frameOpt.has_value()) {
+        LOGE(TAG, "frameOpt has no value");
         return;
     }
-    VideoFrame *f = frameProvider->getVideoFrame();
-    if(f == NULL)
+
+    unique_ptr<VideoFrame> frame = std::move(frameOpt.value());
+    if(frame == nullptr)
     {
+        LOGE(TAG, "frame is null");
         return;
     }
-    texture->updateDataToTexture(f->data, f->width, f->height);
-    frameProvider->putBackUsed(f);
+    texture->updateDataToTexture(frame->data, frame->width, frame->height);
+    if (playerCtx != nullptr) {
+        playerCtx->recycleVideoFrame(frame);
+    } else {
+        frame.reset();
+    }
 }
 
 void OpenGLESPlayer2::drawFrame() {
-    LOGD("drawFrame");
+    LOGD(TAG, "drawFrame");
     render->render();
     if(!eglCore->swapBuffers(surface))
     {
-        LOGE("swap buffers failed");
+        LOGE(TAG, "swap buffers failed");
     }
 }
 
 bool OpenGLESPlayer2::isReady() {
     return eglCore && texture && render;
+}
+
+void OpenGLESPlayer2::write(std::unique_ptr<VideoFrame> frame) {
+    frameQueue.push(frame);
+    messageQueue.push(RenderMessage::REFRESH);
 }
