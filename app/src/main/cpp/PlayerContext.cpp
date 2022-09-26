@@ -39,7 +39,7 @@ std::unique_ptr<AudioFrame> PlayerContext::getEmptyAudioFrame(int64_t capacity) 
     } else {
         while ((frameOpt = recycledAudioFrameQueue.pop()) != nullopt) {
             AudioFrame *ptr = frameOpt.value();
-            if (ptr->capacity < capacity) {
+            if (ptr->getCapacity() < capacity) {
                 delete ptr;
             } else {
                 frame = ptr;
@@ -73,7 +73,7 @@ std::unique_ptr<VideoFrame> PlayerContext::getEmptyVideoFrame(int64_t capacity) 
     } else {
         while ((frameOpt = recycledVideoFrameQueue.pop()) != nullopt) {
             VideoFrame *ptr = frameOpt.value();
-            if (ptr->capacity < capacity) {
+            if (ptr->getCapacity() < capacity) {
                 delete ptr;
             } else {
                 frame = ptr;

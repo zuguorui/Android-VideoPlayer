@@ -179,7 +179,7 @@ private:
     std::atomic_bool blockPushFlag;
     std::atomic_bool blockPopFlag;
 
-    void enqueue(T& t);
+    void enqueue(const T& t);
     std::unique_ptr<T> dequeue();
 };
 
@@ -209,7 +209,7 @@ LinkedBlockingQueue<T>::~LinkedBlockingQueue() {
 }
 
 template <typename T>
-void LinkedBlockingQueue<T>::enqueue(T& t) {
+void LinkedBlockingQueue<T>::enqueue(const T& t) {
     Node *node = new Node();
     node->pointer = std::make_unique<T>(t);
     tail->next = node;
@@ -257,6 +257,8 @@ bool LinkedBlockingQueue<T>::push(const T& t, bool blocking) {
     notEmpty.notify_all();
     return true;
 }
+
+
 
 template <typename T>
 void LinkedBlockingQueue<T>::forcePush(T &t) {

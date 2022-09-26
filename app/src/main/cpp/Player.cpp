@@ -6,6 +6,7 @@
 #include "Constants.h"
 #include "Util.h"
 #include "Log.h"
+#include <list>
 
 #define TAG "Player"
 
@@ -174,6 +175,7 @@ void Player::readPacketLoop() {
     }
     int ret;
     bool pushSuccess = false;
+    list<AVPacket *> ml;
     while (!stopFlag) {
         AVPacket *packet = av_packet_alloc();
         if (!packet) {
@@ -194,6 +196,7 @@ void Player::readPacketLoop() {
         }
 
         if (packet->stream_index == audioStreamIndex) {
+            ml.push_back(packet);
             pushSuccess = audioPacketQueue.push(packet);
             if (!pushSuccess) {
                 audioPacketQueue.forcePush(packet);
