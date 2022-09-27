@@ -28,7 +28,7 @@ PlayerContext::~PlayerContext() {
     }
 }
 
-std::unique_ptr<AudioFrame> PlayerContext::getEmptyAudioFrame(int64_t capacity) {
+AudioFrame* PlayerContext::getEmptyAudioFrame(int64_t capacity) {
     AudioFrame *frame = nullptr;
     optional<AudioFrame *> frameOpt;
     if (capacity <= 0) {
@@ -53,16 +53,14 @@ std::unique_ptr<AudioFrame> PlayerContext::getEmptyAudioFrame(int64_t capacity) 
         frame = new AudioFrame(finalCapacity);
     }
 
-    unique_ptr<AudioFrame> framePtr(frame);
-    return move(framePtr);
+    return frame;
 }
 
-void PlayerContext::recycleAudioFrame(std::unique_ptr<AudioFrame> &audioFrame) {
-    AudioFrame *framePtr = audioFrame.release();
-    recycledAudioFrameQueue.push(framePtr);
+void PlayerContext::recycleAudioFrame(AudioFrame *audioFrame) {
+    recycledAudioFrameQueue.push(audioFrame);
 }
 
-std::unique_ptr<VideoFrame> PlayerContext::getEmptyVideoFrame(int64_t capacity) {
+VideoFrame* PlayerContext::getEmptyVideoFrame(int64_t capacity) {
     VideoFrame *frame = nullptr;
     optional<VideoFrame *> frameOpt;
     if (capacity <= 0) {
@@ -83,16 +81,14 @@ std::unique_ptr<VideoFrame> PlayerContext::getEmptyVideoFrame(int64_t capacity) 
     }
 
     if (frame == nullptr) {
-        size_t finalCapacity = capacity > 0 ? capacity : (size_t)(DEFAULT_VIDEO_WIDTH * DEFAULT_VIDEO_HEIGHT * DEFAULT_PIX_SIZE);
+        size_t finalCapacity =
+                capacity > 0 ? capacity : (size_t) (DEFAULT_VIDEO_WIDTH * DEFAULT_VIDEO_HEIGHT *
+                                                    DEFAULT_PIX_SIZE);
         frame = new VideoFrame(finalCapacity);
     }
-
-    unique_ptr<VideoFrame> framePtr(frame);
-
-    return move(framePtr);
+    return frame;
 }
 
-void PlayerContext::recycleVideoFrame(std::unique_ptr<VideoFrame> &videoFrame) {
-    VideoFrame *framePtr = videoFrame.release();
-    recycledVideoFrameQueue.push(framePtr);
+void PlayerContext::recycleVideoFrame(VideoFrame *videoFrame) {
+    recycledVideoFrameQueue.push(videoFrame);
 }

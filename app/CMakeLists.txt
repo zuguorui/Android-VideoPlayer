@@ -10,13 +10,15 @@ cmake_minimum_required(VERSION 3.4.1)
 # You can define multiple libraries, and CMake builds them for you.
 # Gradle automatically packages shared libraries with your APK.
 
-file(GLOB CPP_FILES "src/main/cpp/*.cpp", "src/main/cpp/android_player/audio_player/*.cpp", "src/main/cpp/android_player/video_player/*.cpp")
+file(GLOB CPP_FILES
+        "src/main/cpp/*.cpp",
+        "src/main/cpp/output/android/video/*.cpp",
+        "src/main/cpp/output/android/audio/*.cpp"
+        )
 
 include_directories("src/main/cpp/FFmpeg/")
 include_directories("src/main/cpp/")
 include_directories("src/main/cpp/iconv/")
-include_directories("src/main/cpp/android_player/video_player/")
-include_directories("src/main/cpp/android_player/audio_player/")
 include_directories("src/main/cpp/output/")
 
 
@@ -43,6 +45,8 @@ find_library( # Sets the name of the path variable.
         # you want CMake to locate.
         log)
 
+find_package (oboe REQUIRED CONFIG)
+
 
 # Specifies libraries CMake should link to your target library. You
 # can link multiple libraries, such as libraries you define in this
@@ -58,6 +62,7 @@ target_link_libraries( # Specifies the target library.
         GLESv2
         EGL
         z
+        oboe::oboe
 #        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libcharset.so
 #        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libiconv.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libfdk-aac.so
@@ -69,4 +74,5 @@ target_link_libraries( # Specifies the target library.
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libavutil.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libswresample.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libswscale.so
+        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libpostproc.so
         )

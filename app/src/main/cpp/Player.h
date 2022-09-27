@@ -21,6 +21,8 @@
 #include "output/IVideoOutput.h"
 #include "output/IAudioOutput.h"
 #include "StreamInfo.h"
+#include "AudioConverter.h"
+#include "android/audio/OboePlayer.h"
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
@@ -74,8 +76,8 @@ private:
     LinkedBlockingQueue<AVPacket *> audioPacketQueue = LinkedBlockingQueue<AVPacket *>(20);
     LinkedBlockingQueue<AVPacket *> videoPacketQueue = LinkedBlockingQueue<AVPacket *>(5);
 
-    LinkedBlockingQueue<std::unique_ptr<AudioFrame>> audioFrameQueue = LinkedBlockingQueue<std::unique_ptr<AudioFrame>>(20);
-    LinkedBlockingQueue<std::unique_ptr<VideoFrame>> videoFrameQueue = LinkedBlockingQueue<std::unique_ptr<VideoFrame>>(5);
+    LinkedBlockingQueue<AudioFrame *> audioFrameQueue = LinkedBlockingQueue<AudioFrame *>(20);
+    LinkedBlockingQueue<VideoFrame *> videoFrameQueue = LinkedBlockingQueue<VideoFrame *>(5);
 
     std::thread *decodeAudioThread = nullptr;
     std::thread *decodeVideoThread = nullptr;
@@ -101,6 +103,9 @@ private:
 
     static void syncCallback(void *context);
     void syncLoop();
+
+    AudioFrame *convertAudioFrame(AVFrame *src);
+    VideoFrame *convertVideoFrame(AVFrame *src);
 
 };
 

@@ -229,6 +229,7 @@ void Player::decodeAudioLoop() {
     optional<AVPacket *> packetOpt;
     AVPacket *packet = nullptr;
     AVFrame *frame = av_frame_alloc();
+    AudioFrame *audioFrame = nullptr;
     while (!stopFlag) {
         packetOpt = audioPacketQueue.pop();
         if (!packetOpt.has_value()) {
@@ -250,8 +251,13 @@ void Player::decodeAudioLoop() {
             if (ret < 0) {
                 break;
             }
-            // todo: convert AVFrame to AudioFrame
-
+            audioFrame = convertAudioFrame(frame);
+            if (audioFrame) {
+                if (!audioFrameQueue.push(audioFrame)) {
+                    audioFrameQueue.push(audioFrame, false);
+                }
+                audioFrame = nullptr;
+            }
             av_frame_unref(frame);
         }
 
@@ -279,6 +285,11 @@ void Player::decodeAudioLoop() {
         frame = nullptr;
     }
 
+    if (audioFrame) {
+        audioFrameQueue.push(audioFrame, false);
+        audioFrame = nullptr;
+    }
+
     LOGD(TAG, "audio decode loop finish");
 
 }
@@ -299,6 +310,10 @@ void Player::syncCallback(void *context) {
 
 void Player::syncLoop() {
 
+}
+
+AudioFrame *Player::convertAudioFrame(AVFrame *src) {
+    AudioFrame *audioFrame = playerContext.getEmptyAudioFrame()
 }
 
 

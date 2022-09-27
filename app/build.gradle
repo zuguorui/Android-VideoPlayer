@@ -15,7 +15,8 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                arguments '-DANDROID_PLATFORM=26', '-DANDROID_ARM_NEON=TRUE'
+                // oboe need c++_shared
+                arguments '-DANDROID_PLATFORM=26', '-DANDROID_ARM_NEON=TRUE', '-DANDROID_STL=c++_shared'
                 cppFlags '-std=c++17'
             }
         }
@@ -42,6 +43,10 @@ android {
             jniLibs.srcDirs = ['jniLibs']
         }
     }
+    // oboe need this
+    buildFeatures {
+        prefab true
+    }
 }
 
 dependencies {
@@ -57,4 +62,6 @@ dependencies {
 
     implementation 'io.reactivex.rxjava2:rxandroid:2.1.1'
     implementation 'io.reactivex.rxjava2:rxjava:2.2.16'
+
+    implementation 'com.google.oboe:oboe:1.6.1'
 }

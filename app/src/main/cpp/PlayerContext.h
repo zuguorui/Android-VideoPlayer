@@ -17,11 +17,11 @@ public:
     PlayerContext();
     ~PlayerContext();
 
-    std::unique_ptr<VideoFrame> getEmptyVideoFrame(int64_t capacity);
-    void recycleVideoFrame(std::unique_ptr<VideoFrame> &videoFrame);
+    VideoFrame* getEmptyVideoFrame(int64_t capacity);
+    void recycleVideoFrame(VideoFrame *videoFrame);
 
-    std::unique_ptr<AudioFrame> getEmptyAudioFrame(int64_t capacity);
-    void recycleAudioFrame(std::unique_ptr<AudioFrame> &audioFrame);
+    AudioFrame* getEmptyAudioFrame(int64_t capacity);
+    void recycleAudioFrame(AudioFrame *audioFrame);
 
 private:
 
