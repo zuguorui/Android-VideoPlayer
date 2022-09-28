@@ -23,6 +23,14 @@ Player::~Player() {
 }
 
 bool Player::initAudioOutput(int32_t sampleRate, int32_t channels) {
+    audioOutput = getAudioOutput(&playerContext);
+    if (!audioOutput->create(sampleRate, channels, AVSampleFormat::AV_SAMPLE_FMT_FLT)) {
+        LOGE(TAG, "audioOutput.create failed");
+        delete audioOutput;
+        audioOutput = nullptr;
+        return false;
+    }
+    audioOutput->start();
     return true;
 }
 
@@ -114,6 +122,14 @@ bool Player::openFile(string pathStr) {
     if (audioStreamIndex != -1) {
         LOGD(TAG, "select audio index = %d, detail:", audioStreamIndex);
         av_dump_format(formatCtx, audioStreamIndex, nullptr, 0);
+        if (audioOutput) {
+            AVStream *audioStream = formatCtx->streams[audioStreamIndex];
+            AVCodecParameters *codecParameters = audioStream->codecpar;
+            audioConverter.setFormat(codecParameters->sample_rate, codecParameters->channels,
+                                     AVSampleFormat(codecParameters->format),
+                                     audioOutput->getSampleRate(), audioOutput->getChannels(),
+                                     audioOutput->getSampleFormat());
+        }
     }
 
     if (videoStreamIndex != -1) {
@@ -151,18 +167,6 @@ void Player::findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, I
     }
 }
 
-IDecoder *Player::findHWDecoder(AVCodecParameters *params) {
-    return nullptr;
-}
-
-IDecoder *Player::findSWDecoder(AVCodecParameters *params) {
-    FFmpegDecoder *decoder = new FFmpegDecoder();
-    if (!decoder->init(params)) {
-        delete decoder;
-        decoder = nullptr;
-    }
-    return decoder;
-}
 
 void Player::readPacketCallback(void *context) {
     ((Player *)context)->readPacketLoop();
@@ -233,7 +237,7 @@ void Player::decodeAudioLoop() {
     while (!stopFlag) {
         packetOpt = audioPacketQueue.pop();
         if (!packetOpt.has_value()) {
-            LOGE(TAG, "packetOpt has no value");
+            LOGE(TAG, "audio packetOpt has no value");
             break;
         }
         packet = packetOpt.value();
@@ -299,6 +303,79 @@ void Player::decodeVideoCallback(void *context) {
 }
 
 void Player::decodeVideoLoop() {
+    if (!formatCtx) {
+        return;
+    }
+    if (!videoDecoder) {
+        LOGE(TAG, "video decoder is null");
+        return;
+    }
+    int ret;
+    optional<AVPacket *> packetOpt;
+    AVPacket *packet;
+    AVFrame *frame = av_frame_alloc();
+    VideoFrame *videoFrame = nullptr;
+    while(!stopFlag) {
+        packetOpt = videoPacketQueue.pop();
+        if (!packetOpt.has_value()) {
+            LOGE(TAG, "video packetOpt has no value");
+            break;
+        }
+        packet = packetOpt.value();
+        if (packet == nullptr) {
+            LOGD(TAG, "video stream meets eof");
+        }
+        ret = videoDecoder->sendPacket(packet);
+        if (ret < 0) {
+            LOGE(TAG, "video decoder send packet failed, err = %d", ret);
+            break;
+        }
+
+        while (true) {
+            ret = videoDecoder->receiveFrame(frame);
+            if (ret < 0) {
+                break;
+            }
+            videoFrame = convertVideoFrame(frame);
+            if (videoFrame) {
+                if (!videoFrameQueue.push(videoFrame)) {
+                    videoFrameQueue.push(videoFrame, false);
+                }
+                videoFrame = nullptr;
+            }
+            av_frame_unref(frame);
+        }
+
+        if (ret == AVERROR(EAGAIN)) {
+            LOGD(TAG, "video stream again");
+            continue;
+        } else if (ret == AVERROR_EOF) {
+            LOGD(TAG, "video stream meets eof");
+            break;
+        } else {
+            LOGE(TAG, "video decoder error: %d", ret);
+            break;
+        }
+    }
+
+    if (packet) {
+        av_packet_unref(packet);
+        av_packet_free(&packet);
+        packet = nullptr;
+    }
+
+    if (frame) {
+        av_frame_unref(frame);
+        av_frame_free(&frame);
+        frame = nullptr;
+    }
+
+    if (videoFrame) {
+        videoFrameQueue.push(videoFrame, false);
+        videoFrame = nullptr;
+    }
+
+    LOGD(TAG, "video decode loop finish");
 
 }
 
@@ -313,7 +390,16 @@ void Player::syncLoop() {
 }
 
 AudioFrame *Player::convertAudioFrame(AVFrame *src) {
-    AudioFrame *audioFrame = playerContext.getEmptyAudioFrame()
+    if (!audioOutput) {
+        LOGE(TAG, "convertAudioFrame: audio output is null");
+        return nullptr;
+    }
+    int64_t capacity = audioOutput->getSampleRate() * audioOutput->getChannels() *
+            av_get_bytes_per_sample(audioOutput->getSampleFormat());
+    capacity /= 100;
+    AudioFrame *audioFrame = playerContext.getEmptyAudioFrame(capacity);
+    audioFrame->framesPerChannel = audioConverter.convert(src->data[0], src->linesize[0], (uint8_t *)audioFrame->data, audioFrame->getCapacity());
+    return audioFrame;
 }
 
 

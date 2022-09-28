@@ -7,10 +7,33 @@
 
 #include "oboe/Oboe.h"
 #include "AudioFrame.h"
+#include "IAudioOutput.h"
+#include "PlayerContext.h"
 
-class OboePlayer {
+
+class OboePlayer: public IAudioOutput {
 public:
+    OboePlayer(PlayerContext *playerContext);
 
+    ~OboePlayer();
+
+
+    bool create(int sampleRate, int channels, AVSampleFormat sampleFormat) override;
+
+    void release() override;
+
+    void start() override;
+
+    void stop() override;
+
+    void write(AudioFrame *audioFrame) override;
+
+    void write(uint8_t *buffer, int framesPerChannel) override;
+
+
+private:
+
+    oboe::AudioStream *audioStream = nullptr;
 };
 
 

@@ -23,6 +23,7 @@
 #include "StreamInfo.h"
 #include "AudioConverter.h"
 #include "android/audio/OboePlayer.h"
+#include "Factory.h"
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
@@ -63,6 +64,7 @@ private:
 
     IVideoOutput *videoOutput = nullptr;
     IAudioOutput *audioOutput = nullptr;
+    AudioConverter audioConverter;
 
     AVFormatContext *formatCtx = nullptr;
     std::string filePath = "";
@@ -84,11 +86,6 @@ private:
     std::thread *syncThread = nullptr;
 
     std::atomic_bool stopFlag = false;
-
-
-
-    IDecoder *findHWDecoder(AVCodecParameters *params);
-    IDecoder *findSWDecoder(AVCodecParameters *params);
 
     void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder, int *streamIndex);
 

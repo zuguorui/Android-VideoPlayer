@@ -10,14 +10,14 @@
 
 struct AudioFrame {
     int64_t pts;
-    float *data;
+    uint8_t *data;
 
     size_t channels;
     size_t framesPerChannel;
 
     AudioFrame(size_t capacity) {
         this->capacity = capacity;
-        data = (float *)malloc(capacity * sizeof(float));
+        data = (uint8_t *)malloc(capacity);
         channels = 0;
         framesPerChannel = 0;
     }
