@@ -24,6 +24,7 @@
 #include "AudioConverter.h"
 #include "android/audio/OboePlayer.h"
 #include "Factory.h"
+#include "VideoConverter.h"
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
@@ -37,7 +38,7 @@ public:
     Player(Player&&) = delete;
     ~Player();
 
-    bool initVideoOutput(void *window);
+    bool initVideoOutput(void *window, int width, int height);
 
     bool initAudioOutput(int32_t sampleRate, int32_t channels);
 

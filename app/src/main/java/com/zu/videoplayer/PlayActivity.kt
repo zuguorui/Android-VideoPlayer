@@ -90,6 +90,8 @@ class PlayActivity : AppCompatActivity(), PlayListener {
 
         initViews()
 
+        var tv = TextureView(this)
+
 
     }
 

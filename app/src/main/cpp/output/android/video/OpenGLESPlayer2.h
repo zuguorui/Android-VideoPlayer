@@ -35,7 +35,7 @@ public:
 
     bool isReady() override;
 
-    void write(std::unique_ptr<VideoFrame> frame) override;
+    void write(VideoFrame* frame) override;
 
 private:
     EGLCore *eglCore = nullptr;
@@ -55,7 +55,7 @@ private:
     std::thread *renderThread = nullptr;
 
     LinkedBlockingQueue<RenderMessage> messageQueue = LinkedBlockingQueue<RenderMessage>(10);
-    LinkedBlockingQueue<std::unique_ptr<VideoFrame>> frameQueue = LinkedBlockingQueue<std::unique_ptr<VideoFrame>>(10);
+    LinkedBlockingQueue<VideoFrame *> frameQueue = LinkedBlockingQueue<VideoFrame *>(10);
 
     bool initComponents();
     void releaseComponents();

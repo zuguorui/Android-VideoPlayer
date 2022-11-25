@@ -152,15 +152,15 @@ void OpenGLESPlayer2::releaseComponents() {
 
     window = nullptr;
 
-    optional<unique_ptr<VideoFrame>> frameOpt;
+    optional<VideoFrame *> frameOpt;
     while (frameQueue.getSize() > 0) {
         frameOpt = frameQueue.pop(false);
         if (!frameOpt.has_value()) {
-            break;
+            continue;
         }
 
         if (frameOpt.value() != nullptr) {
-            frameOpt.value().reset();
+            delete(frameOpt.value());
         }
     }
 
@@ -169,13 +169,13 @@ void OpenGLESPlayer2::releaseComponents() {
 }
 
 void OpenGLESPlayer2::updateTexImage() {
-    optional<unique_ptr<VideoFrame>> frameOpt = frameQueue.pop();
+    optional<VideoFrame *> frameOpt = frameQueue.pop();
     if (!frameOpt.has_value()) {
         LOGE(TAG, "frameOpt has no value");
         return;
     }
 
-    unique_ptr<VideoFrame> frame = std::move(frameOpt.value());
+    VideoFrame* frame = frameOpt.value();
     if(frame == nullptr)
     {
         LOGE(TAG, "frame is null");
@@ -185,7 +185,7 @@ void OpenGLESPlayer2::updateTexImage() {
     if (playerCtx != nullptr) {
         playerCtx->recycleVideoFrame(frame);
     } else {
-        frame.reset();
+        delete(frame);
     }
 }
 
@@ -202,7 +202,7 @@ bool OpenGLESPlayer2::isReady() {
     return eglCore && texture && render;
 }
 
-void OpenGLESPlayer2::write(std::unique_ptr<VideoFrame> frame) {
+void OpenGLESPlayer2::write(VideoFrame* frame) {
     frameQueue.push(frame);
     messageQueue.push(RenderMessage::REFRESH);
 }

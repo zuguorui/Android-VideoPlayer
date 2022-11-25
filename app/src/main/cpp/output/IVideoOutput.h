@@ -19,7 +19,7 @@ public:
     virtual void setWindow(void *window) = 0;
     virtual void setSize(int32_t width, int32_t height) = 0;
     virtual bool isReady() = 0;
-    virtual void write(std::unique_ptr<VideoFrame> frame) = 0;
+    virtual void write(VideoFrame* frame) = 0;
 
 protected:
     PlayerContext *playerCtx;

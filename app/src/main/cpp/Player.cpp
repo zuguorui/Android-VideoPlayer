@@ -34,7 +34,16 @@ bool Player::initAudioOutput(int32_t sampleRate, int32_t channels) {
     return true;
 }
 
-bool Player::initVideoOutput(void *window) {
+bool Player::initVideoOutput(void *window, int width, int height) {
+    videoOutput = getVideoOutput(&playerContext);
+    if (!videoOutput->create()) {
+        LOGE(TAG, "videoOutput.create failed");
+        delete videoOutput;
+        videoOutput = nullptr;
+        return false;
+    }
+    videoOutput->setWindow(window);
+    videoOutput->setSize(width, height);
     return true;
 }
 
@@ -400,6 +409,10 @@ AudioFrame *Player::convertAudioFrame(AVFrame *src) {
     AudioFrame *audioFrame = playerContext.getEmptyAudioFrame(capacity);
     audioFrame->framesPerChannel = audioConverter.convert(src->data[0], src->linesize[0], (uint8_t *)audioFrame->data, audioFrame->getCapacity());
     return audioFrame;
+}
+
+VideoFrame *Player::convertVideoFrame(AVFrame *src) {
+
 }
 
 
