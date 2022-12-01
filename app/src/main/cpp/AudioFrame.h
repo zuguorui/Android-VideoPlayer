@@ -10,28 +10,38 @@
 
 struct AudioFrame {
     int64_t pts;
-    uint8_t *data;
-
     size_t channels;
     size_t framesPerChannel;
+    AVSampleFormat sampleFormat;
+    AVFrame *avFrame;
 
-    AudioFrame(size_t capacity) {
-        this->capacity = capacity;
-        data = (uint8_t *)malloc(capacity);
-        channels = 0;
-        framesPerChannel = 0;
+    AudioFrame(AVFrame *avFrame, AVSampleFormat sampleFormat) {
+        this->avFrame = avFrame;
+        this->sampleFormat = sampleFormat;
+        initParams();
+    }
+
+    AudioFrame(AudioFrame &src) = delete;
+
+    AudioFrame(AudioFrame &&src) {
+        this->avFrame = src.avFrame;
+        this->sampleFormat = src.sampleFormat;
+        initParams();
     }
 
     ~AudioFrame() {
-        free(data);
-    }
-
-    size_t getCapacity() {
-        return capacity;
+        if (avFrame) {
+            av_frame_unref(avFrame);
+            avFrame = nullptr;
+        }
     }
 
 private:
-    size_t capacity;
+    void initParams() {
+        pts = avFrame->pts;
+        channels = avFrame->channels;
+        framesPerChannel = avFrame->nb_samples;
+    }
 
 };
 #endif //ANDROID_VIDEOPLAYER_AUDIOFRAME_H

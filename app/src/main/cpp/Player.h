@@ -24,7 +24,6 @@
 #include "AudioConverter.h"
 #include "android/audio/OboePlayer.h"
 #include "Factory.h"
-#include "VideoConverter.h"
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"

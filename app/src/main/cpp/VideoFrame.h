@@ -12,47 +12,52 @@
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
 #include "FFmpeg/libavutil/avutil.h"
-};
+}
 
-// RGB video frame
+// video frame
 struct VideoFrame {
-    uint8_t *data;
-    int64_t pts;
     int width;
     int height;
+    AVPixelFormat pixelFormat;
+    AVFrame *avFrame;
+    int64_t pts;
+    int64_t duration;
 
 
-    VideoFrame(size_t capacity) {
-        this->capacity = capacity;
-        data = (uint8_t *)malloc(capacity * sizeof(float));
+    VideoFrame(AVFrame *avFrame, AVPixelFormat avPixelFormat) {
+        this->avFrame = avFrame;
+        this->pixelFormat = avPixelFormat;
+        initParams();
+    }
+
+    VideoFrame(VideoFrame &src) = delete;
+
+    VideoFrame(VideoFrame &&src) {
+        this->avFrame = src.avFrame;
+        this->pixelFormat = src.pixelFormat;
+        src.avFrame = nullptr;
+        initParams()
     }
 
     ~VideoFrame() {
-        free(data);
+        if (avFrame) {
+            av_frame_unref(avFrame);
+            avFrame = nullptr;
+        }
     }
-
-    size_t getCapacity() {
-        return capacity;
-    }
-
-    static VideoFrame *alloc(AVPixelFormat pixelFormat, int width, int height);
 
 private:
-    size_t capacity;
+    void initParams() {
+        if (avFrame == nullptr) {
+            return;
+        }
+        width = avFrame->width;
+        height = avFrame->height;
+        pts = avFrame->pts;
+        duration = avFrame->pkt_duration;
+    }
+
 };
 
-VideoFrame *VideoFrame::alloc(AVPixelFormat pixelFormat, int width, int height) {
-    int capacity = -1;
-    switch (pixelFormat) {
-        case AV_PIX_FMT_RGB24:
-            capacity = 3 * width * height;
-            break;
-        case AV_PIX_FMT_ARGB:
-            capacity = 4 * width * height;
-            break;
-        case AV_PIX_FMT_YUV420P:
-
-    }
-}
 
 #endif //ANDROID_VIDEOPLAYER_VIDEOFRAME_H
