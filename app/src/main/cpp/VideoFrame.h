@@ -16,18 +16,27 @@ extern "C" {
 
 // video frame
 struct VideoFrame {
-    int width;
-    int height;
-    AVPixelFormat pixelFormat;
-    AVFrame *avFrame;
-    int64_t pts;
-    int64_t duration;
+    int width = -1;
+    int height = -1;
+    AVPixelFormat pixelFormat = AVPixelFormat::AV_PIX_FMT_NONE;
+    AVFrame *avFrame = nullptr;
+    int64_t pts = -1; // ms
+    int64_t durationMS = -1;
+    AVRational timeBase;
 
+    VideoFrame() {
 
-    VideoFrame(AVFrame *avFrame, AVPixelFormat avPixelFormat) {
+    }
+
+    void setParams(AVFrame *avFrame, AVPixelFormat avPixelFormat, AVRational timeBase) {
+        reset();
         this->avFrame = avFrame;
         this->pixelFormat = avPixelFormat;
         initParams();
+    }
+
+    VideoFrame(AVFrame *avFrame, AVPixelFormat avPixelFormat, AVRational timeBase): VideoFrame() {
+        setParams(avFrame, avPixelFormat, timeBase);
     }
 
     VideoFrame(VideoFrame &src) = delete;
@@ -36,7 +45,7 @@ struct VideoFrame {
         this->avFrame = src.avFrame;
         this->pixelFormat = src.pixelFormat;
         src.avFrame = nullptr;
-        initParams()
+        initParams();
     }
 
     ~VideoFrame() {
@@ -46,6 +55,18 @@ struct VideoFrame {
         }
     }
 
+    void reset() {
+        if (avFrame) {
+            av_frame_unref(avFrame);
+            avFrame = nullptr;
+        }
+        width = -1;
+        height = -1;
+        pixelFormat = AVPixelFormat::AV_PIX_FMT_NONE;
+        pts = -1;
+        durationMS = -1;
+    }
+
 private:
     void initParams() {
         if (avFrame == nullptr) {
@@ -53,8 +74,8 @@ private:
         }
         width = avFrame->width;
         height = avFrame->height;
-        pts = avFrame->pts;
-        duration = avFrame->pkt_duration;
+        pts = avFrame->pts * av_q2d(timeBase) * 1000;
+        durationMS = avFrame->pkt_duration * av_q2d(timeBase) * 1000;
     }
 
 };

@@ -23,11 +23,13 @@ struct StreamInfo {
     // audio
     int32_t sampleRate = -1;
     int32_t channels = -1;
+    AVSampleFormat sampleFormat = AVSampleFormat::AV_SAMPLE_FMT_NONE;
 
     // video
     int32_t width = -1;
     int32_t height = -1;
     float fps = -1;
+    AVPixelFormat pixelFormat = AVPixelFormat::AV_PIX_FMT_NONE;
 
 };
 

@@ -28,31 +28,16 @@ PlayerContext::~PlayerContext() {
     }
 }
 
-AudioFrame* PlayerContext::getEmptyAudioFrame(int64_t capacity) {
+AudioFrame* PlayerContext::getEmptyAudioFrame() {
+    optional<AudioFrame *> frameOpt = recycledAudioFrameQueue.pop(false);
     AudioFrame *frame = nullptr;
-    optional<AudioFrame *> frameOpt;
-    if (capacity <= 0) {
-        frameOpt = recycledAudioFrameQueue.pop();
-        if (frameOpt != nullopt) {
-            frame = frameOpt.value();
-        }
-    } else {
-        while ((frameOpt = recycledAudioFrameQueue.pop()) != nullopt) {
-            AudioFrame *ptr = frameOpt.value();
-            if (ptr->getCapacity() < capacity) {
-                delete ptr;
-            } else {
-                frame = ptr;
-                break;
-            }
-        }
+    if (frameOpt.has_value()) {
+        frame = frameOpt.value();
     }
 
     if (frame == nullptr) {
-        size_t finalCapacity = capacity > 0 ? capacity : (size_t)(0.5 * DEFAULT_SAMPLE_RATE * DEFAULT_CHANNELS * sizeof(float));
-        frame = new AudioFrame(finalCapacity);
+        frame = new AudioFrame();
     }
-
     return frame;
 }
 
@@ -60,31 +45,15 @@ void PlayerContext::recycleAudioFrame(AudioFrame *audioFrame) {
     recycledAudioFrameQueue.push(audioFrame);
 }
 
-VideoFrame* PlayerContext::getEmptyVideoFrame(int64_t capacity) {
+VideoFrame* PlayerContext::getEmptyVideoFrame() {
+    optional<VideoFrame *> frameOpt = recycledVideoFrameQueue.pop(false);
     VideoFrame *frame = nullptr;
-    optional<VideoFrame *> frameOpt;
-    if (capacity <= 0) {
-        frameOpt = recycledVideoFrameQueue.pop();
-        if (frameOpt != nullopt) {
-            frame = frameOpt.value();
-        }
-    } else {
-        while ((frameOpt = recycledVideoFrameQueue.pop()) != nullopt) {
-            VideoFrame *ptr = frameOpt.value();
-            if (ptr->getCapacity() < capacity) {
-                delete ptr;
-            } else {
-                frame = ptr;
-                break;
-            }
-        }
+    if (frameOpt.has_value()) {
+        frame = frameOpt.value();
     }
 
     if (frame == nullptr) {
-        size_t finalCapacity =
-                capacity > 0 ? capacity : (size_t) (DEFAULT_VIDEO_WIDTH * DEFAULT_VIDEO_HEIGHT *
-                                                    DEFAULT_PIX_SIZE);
-        frame = new VideoFrame(finalCapacity);
+        frame = new VideoFrame();
     }
     return frame;
 }

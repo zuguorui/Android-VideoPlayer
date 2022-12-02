@@ -17,10 +17,10 @@ public:
     PlayerContext();
     ~PlayerContext();
 
-    VideoFrame* getEmptyVideoFrame(int64_t capacity);
+    VideoFrame* getEmptyVideoFrame();
     void recycleVideoFrame(VideoFrame *videoFrame);
 
-    AudioFrame* getEmptyAudioFrame(int64_t capacity);
+    AudioFrame* getEmptyAudioFrame();
     void recycleAudioFrame(AudioFrame *audioFrame);
 
 private:

@@ -241,7 +241,7 @@ void Player::decodeAudioLoop() {
     int ret;
     optional<AVPacket *> packetOpt;
     AVPacket *packet = nullptr;
-    AVFrame *frame = av_frame_alloc();
+    AVFrame *frame = nullptr;
     AudioFrame *audioFrame = nullptr;
     while (!stopFlag) {
         packetOpt = audioPacketQueue.pop();
@@ -260,18 +260,22 @@ void Player::decodeAudioLoop() {
         }
 
         while (true) {
+            frame = av_frame_alloc();
             ret = audioDecoder->receiveFrame(frame);
             if (ret < 0) {
+                av_frame_unref(frame);
+                av_frame_free(&frame);
+                frame = nullptr;
                 break;
             }
-            audioFrame = convertAudioFrame(frame);
-            if (audioFrame) {
-                if (!audioFrameQueue.push(audioFrame)) {
-                    audioFrameQueue.push(audioFrame, false);
-                }
-                audioFrame = nullptr;
+            audioFrame = playerContext.getEmptyAudioFrame();
+            audioFrame->setParams(frame, audioStreamMap[audioStreamIndex].sampleFormat, formatCtx->streams[audioStreamIndex]->time_base);
+            if (!audioFrameQueue.push(audioFrame)) {
+                audioFrameQueue.push(audioFrame, false);
             }
-            av_frame_unref(frame);
+            // DON'T delete AVFrame here, it will be carried to output by AudioFrame
+            audioFrame = nullptr;
+            frame = nullptr;
         }
 
         if (ret == AVERROR(EAGAIN)) {
@@ -321,8 +325,8 @@ void Player::decodeVideoLoop() {
     }
     int ret;
     optional<AVPacket *> packetOpt;
-    AVPacket *packet;
-    AVFrame *frame = av_frame_alloc();
+    AVPacket *packet = nullptr;
+    AVFrame *frame = nullptr;
     VideoFrame *videoFrame = nullptr;
     while(!stopFlag) {
         packetOpt = videoPacketQueue.pop();
@@ -341,18 +345,23 @@ void Player::decodeVideoLoop() {
         }
 
         while (true) {
+            frame = av_frame_alloc();
             ret = videoDecoder->receiveFrame(frame);
             if (ret < 0) {
+                av_frame_unref(frame);
+                av_frame_free(&frame);
+                frame = nullptr;
                 break;
             }
-            videoFrame = convertVideoFrame(frame);
-            if (videoFrame) {
-                if (!videoFrameQueue.push(videoFrame)) {
-                    videoFrameQueue.push(videoFrame, false);
-                }
-                videoFrame = nullptr;
+            videoFrame = playerContext.getEmptyVideoFrame();
+            videoFrame->setParams(frame, videoStreamMap[videoStreamIndex].pixelFormat, formatCtx->streams[videoStreamIndex]->time_base);
+            if (!videoFrameQueue.push(videoFrame)) {
+                videoFrameQueue.push(videoFrame, false);
             }
-            av_frame_unref(frame);
+            // DON'T delete AVFrame, it will be carried to output by VideoFrame.
+            videoFrame = nullptr;
+            frame = nullptr;
+
         }
 
         if (ret == AVERROR(EAGAIN)) {
@@ -396,23 +405,80 @@ void Player::syncCallback(void *context) {
 
 void Player::syncLoop() {
 
-}
+    int64_t lastAudioPts = -1;
+    chrono::system_clock::time_point lastAudioWriteTime;
+    AudioFrame *audioFrame = nullptr;
+    VideoFrame *videoFrame = nullptr;
+    bool firstLoop = true;
+    while (!stopFlag) {
+        if (audioFrame == nullptr) {
+            optional<AudioFrame *> frameOpt = audioFrameQueue.pop();
+            if (frameOpt.has_value()) {
+                audioFrame = frameOpt.value();
+            } else if (stopFlag) {
+                break;
+            }
+        }
 
-AudioFrame *Player::convertAudioFrame(AVFrame *src) {
-    if (!audioOutput) {
-        LOGE(TAG, "convertAudioFrame: audio output is null");
-        return nullptr;
+        if (videoFrame == nullptr) {
+            optional<VideoFrame *> frameOpt = videoFrameQueue.pop();
+            if (frameOpt.has_value()) {
+                videoFrame = frameOpt.value();
+            } else if (stopFlag) {
+                break;
+            }
+        }
+
+        if (videoFrame->pts < audioFrame->pts) {
+            if (firstLoop) {
+                playerContext.recycleVideoFrame(videoFrame);
+                videoFrame = nullptr;
+                lastAudioWriteTime = chrono::system_clock::now();
+                lastAudioPts = audioFrame->pts;
+                audioOutput->write(audioFrame);
+                audioFrame = nullptr;
+                firstLoop = false;
+            } else {
+                if (videoFrame->pts < lastAudioPts) {
+                    playerContext.recycleVideoFrame(videoFrame);
+                    videoFrame = nullptr;
+                    continue;
+                } else {
+                    chrono::system_clock::time_point now = chrono::system_clock::now();
+                    int64_t duration = chrono::duration_cast<chrono::milliseconds>(now - lastAudioWriteTime).count();
+                    if (duration > videoFrame->pts - lastAudioPts) {
+                        int64_t waitMS = duration - (videoFrame->pts - lastAudioPts);
+                        this_thread::sleep_for(chrono::milliseconds(waitMS));
+                    }
+                    videoOutput->write(videoFrame);
+                    videoFrame = nullptr;
+                }
+
+            }
+        } else {
+            lastAudioWriteTime = chrono::system_clock::now();
+            lastAudioPts = audioFrame->pts;
+            audioOutput->write(audioFrame);
+            audioFrame = nullptr;
+            firstLoop = false;
+        }
     }
-    int64_t capacity = audioOutput->getSampleRate() * audioOutput->getChannels() *
-            av_get_bytes_per_sample(audioOutput->getSampleFormat());
-    capacity /= 100;
-    AudioFrame *audioFrame = playerContext.getEmptyAudioFrame(capacity);
-    audioFrame->framesPerChannel = audioConverter.convert(src->data[0], src->linesize[0], (uint8_t *)audioFrame->data, audioFrame->getCapacity());
-    return audioFrame;
+
+    if (audioFrame) {
+        playerContext.recycleAudioFrame(audioFrame);
+    }
+
+    if (videoFrame) {
+        playerContext.recycleVideoFrame(videoFrame);
+    }
 }
 
-VideoFrame *Player::convertVideoFrame(AVFrame *src) {
+void Player::startReadThread() {
+    if (!stopFlag && readStreamThread != nullptr) {
+        return;
+    }
 
 }
+
 
 

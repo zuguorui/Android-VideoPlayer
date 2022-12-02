@@ -81,6 +81,7 @@ private:
     LinkedBlockingQueue<AudioFrame *> audioFrameQueue = LinkedBlockingQueue<AudioFrame *>(20);
     LinkedBlockingQueue<VideoFrame *> videoFrameQueue = LinkedBlockingQueue<VideoFrame *>(5);
 
+    std::thread *readStreamThread = nullptr;
     std::thread *decodeAudioThread = nullptr;
     std::thread *decodeVideoThread = nullptr;
     std::thread *syncThread = nullptr;
@@ -101,8 +102,18 @@ private:
     static void syncCallback(void *context);
     void syncLoop();
 
-    AudioFrame *convertAudioFrame(AVFrame *src);
-    VideoFrame *convertVideoFrame(AVFrame *src);
+    void startReadThread();
+    void stopReadThread();
+
+    void startDecodeVideoThread();
+    void stopDecodeVideoThread();
+
+    void startDecodeAudioThread();
+    void stopDecodeAudioThread();
+
+    void startSyncThread();
+    void stopSyncThread();
+
 
 };
 
