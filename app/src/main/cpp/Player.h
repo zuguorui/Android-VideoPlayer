@@ -27,7 +27,7 @@
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
-};
+}
 
 class Player {
 
@@ -37,9 +37,7 @@ public:
     Player(Player&&) = delete;
     ~Player();
 
-    bool initVideoOutput(void *window, int width, int height);
-
-    bool initAudioOutput(int32_t sampleRate, int32_t channels);
+    void setWindow(ANativeWindow *window);
 
     bool openFile(std::string pathStr);
 
@@ -86,7 +84,26 @@ private:
     std::thread *decodeVideoThread = nullptr;
     std::thread *syncThread = nullptr;
 
-    std::atomic_bool stopFlag = false;
+    std::atomic_bool stopReadFlag = false;
+    std::atomic_bool stopDecodeAudioFlag = false;
+    std::atomic_bool stopDecodeVideoFlag = false;
+    std::atomic_bool stopSyncFlag = false;
+
+    std::mutex readStreamMu;
+    std::mutex decodeVideoMu;
+    std::mutex decodeAudioMu;
+    std::mutex syncMu;
+
+    AudioFrame *unPlayedAudioFrame = nullptr;
+    VideoFrame *unPlayedVideoFrame = nullptr;
+
+    std::atomic_int64_t lastAudioPts = 0;
+    std::atomic_int64_t lastVideoPts = 0;
+
+    std::atomic_bool seekReq = false;
+    std::atomic_int64_t seekPtsMS = 0;
+
+    ANativeWindow *nativeWindow;
 
     void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder, int *streamIndex);
 
@@ -96,14 +113,14 @@ private:
     static void decodeVideoCallback(void *context);
     void decodeVideoLoop();
 
-    static void readPacketCallback(void *context);
-    void readPacketLoop();
+    static void readStreamCallback(void *context);
+    void readStreamLoop();
 
     static void syncCallback(void *context);
     void syncLoop();
 
-    void startReadThread();
-    void stopReadThread();
+    void startReadStreamThread();
+    void stopReadStreamThread();
 
     void startDecodeVideoThread();
     void stopDecodeVideoThread();

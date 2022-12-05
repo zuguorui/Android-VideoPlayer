@@ -17,8 +17,9 @@ public:
 
     ~OboePlayer();
 
+    void setSrcFormat(int sampleRate, int channels, AVSampleFormat sampleFormat) override;
 
-    bool create(int sampleRate, int channels, AVSampleFormat sampleFormat) override;
+    bool create() override;
 
     void release() override;
 

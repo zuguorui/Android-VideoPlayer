@@ -206,3 +206,7 @@ void OpenGLESPlayer2::write(VideoFrame* frame) {
     frameQueue.push(frame);
     messageQueue.push(RenderMessage::REFRESH);
 }
+
+void OpenGLESPlayer2::setSrcFormat(AVPixelFormat pixelFormat) {
+    IVideoOutput::setSrcFormat(pixelFormat);
+}

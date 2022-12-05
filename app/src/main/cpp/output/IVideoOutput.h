@@ -14,6 +14,7 @@ public:
     IVideoOutput(PlayerContext *playerContext) {
         this->playerCtx = playerContext;
     };
+    virtual void setSrcFormat(AVPixelFormat pixelFormat) = 0;
     virtual bool create() = 0;
     virtual void release() = 0;
     virtual void setWindow(void *window) = 0;
@@ -23,6 +24,7 @@ public:
 
 protected:
     PlayerContext *playerCtx;
+    AVPixelFormat srcPixelFormat = AVPixelFormat::AV_PIX_FMT_NONE;
 };
 
 

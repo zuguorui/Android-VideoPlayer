@@ -19,35 +19,16 @@ Player::Player() {
 }
 
 Player::~Player() {
-
+    pause();
+    release();
 }
 
-bool Player::initAudioOutput(int32_t sampleRate, int32_t channels) {
-    audioOutput = getAudioOutput(&playerContext);
-    if (!audioOutput->create(sampleRate, channels, AVSampleFormat::AV_SAMPLE_FMT_FLT)) {
-        LOGE(TAG, "audioOutput.create failed");
-        delete audioOutput;
-        audioOutput = nullptr;
-        return false;
-    }
-    audioOutput->start();
-    return true;
-}
-
-bool Player::initVideoOutput(void *window, int width, int height) {
-    videoOutput = getVideoOutput(&playerContext);
-    if (!videoOutput->create()) {
-        LOGE(TAG, "videoOutput.create failed");
-        delete videoOutput;
-        videoOutput = nullptr;
-        return false;
-    }
-    videoOutput->setWindow(window);
-    videoOutput->setSize(width, height);
-    return true;
+void Player::setWindow(ANativeWindow *window) {
+    nativeWindow = window;
 }
 
 void Player::release() {
+    pause();
     if (videoDecoder) {
         delete videoDecoder;
         videoDecoder = nullptr;
@@ -66,14 +47,39 @@ void Player::release() {
         formatCtx = nullptr;
     }
 
+    if (unPlayedVideoFrame) {
+        playerContext.recycleVideoFrame(unPlayedVideoFrame);
+        unPlayedVideoFrame = nullptr;
+    }
+
+    if (unPlayedAudioFrame) {
+        playerContext.recycleAudioFrame(unPlayedAudioFrame);
+        unPlayedAudioFrame = nullptr;
+    }
+
     audioStreamIndex = -1;
     videoStreamIndex = -1;
+
+    if (audioOutput != nullptr) {
+        audioOutput->release();
+        delete(audioOutput);
+        audioOutput = nullptr;
+    }
+
+    if (videoOutput != nullptr) {
+        videoOutput->release();
+        delete(videoOutput);
+        videoOutput = nullptr;
+    }
 }
 
 bool Player::openFile(string pathStr) {
     release();
+    if (nativeWindow == nullptr) {
+        LOGE(TAG, "nativeWindow not set");
+        return false;
+    }
     this->filePath = pathStr;
-
     int ret = 0;
 
     formatCtx = avformat_alloc_context();
@@ -131,19 +137,39 @@ bool Player::openFile(string pathStr) {
     if (audioStreamIndex != -1) {
         LOGD(TAG, "select audio index = %d, detail:", audioStreamIndex);
         av_dump_format(formatCtx, audioStreamIndex, nullptr, 0);
-        if (audioOutput) {
-            AVStream *audioStream = formatCtx->streams[audioStreamIndex];
-            AVCodecParameters *codecParameters = audioStream->codecpar;
-            audioConverter.setFormat(codecParameters->sample_rate, codecParameters->channels,
-                                     AVSampleFormat(codecParameters->format),
-                                     audioOutput->getSampleRate(), audioOutput->getChannels(),
-                                     audioOutput->getSampleFormat());
+        audioOutput = getAudioOutput(&playerContext);
+        if (!audioOutput) {
+            LOGE(TAG, "getAudioOutput returns null");
+            release();
+            return false;
         }
+        AVCodecParameters *params = formatCtx->streams[audioStreamIndex]->codecpar;
+        audioOutput->setSrcFormat(params->sample_rate, params->channels, static_cast<AVSampleFormat>(params->format));
+        if (!audioOutput->create()) {
+            LOGE(TAG, "audio output create failed, sampleRate = %d, channels = %d, sampleFormat = %d", params->sample_rate, params->channels, params->format);
+            release();
+            return false;
+        }
+
     }
 
     if (videoStreamIndex != -1) {
         LOGD(TAG, "select video index = %d, detail:", videoStreamIndex);
         av_dump_format(formatCtx, videoStreamIndex, nullptr, 0);
+        videoOutput = getVideoOutput(&playerContext);
+        if (!videoOutput) {
+            LOGE(TAG, "getVideoOutput returns null");
+            release();
+            return false;
+        }
+        AVCodecParameters *params = formatCtx->streams[videoStreamIndex]->codecpar;
+        videoOutput->setSrcFormat(static_cast<AVPixelFormat>(params->format));
+        if (!videoOutput) {
+            LOGE(TAG, "video output create failed, pixelFormat = %d", params->format);
+            release();
+            return false;
+        }
+
     }
 
     return true;
@@ -177,11 +203,11 @@ void Player::findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, I
 }
 
 
-void Player::readPacketCallback(void *context) {
-    ((Player *)context)->readPacketLoop();
+void Player::readStreamCallback(void *context) {
+    ((Player *)context)->readStreamLoop();
 }
 
-void Player::readPacketLoop() {
+void Player::readStreamLoop() {
     if (!formatCtx) {
         LOGE(TAG, "no format context");
         return;
@@ -189,11 +215,27 @@ void Player::readPacketLoop() {
     int ret;
     bool pushSuccess = false;
     list<AVPacket *> ml;
-    while (!stopFlag) {
+    while (!stopReadFlag) {
         AVPacket *packet = av_packet_alloc();
         if (!packet) {
             LOGE(TAG, "av_packet_alloc failed");
             return;
+        }
+
+        if (seekReq) {
+            int64_t pts = (int64_t)(seekPtsMS / av_q2d(AV_TIME_BASE_Q));
+            int streamIndex = -1;
+            if (audioStreamIndex >= 0) {
+                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
+                streamIndex = audioStreamIndex;
+            } else if (videoStreamIndex >= 0) {
+                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
+                streamIndex = videoStreamIndex;
+            }
+
+            av_seek_frame(formatCtx, streamIndex, pts, AVSEEK_FLAG_BACKWARD);
+            audioPacketQueue.clear();
+            videoPacketQueue.clear();
         }
 
         ret = av_read_frame(formatCtx, packet);
@@ -243,7 +285,7 @@ void Player::decodeAudioLoop() {
     AVPacket *packet = nullptr;
     AVFrame *frame = nullptr;
     AudioFrame *audioFrame = nullptr;
-    while (!stopFlag) {
+    while (!stopDecodeAudioFlag) {
         packetOpt = audioPacketQueue.pop();
         if (!packetOpt.has_value()) {
             LOGE(TAG, "audio packetOpt has no value");
@@ -328,7 +370,7 @@ void Player::decodeVideoLoop() {
     AVPacket *packet = nullptr;
     AVFrame *frame = nullptr;
     VideoFrame *videoFrame = nullptr;
-    while(!stopFlag) {
+    while(!stopDecodeVideoFlag) {
         packetOpt = videoPacketQueue.pop();
         if (!packetOpt.has_value()) {
             LOGE(TAG, "video packetOpt has no value");
@@ -404,18 +446,18 @@ void Player::syncCallback(void *context) {
 }
 
 void Player::syncLoop() {
-
-    int64_t lastAudioPts = -1;
     chrono::system_clock::time_point lastAudioWriteTime;
-    AudioFrame *audioFrame = nullptr;
-    VideoFrame *videoFrame = nullptr;
+    AudioFrame *audioFrame = unPlayedAudioFrame;
+    unPlayedAudioFrame = nullptr;
+    VideoFrame *videoFrame = unPlayedVideoFrame;
+    unPlayedVideoFrame = nullptr;
     bool firstLoop = true;
-    while (!stopFlag) {
+    while (!stopSyncFlag) {
         if (audioFrame == nullptr) {
             optional<AudioFrame *> frameOpt = audioFrameQueue.pop();
             if (frameOpt.has_value()) {
                 audioFrame = frameOpt.value();
-            } else if (stopFlag) {
+            } else {
                 break;
             }
         }
@@ -424,7 +466,7 @@ void Player::syncLoop() {
             optional<VideoFrame *> frameOpt = videoFrameQueue.pop();
             if (frameOpt.has_value()) {
                 videoFrame = frameOpt.value();
-            } else if (stopFlag) {
+            } else {
                 break;
             }
         }
@@ -450,6 +492,7 @@ void Player::syncLoop() {
                         int64_t waitMS = duration - (videoFrame->pts - lastAudioPts);
                         this_thread::sleep_for(chrono::milliseconds(waitMS));
                     }
+                    lastVideoPts = videoFrame->pts;
                     videoOutput->write(videoFrame);
                     videoFrame = nullptr;
                 }
@@ -465,20 +508,183 @@ void Player::syncLoop() {
     }
 
     if (audioFrame) {
-        playerContext.recycleAudioFrame(audioFrame);
+        unPlayedAudioFrame = audioFrame;
     }
 
     if (videoFrame) {
-        playerContext.recycleVideoFrame(videoFrame);
+        unPlayedVideoFrame = videoFrame;
     }
 }
 
-void Player::startReadThread() {
-    if (!stopFlag && readStreamThread != nullptr) {
+void Player::startReadStreamThread() {
+    unique_lock<mutex> mLock(readStreamMu);
+    if (readStreamThread != nullptr) {
+        return;
+    }
+    audioPacketQueue.setBlockingPush(true);
+    videoPacketQueue.setBlockingPush(true);
+    stopReadFlag = false;
+    readStreamThread = new thread(readStreamCallback, this);
+
+}
+
+
+void Player::stopReadStreamThread() {
+    unique_lock<mutex> mLock(readStreamMu);
+    if (readStreamThread == nullptr) {
+        return;
+    }
+    stopReadFlag = true;
+    audioPacketQueue.setBlockingPush(false);
+    videoPacketQueue.setBlockingPush(false);
+
+    if (readStreamThread->joinable()) {
+        readStreamThread->join();
+    }
+
+    delete(readStreamThread);
+    readStreamThread = nullptr;
+
+    audioPacketQueue.setBlockingPush(true);
+    videoPacketQueue.setBlockingPush(true);
+    stopReadFlag = false;
+}
+
+void Player::startDecodeAudioThread() {
+    unique_lock<mutex> mLock(decodeAudioMu);
+    if (decodeAudioThread != nullptr) {
         return;
     }
 
+    stopDecodeAudioFlag = false;
+    audioPacketQueue.setBlockingPop(true);
+    audioFrameQueue.setBlockingPush(true);
+
+    decodeAudioThread = new thread(decodeAudioCallback, this);
 }
 
+void Player::stopDecodeAudioThread() {
+    unique_lock<mutex> mLock(decodeAudioMu);
+    if (decodeAudioThread == nullptr) {
+        return;
+    }
+    stopDecodeAudioFlag = true;
+    audioPacketQueue.setBlockingPop(false);
+    audioFrameQueue.setBlockingPush(false);
+
+    if (decodeAudioThread->joinable()) {
+        decodeAudioThread->join();
+    }
+
+    delete(decodeAudioThread);
+    decodeAudioThread = nullptr;
+
+    stopDecodeAudioFlag = false;
+    audioPacketQueue.setBlockingPop(true);
+    audioFrameQueue.setBlockingPush(true);
+}
+
+void Player::startDecodeVideoThread() {
+    unique_lock<mutex> mLock(decodeVideoMu);
+    if (decodeVideoThread != nullptr) {
+        return;
+    }
+
+    stopDecodeVideoFlag = false;
+    videoPacketQueue.setBlockingPop(true);
+    videoFrameQueue.setBlockingPush(true);
+
+    decodeVideoThread = new thread(decodeVideoCallback, this);
+
+}
+
+void Player::stopDecodeVideoThread() {
+    unique_lock<mutex> mLock(decodeVideoMu);
+    if (decodeVideoThread == nullptr) {
+        return;
+    }
+
+    stopDecodeVideoFlag = true;
+    videoPacketQueue.setBlockingPop(false);
+    videoFrameQueue.setBlockingPush(false);
+
+    if (decodeVideoThread->joinable()) {
+        decodeVideoThread->join();
+    }
+
+    delete(decodeVideoThread);
+    decodeVideoThread = nullptr;
+
+    stopDecodeVideoFlag = false;
+    videoPacketQueue.setBlockingPop(true);
+    videoFrameQueue.setBlockingPush(true);
+}
+
+void Player::startSyncThread() {
+    unique_lock<mutex> mLock(syncMu);
+    if (syncThread != nullptr) {
+        return;
+    }
+
+    stopSyncFlag = false;
+    audioFrameQueue.setBlockingPop(true);
+    videoFrameQueue.setBlockingPop(true);
+
+    syncThread = new thread(syncCallback, this);
+}
+
+void Player::stopSyncThread() {
+    unique_lock<mutex> mLock(syncMu);
+    if (syncThread == nullptr) {
+        return;
+    }
+    stopSyncFlag = true;
+    audioFrameQueue.setBlockingPop(false);
+    videoFrameQueue.setBlockingPop(false);
+
+    if (syncThread->joinable()) {
+        syncThread->join();
+    }
+    delete(syncThread);
+    syncThread = nullptr;
+
+    stopSyncFlag = false;
+    audioFrameQueue.setBlockingPop(true);
+    videoFrameQueue.setBlockingPop(true);
+}
+
+bool Player::play() {
+    startReadStreamThread();
+    startDecodeAudioThread();
+    startDecodeVideoThread();
+    startSyncThread();
+    return true;
+}
+
+void Player::pause() {
+    stopReadStreamThread();
+    stopDecodeAudioThread();
+    stopDecodeVideoThread();
+    stopSyncThread();
+}
+
+int64_t Player::getDurationMS() {
+    if (audioStreamIndex >= 0) {
+        return audioStreamMap[audioStreamIndex].durationMS;
+    } else if (videoStreamIndex >= 0) {
+        return videoStreamMap[videoStreamIndex].durationMS;
+    } else {
+        return -1;
+    }
+}
+
+int64_t Player::getCurrentPtsMS() {
+    return lastAudioPts;
+}
+
+bool Player::seek(int64_t ptsMS) {
+    seekPtsMS = ptsMS;
+    seekReq = true;
+}
 
 

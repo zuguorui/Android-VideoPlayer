@@ -29,7 +29,7 @@ public:
     /**
      * @brief Construct a new Linked Blocking Queue object
      *
-     * @param capacity If capacity <= 0, it means this queue has infinit capacity and will not block push option.
+     * @param capacity If capacity <= 0, it means this queue has infinite capacity and will not block push option.
      */
     LinkedBlockingQueue(int32_t capacity);
     ~LinkedBlockingQueue();
@@ -149,6 +149,9 @@ public:
      * @return
      */
     bool isBlockingPop();
+
+    void clear();
+
 
 private:
     int32_t capacity;
@@ -312,6 +315,24 @@ template <typename T>
 bool LinkedBlockingQueue<T>::isBlockingPop() {
     return this->blockPopFlag.load();
 }
+
+template <typename T>
+void LinkedBlockingQueue<T>::clear() {
+    if (size == 0) {
+        return;
+    }
+    std::unique_lock<std::mutex> popLock(popMu);
+    notFull.notify_all();
+    std::unique_lock<std::mutex> pushLock(pushMu);
+    Node *n = nullptr;
+    while (head != tail) {
+        n = head;
+        head = head->next;
+        delete(n);
+        head->pointer.reset();
+    }
+}
+
 
 
 

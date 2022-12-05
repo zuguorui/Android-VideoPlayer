@@ -25,6 +25,8 @@ public:
     OpenGLESPlayer2(PlayerContext *playerContext);
     ~OpenGLESPlayer2();
 
+    void setSrcFormat(AVPixelFormat pixelFormat) override;
+
     bool create() override;
 
     void release() override;

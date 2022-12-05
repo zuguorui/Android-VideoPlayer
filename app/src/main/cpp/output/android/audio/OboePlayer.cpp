@@ -19,24 +19,19 @@ OboePlayer::~OboePlayer() {
     release();
 }
 
-bool OboePlayer::create(int sampleRate, int channels, AVSampleFormat sampleFormat) {
-    if (audioStream && this->sampleRate == sampleRate &&
-        this->channels == channels && this->sampleFormat == sampleFormat) {
-        return true;
-    }
+bool OboePlayer::create() {
 
-    IAudioOutput::create(sampleRate, channels, sampleFormat);
 
     Result result;
     AudioStreamBuilder builder;
     builder.setDirection(Direction::Output);
-    builder.setChannelCount(channels);
-    builder.setSampleRate(sampleRate);
-    if (sampleFormat == AVSampleFormat::AV_SAMPLE_FMT_S16) {
+    builder.setChannelCount(srcChannels);
+    builder.setSampleRate(srcSampleRate);
+    if (srcSampleFormat == AVSampleFormat::AV_SAMPLE_FMT_S16) {
         builder.setFormat(AudioFormat::I16);
-    } else if (sampleFormat == AVSampleFormat::AV_SAMPLE_FMT_S32) {
+    } else if (srcSampleFormat == AVSampleFormat::AV_SAMPLE_FMT_S32) {
         builder.setFormat(AudioFormat::I32);
-    } else if (sampleFormat == AVSampleFormat::AV_SAMPLE_FMT_FLT) {
+    } else if (srcSampleFormat == AVSampleFormat::AV_SAMPLE_FMT_FLT) {
         builder.setFormat(AudioFormat::Float);
     }
     builder.setAudioApi(AudioApi::AAudio);
@@ -76,7 +71,7 @@ void OboePlayer::stop() {
 
 void OboePlayer::write(AudioFrame *audioFrame) {
     if (audioStream && audioFrame) {
-        audioStream->write(audioFrame->data, audioFrame->framesPerChannel, -1);
+        audioStream->write(audioFrame->avFrame->data[0], audioFrame->avFrame->linesize[0], -1);
     }
     if (audioFrame) {
         if (playerCtx) {
@@ -91,6 +86,10 @@ void OboePlayer::write(uint8_t *buffer, int framesPerChannel) {
     if (audioStream) {
         audioStream->write(buffer, framesPerChannel, -1);
     }
+}
+
+void OboePlayer::setSrcFormat(int sampleRate, int channels, AVSampleFormat sampleFormat) {
+    IAudioOutput::setSrcFormat(sampleRate, channels, sampleFormat);
 }
 
 
