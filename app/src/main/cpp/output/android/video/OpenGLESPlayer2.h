@@ -12,6 +12,8 @@
 #include <thread>
 #include <list>
 
+#include "GLESRender.h"
+
 #include "Texture.h"
 #include "Render.h"
 #include "EGLCore.h"
@@ -51,7 +53,7 @@ private:
     int32_t height = 0;
 
     enum RenderMessage{
-        SET_WINDOW, REFRESH, SET_SIZE, EXIT
+        SET_WINDOW, REFRESH, SET_SIZE, EXIT, SET_SRC_FORMAT
     };
 
     std::thread *renderThread = nullptr;
