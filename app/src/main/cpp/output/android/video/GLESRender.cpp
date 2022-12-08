@@ -100,12 +100,6 @@ void GLESRender::release() {
     eglWindow.release();
     shader.release();
 
-    if (pix_rgb) {
-        free(pix_rgb);
-        pix_rgb = nullptr;
-        pix_rgb_count = 0;
-    }
-
     if (pix_y) {
         free(pix_y);
         pix_y = nullptr;
@@ -183,7 +177,16 @@ void GLESRender::refresh(VideoFrame *videoFrame) {
 }
 
 void GLESRender::createRGBTex(VideoFrame *frame) {
+
     deleteRGBTex();
+
+    glGenTextures(1, &tex_rgb);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, frame->width, frame->height, 0, GL_RGB, GL_UNSIGNED_BYTE, frame->avFrame->data[0]);
 
 }
 

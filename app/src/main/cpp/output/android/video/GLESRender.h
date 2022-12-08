@@ -56,9 +56,6 @@ private:
     uint8_t *pix_v = nullptr;
     int64_t pix_v_count = 0;
 
-    uint8_t *pix_rgb = nullptr;
-    int64_t pix_rgb_count = 0;
-
     GLuint tex_y = 0;
     GLuint tex_u = 0;
     GLuint tex_v = 0;
@@ -68,10 +65,6 @@ private:
     GLuint VAO = 0;
     GLuint VBO = 0;
     GLuint EBO = 0;
-
-    void createRGBPixelBuffer(int64_t pixelCount);
-
-    void deleteRGBPixelBuffer();
 
     void createYUVPixelBuffer(int64_t pixelCount);
 

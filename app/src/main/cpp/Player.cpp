@@ -162,7 +162,7 @@ bool Player::openFile(string pathStr) {
             return false;
         }
         AVCodecParameters *params = formatCtx->streams[videoStreamIndex]->codecpar;
-        params->color_space
+        params->bits_per_raw_sample
         videoOutput->setSrcFormat(static_cast<AVPixelFormat>(params->format));
         if (!videoOutput) {
             LOGE(TAG, "video output create failed, pixelFormat = %d", params->format);
