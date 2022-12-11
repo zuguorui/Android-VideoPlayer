@@ -47,6 +47,7 @@ android {
     buildFeatures {
         prefab true
     }
+    ndkVersion '21.4.7075529'
 }
 
 dependencies {
