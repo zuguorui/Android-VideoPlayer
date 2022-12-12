@@ -14,6 +14,7 @@
 #include "Shader.h"
 #include "EGLWindow.h"
 #include "ShaderScripts.h"
+#include "pixel_loader.h"
 
 #include "VideoFrame.h"
 extern "C" {
@@ -36,25 +37,28 @@ public:
 
     void release();
 
-    enum FormatType {
-        NONE, RGB, YUV
-    };
-
 private:
     AVPixelFormat format = AVPixelFormat::AV_PIX_FMT_NONE;
-    FormatType formatType = FormatType::NONE;
+    int pixelType = PIXEL_TYPE_UNKNOWN;
+    int yuvCompDepth = 0;
+    int pixelLayout = PIXEL_LAYOUT_UNKNOWN;
+    bool glSupportFormat = false;
     AVColorSpace colorSpace = AVColorSpace::AVCOL_SPC_NB;
     bool isHDR = false;
+
+    GLuint glInternalFormat = GL_RGB;
+    GLuint glDataType = GL_UNSIGNED_BYTE;
+    GLuint glDataFormat = GL_RGB;
 
     EGLWindow eglWindow;
     Shader shader;
 
     uint8_t *pix_y = nullptr;
-    int64_t pix_y_count = 0;
+    int64_t pix_y_count = -1;
     uint8_t *pix_u = nullptr;
-    int64_t pix_u_count = 0;
+    int64_t pix_u_count = -1;
     uint8_t *pix_v = nullptr;
-    int64_t pix_v_count = 0;
+    int64_t pix_v_count = -1;
 
     GLuint tex_y = 0;
     GLuint tex_u = 0;
@@ -66,7 +70,7 @@ private:
     GLuint VBO = 0;
     GLuint EBO = 0;
 
-    void createYUVPixelBuffer(int64_t pixelCount);
+    void createYUVPixelBuffer(int64_t yBufSize, int64_t uBufSize, int64_t vBufSize);
 
     void deleteYUVPixelBuffer();
 
@@ -78,10 +82,6 @@ private:
     void createRGBTex(VideoFrame *frame);
 
     void deleteRGBTex();
-
-    bool yuvSupport(AVPixelFormat format);
-
-    bool rgbSupport(AVPixelFormat format);
 
     void prepareVertices();
 

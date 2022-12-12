@@ -61,7 +61,7 @@ target_link_libraries( # Specifies the target library.
         # included in the NDK.
         ${log-lib}
         OpenSLES
-        GLESv2
+        GLESv3
         EGL
         z
         oboe::oboe
