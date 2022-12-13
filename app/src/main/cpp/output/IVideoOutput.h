@@ -14,11 +14,11 @@ public:
     IVideoOutput(PlayerContext *playerContext) {
         this->playerCtx = playerContext;
     };
-    virtual void setSrcFormat(AVPixelFormat pixelFormat) = 0;
+    virtual void setSrcFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) = 0;
     virtual bool create() = 0;
     virtual void release() = 0;
     virtual void setWindow(void *window) = 0;
-    virtual void setSize(int32_t width, int32_t height) = 0;
+    virtual void setScreenSize(int32_t width, int32_t height) = 0;
     virtual bool isReady() = 0;
     virtual void write(VideoFrame* frame) = 0;
 

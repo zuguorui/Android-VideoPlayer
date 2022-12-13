@@ -24,6 +24,7 @@
 #include "AudioConverter.h"
 #include "android/audio/OboePlayer.h"
 #include "Factory.h"
+#include "IPlayStateListener.h"
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
@@ -37,7 +38,7 @@ public:
     Player(Player&&) = delete;
     ~Player();
 
-    void setWindow(ANativeWindow *window);
+    void setWindow(void *window);
 
     bool openFile(std::string pathStr);
 
@@ -53,6 +54,14 @@ public:
 
     bool seek(int64_t ptsMS);
 
+    bool setScreenSize(int width, int height);
+
+    void setPlayStateListener(IPlayStateListener *listener);
+
+    void removePlayStateListener();
+
+    bool isPlaying();
+
 
 private:
     IDecoder *videoDecoder = nullptr;
@@ -62,7 +71,6 @@ private:
 
     IVideoOutput *videoOutput = nullptr;
     IAudioOutput *audioOutput = nullptr;
-    AudioConverter audioConverter;
 
     AVFormatContext *formatCtx = nullptr;
     std::string filePath = "";
@@ -103,7 +111,11 @@ private:
     std::atomic_bool seekReq = false;
     std::atomic_int64_t seekPtsMS = 0;
 
-    ANativeWindow *nativeWindow;
+    void *nativeWindow = nullptr;
+    int screenWidth = 1920;
+    int screenHeight = 1080;
+
+    IPlayStateListener *stateListener = nullptr;
 
     void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder, int *streamIndex);
 

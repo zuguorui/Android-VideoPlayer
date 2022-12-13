@@ -133,10 +133,16 @@ bool GLESRender::setWindow(ANativeWindow *window) {
         return false;
     }
     prepareVertices();
+    return true;
 }
 
-void GLESRender::setSize(int width, int height) {
-    glViewport(0, 0, width, height);
+void GLESRender::setScreenSize(int width, int height) {
+    screenWidth = width;
+    screenHeight = height;
+    if (eglWindow.isReady()) {
+        glViewport(0, 0, width, height);
+    }
+
 }
 
 void GLESRender::release() {
@@ -376,5 +382,9 @@ void GLESRender::deleteVertices() {
     VBO = 0;
     glDeleteVertexArrays(1, &VAO);
     VAO = 0;
+}
+
+bool GLESRender::isReady() {
+    return eglWindow.isReady() && shader.isReady();
 }
 

@@ -3,115 +3,97 @@
 #include <iostream>
 #include <stdlib.h>
 
-#include <android/log.h>
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-
-#include "VideoPlayController.h"
 #include "JavaStateListener.h"
 
-#include "LinkedBlockingQueue.h"
-
 #include "Player.h"
+#include "Log.h"
 
 using namespace std;
 
-#define MODULE_NAME "native_lib"
+#define TAG "native_lib"
 
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, MODULE_NAME, __VA_ARGS__)
 
-VideoPlayController *controller = NULL;
-ANativeWindow *window = NULL;
-JavaStateListener *stateListener = NULL;
+ANativeWindow *window = nullptr;
+JavaStateListener *stateListener = nullptr;
+Player *player = nullptr;
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nInit(JNIEnv *env, jobject instance)
 {
-    LOGD("call nInit");
-    controller = new VideoPlayController();
+    LOGD(TAG, "call nInit");
+    if (player != nullptr) {
+        return;
+    }
+    player = new Player();
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nDestroy(JNIEnv *env, jobject instance)
 {
-    LOGD("call nDestroy");
-    if(controller == NULL)
-    {
-        LOGE("controller is NULL when call nDestroy");
+    LOGD(TAG, "call nDestroy");
+    if (player == nullptr) {
         return;
     }
-    delete(controller);
+    player->pause();
+    delete player;
+    player = nullptr;
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nStart(JNIEnv *env, jobject instance)
 {
-    LOGD("call nStart");
-    if(controller == NULL)
+    LOGD(TAG, "call nStart");
+    if(player == nullptr)
     {
-        LOGE("controller is NULL when call nStart");
+        LOGE(TAG, "player is NULL when call nStart");
         return;
     }
-    controller->start();
+    player->play();
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nStop(JNIEnv *env, jobject instance)
 {
-    LOGD("call nStop");
-    if(controller == NULL)
+    LOGD(TAG, "call nStop");
+    if(player == nullptr)
     {
-        LOGE("controller is NULL when call nStop");
+        LOGE(TAG, "player is NULL when call nStop");
         return;
     }
-    controller->stop();
+    player->pause();
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_zu_videoplayer_PlayActivity_nOpenFile(JNIEnv *env, jobject instance, jstring filePath)
 {
-    LOGD("nOpenFile");
-    if(controller == NULL)
+    LOGD(TAG, "nOpenFile");
+    if(player == nullptr)
     {
-        LOGE("controller is NULL when call nOpenFile");
+        LOGE(TAG, "controller is NULL when call nOpenFile");
         return false;
 
     }
     const char *pathChars = env->GetStringUTFChars(filePath, NULL);
 
-    bool result =  controller->openFile(pathChars);
+    bool result = player->openFile(pathChars);
 
     env->ReleaseStringUTFChars(filePath, pathChars);
 
     return result;
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_zu_videoplayer_PlayActivity_nCloseFile(JNIEnv *env, jobject instance)
-{
-    LOGD("call nCloseFile");
-    if(controller == NULL)
-    {
-        LOGE("controller is NULL when call nCloseFile");
-        return;
-    }
-    controller->closeFile();
-}
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nSetSurface(JNIEnv *env, jobject instance, jobject surface)
 {
-    LOGD("call nSetSurface");
-    if(controller == NULL)
+    LOGD(TAG, "call nSetSurface");
+    if(player == nullptr)
     {
-        LOGE("controller is NULL when call nSetSurface");
+        LOGE(TAG, "player is NULL when call nSetSurface");
         return;
     }
     window = ANativeWindow_fromSurface(env, surface);
-    controller->setWindow(window);
+    player->setWindow(window);
 }
 
 
@@ -119,68 +101,72 @@ Java_com_zu_videoplayer_PlayActivity_nSetSurface(JNIEnv *env, jobject instance, 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nSetSize(JNIEnv *env, jobject instance, jint width, jint height)
 {
-    LOGD("call nSetSize");
-    if(controller == NULL)
+    LOGD(TAG, "call nSetSize");
+    if(player == NULL)
     {
-        LOGE("controller is NULL when call nSetSize");
+        LOGE(TAG, "controller is NULL when call nSetSize");
         return;
     }
-    controller->setSize(width, height);
+    player->setScreenSize(width, height);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_zu_videoplayer_PlayActivity_nGetDuration(JNIEnv *env, jobject instance)
 {
-    LOGD("call nSetSize");
-    if(controller == NULL)
+    LOGD(TAG, "call nGetDuration");
+    if(player == NULL)
     {
-        LOGE("controller is NULL when call nSetSize");
+        LOGE(TAG, "player is NULL when call nSetSize");
         return 0;
     }
-    return controller->getDuration();
+    return player->getDurationMS();
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nSetPlayStateListener(JNIEnv *env, jobject instance, jobject listener)
 {
-    LOGD("call nSetSize");
-    if(controller == NULL)
+    LOGD(TAG, "call nSetPlayStateListener");
+    if(player == NULL)
     {
-        LOGE("controller is NULL when call nSetSize");
+        LOGE(TAG, "player is NULL when call nSetSize");
         return;
     }
-    stateListener = new JavaStateListener(env, listener);
-    controller->setPlayStateListener(stateListener);
+    if (stateListener == nullptr) {
+        stateListener = new JavaStateListener(env, listener);
+    }
+
+    player->setPlayStateListener(stateListener);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nRemovePlayStateListener(JNIEnv *env, jobject instance)
 {
-    LOGD("call nSetSize");
-    if(controller == NULL)
+    LOGD(TAG, "call nRemovePlayStateListener");
+    if(player == NULL)
     {
-        LOGE("controller is NULL when call nSetSize");
+        LOGE(TAG, "player is NULL when call nSetSize");
         return;
     }
 
-    controller->removePlayStateListener();
+    player->removePlayStateListener();
     if(stateListener)
     {
         delete(stateListener);
+        stateListener = nullptr;
     }
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_zu_videoplayer_PlayActivity_nIsPlaying(JNIEnv *env, jobject instance)
 {
-    LOGD("call nSetSize");
-    if(controller == NULL)
+    LOGD(TAG, "call nIsPlaying");
+    if(player == NULL)
     {
-        LOGE("controller is NULL when call nSetSize");
+        LOGE(TAG, "player is NULL when call nSetSize");
         return false;
     }
 
-    return controller->isPlaying();
+    return player->isPlaying();
 
 }
 
@@ -188,13 +174,13 @@ Java_com_zu_videoplayer_PlayActivity_nIsPlaying(JNIEnv *env, jobject instance)
 extern "C" JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_PlayActivity_nSeek(JNIEnv *env, jobject instance, jlong position)
 {
-    LOGD("call nSeek");
-    if(controller == NULL)
+    LOGD(TAG, "call nSeek");
+    if(player == NULL)
     {
-        LOGE("controller is NULL when call nSetSize");
+        LOGE(TAG, "controller is NULL when call nSetSize");
         return;
     }
-    controller->seek(position);
+    player->seek(position);
 }
 
 

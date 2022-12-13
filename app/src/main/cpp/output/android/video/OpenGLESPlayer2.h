@@ -14,10 +14,6 @@
 
 #include "GLESRender.h"
 
-#include "Texture.h"
-#include "Render.h"
-#include "EGLCore.h"
-
 #include "IVideoOutput.h"
 #include "PlayerContext.h"
 #include "LinkedBlockingQueue.h"
@@ -27,7 +23,7 @@ public:
     OpenGLESPlayer2(PlayerContext *playerContext);
     ~OpenGLESPlayer2();
 
-    void setSrcFormat(AVPixelFormat pixelFormat) override;
+    void setSrcFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) override;
 
     bool create() override;
 
@@ -35,37 +31,37 @@ public:
 
     void setWindow(void *window) override;
 
-    void setSize(int32_t width, int32_t height) override;
+    void setScreenSize(int32_t width, int32_t height) override;
 
     bool isReady() override;
 
     void write(VideoFrame* frame) override;
 
 private:
-    EGLCore *eglCore = nullptr;
-    Texture *texture = nullptr;
-    Render *render = nullptr;
-    EGLSurface surface = EGL_NO_SURFACE;
+
+    GLESRender render;
 
     ANativeWindow *window = nullptr;
 
-    int32_t width = 0;
-    int32_t height = 0;
+    int32_t screenWidth = 0;
+    int32_t screenHeight = 0;
+
+    AVPixelFormat format;
+    AVColorSpace colorSpace;
+    bool isHDR;
 
     enum RenderMessage{
-        SET_WINDOW, REFRESH, SET_SIZE, EXIT, SET_SRC_FORMAT
+        SET_WINDOW,
+        REFRESH,
+        SET_SCREEN_SIZE,
+        SET_SRC_FORMAT,
+        EXIT,
     };
 
     std::thread *renderThread = nullptr;
 
     LinkedBlockingQueue<RenderMessage> messageQueue = LinkedBlockingQueue<RenderMessage>(10);
     LinkedBlockingQueue<VideoFrame *> frameQueue = LinkedBlockingQueue<VideoFrame *>(10);
-
-    bool initComponents();
-    void releaseComponents();
-
-    void updateTexImage();
-    void drawFrame();
 
     static void renderCallback(void *self);
     void renderLoop();

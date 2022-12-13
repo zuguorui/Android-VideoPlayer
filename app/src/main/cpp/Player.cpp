@@ -3,7 +3,6 @@
 //
 
 #include "Player.h"
-#include "Constants.h"
 #include "Util.h"
 #include "Log.h"
 #include <list>
@@ -15,14 +14,15 @@ using namespace std;
 
 Player::Player() {
     av_log_set_callback(ffmpegLogCallback);
-
+    LOGD(TAG, "constructor, readStreamThread = 0x%x", readStreamThread);
 }
 
 Player::~Player() {
     release();
+    LOGD(TAG, "destructor, readStreamThread = 0x%x", readStreamThread);
 }
 
-void Player::setWindow(ANativeWindow *window) {
+void Player::setWindow(void *window) {
     nativeWindow = window;
 }
 
@@ -74,10 +74,7 @@ void Player::release() {
 
 bool Player::openFile(string pathStr) {
     release();
-    if (nativeWindow == nullptr) {
-        LOGE(TAG, "nativeWindow not set");
-        return false;
-    }
+
     this->filePath = pathStr;
     int ret = 0;
 
@@ -156,14 +153,18 @@ bool Player::openFile(string pathStr) {
         LOGD(TAG, "select video index = %d, detail:", videoStreamIndex);
         av_dump_format(formatCtx, videoStreamIndex, nullptr, 0);
         videoOutput = getVideoOutput(&playerContext);
+
         if (!videoOutput) {
             LOGE(TAG, "getVideoOutput returns null");
             release();
             return false;
         }
+        videoOutput->setScreenSize(screenWidth, screenHeight);
+        if (nativeWindow) {
+            videoOutput->setWindow(nativeWindow);
+        }
         AVCodecParameters *params = formatCtx->streams[videoStreamIndex]->codecpar;
-        params->bits_per_raw_sample
-        videoOutput->setSrcFormat(static_cast<AVPixelFormat>(params->format));
+        videoOutput->setSrcFormat(static_cast<AVPixelFormat>(params->format), params->color_space,false);
         if (!videoOutput) {
             LOGE(TAG, "video output create failed, pixelFormat = %d", params->format);
             release();
@@ -452,6 +453,11 @@ void Player::syncLoop() {
     VideoFrame *videoFrame = unPlayedVideoFrame;
     unPlayedVideoFrame = nullptr;
     bool firstLoop = true;
+
+    if (stateListener != nullptr) {
+        stateListener->playStateChanged(true);
+    }
+
     while (!stopSyncFlag) {
         if (audioFrame == nullptr) {
             optional<AudioFrame *> frameOpt = audioFrameQueue.pop();
@@ -505,6 +511,10 @@ void Player::syncLoop() {
             audioFrame = nullptr;
             firstLoop = false;
         }
+
+        if (stateListener != nullptr) {
+            stateListener->progressChanged(lastAudioPts, false);
+        }
     }
 
     if (audioFrame) {
@@ -513,6 +523,10 @@ void Player::syncLoop() {
 
     if (videoFrame) {
         unPlayedVideoFrame = videoFrame;
+    }
+
+    if (stateListener != nullptr) {
+        stateListener->playStateChanged(false);
     }
 }
 
@@ -541,7 +555,6 @@ void Player::stopReadStreamThread() {
     if (readStreamThread->joinable()) {
         readStreamThread->join();
     }
-
     delete(readStreamThread);
     readStreamThread = nullptr;
 
@@ -618,6 +631,7 @@ void Player::stopDecodeVideoThread() {
     stopDecodeVideoFlag = false;
     videoPacketQueue.setBlockingPop(true);
     videoFrameQueue.setBlockingPush(true);
+    LOGD(TAG, "stopDecodeVideoThread, thread = 0x%x", readStreamThread);
 }
 
 void Player::startSyncThread() {
@@ -631,6 +645,7 @@ void Player::startSyncThread() {
     videoFrameQueue.setBlockingPop(true);
 
     syncThread = new thread(syncCallback, this);
+    LOGD(TAG, "startSyncThread, thread = 0x%x", readStreamThread);
 }
 
 void Player::stopSyncThread() {
@@ -687,4 +702,25 @@ bool Player::seek(int64_t ptsMS) {
     seekReq = true;
 }
 
+bool Player::setScreenSize(int width, int height) {
+    screenWidth = width;
+    screenHeight = height;
+    if (videoOutput != nullptr) {
+        videoOutput->setScreenSize(width, height);
+    }
+    return true;
+}
+
+void Player::setPlayStateListener(IPlayStateListener *listener) {
+    stateListener = listener;
+}
+
+void Player::removePlayStateListener() {
+    stateListener = nullptr;
+}
+
+
+bool Player::isPlaying() {
+    return syncThread != nullptr && stopSyncFlag == false;
+}
 

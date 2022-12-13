@@ -8,6 +8,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
+extern "C" {
+#include "FFmpeg/libavformat/avformat.h"
+#include "FFmpeg/libavutil/avutil.h"
+}
+
 struct AudioFrame {
     int64_t pts = -1; // MS
     size_t channels = -1;

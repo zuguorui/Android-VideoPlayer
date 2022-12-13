@@ -15,10 +15,9 @@
 #include <string.h>
 #include <android/log.h>
 #include <sys/stat.h>
+#include "Log.h"
 
-#define MODULE_NAME  "AACUtil"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, MODULE_NAME, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, MODULE_NAME, __VA_ARGS__)
+#define TAG  "AACUtil"
 
 uint64_t convert_header_to_int64(int8_t header[ADTS_HEADER_LEN])
 {
@@ -98,7 +97,7 @@ int64_t get_aac_duration(FILE *file)
 
 int64_t get_adif_aac_duration(FILE *file)
 {
-    LOGE("get_adif_aac_duration NOT implement");
+    LOGE(TAG, "get_adif_aac_duration NOT implement");
     return -1;
 
 }
@@ -109,17 +108,17 @@ int64_t get_adts_aac_duration(FILE *file)
     int8_t header[ADTS_HEADER_LEN];
     if(get_header(file, 0, header) != 0)
     {
-        LOGE("get aac header error");
+        LOGE(TAG, "get aac header error");
         return -1;
     }
     int sampleRate = get_sample_rate(header);
     if(sampleRate == -1)
     {
-        LOGE("get sample rate error");
+        LOGE(TAG, "get sample rate error");
         return -1;
     }
 
-    LOGD("sample rate = %d", sampleRate);
+    LOGD(TAG, "sample rate = %d", sampleRate);
 
     int64_t offset = 0;
     int frameCount = 0;
@@ -132,12 +131,12 @@ int64_t get_adts_aac_duration(FILE *file)
         readHeadResult = get_header(file, offset, header);
         if(readHeadResult == EOF)
         {
-            LOGD("reached the end of file");
+            LOGD(TAG, "reached the end of file");
             break;
         }
         else if(readHeadResult == -2)
         {
-            LOGE("read header error");
+            LOGE(TAG, "read header error");
             return -1;
         }
         else
@@ -149,11 +148,11 @@ int64_t get_adts_aac_duration(FILE *file)
             frameCount++;
         }
     }
-    LOGD("total file size is %ld bytes, total %d frames", offset, frameCount);
+    LOGD(TAG, "total file size is %lld bytes, total %d frames", offset, frameCount);
 
     double frameDuration = 1024 * 1000.0 / sampleRate;
     int64_t duration = (int64_t)(frameCount * frameDuration);
-    LOGD("frame duration = %.2lf, total duration = %ldms", frameDuration, duration);
+    LOGD(TAG, "frame duration = %.2lf, total duration = %lld ms", frameDuration, duration);
     return duration;
 
 

@@ -24,19 +24,17 @@ bool OpenGLESPlayer2::create() {
 }
 
 void OpenGLESPlayer2::release() {
-    messageQueue.setBlockingPop(false);
-    messageQueue.setBlockingPush(false);
     messageQueue.push(RenderMessage::EXIT);
     if(renderThread != nullptr && renderThread->joinable())
     {
         renderThread->join();
     }
 
-    if(window != nullptr)
-    {
-        ANativeWindow_release(window);
-        window = nullptr;
-    }
+//    if(window != nullptr)
+//    {
+//        ANativeWindow_release(window);
+//        window = nullptr;
+//    }
 }
 
 
@@ -50,11 +48,11 @@ void OpenGLESPlayer2::setWindow(void *window) {
     messageQueue.push(RenderMessage::SET_WINDOW);
 }
 
-void OpenGLESPlayer2::setSize(int32_t width, int32_t height) {
+void OpenGLESPlayer2::setScreenSize(int32_t width, int32_t height) {
 
-    this->width = width;
-    this->height = height;
-    messageQueue.push(RenderMessage::SET_SIZE);
+    this->screenWidth = width;
+    this->screenHeight = height;
+    messageQueue.push(RenderMessage::SET_SCREEN_SIZE);
 }
 
 void OpenGLESPlayer2::renderLoop() {
@@ -76,17 +74,28 @@ void OpenGLESPlayer2::renderLoop() {
         switch (message)
         {
             case SET_WINDOW:
-                initComponents();
+                render.setWindow(window);
                 break;
-            case SET_SIZE:
-                render->resetRenderSize(0, 0, width, height);
+            case SET_SCREEN_SIZE:
+                render.setScreenSize(screenWidth, screenHeight);
                 break;
             case REFRESH:
-                if(eglCore && render && texture)
-                {
-                    updateTexImage();
-                    eglCore->makeCurrent(surface);
-                    drawFrame();
+            {
+                optional<VideoFrame *> frameOpt = frameQueue.pop();
+                if (frameOpt.has_value()) {
+                    VideoFrame *frame = frameOpt.value();
+                    if (render.isReady()) {
+                        render.refresh(frame);
+                    } else {
+                        LOGE(TAG, "render is not ready");
+                    }
+                    playerCtx->recycleVideoFrame(frame);
+                }
+                break;
+            }
+            case SET_SRC_FORMAT:
+                if (!render.create(format, colorSpace, isHDR)) {
+                    LOGE(TAG, "render.create failed");
                 }
                 break;
             case EXIT:
@@ -97,116 +106,23 @@ void OpenGLESPlayer2::renderLoop() {
         }
 
     }
-
-    releaseComponents();
+    render.release();
 }
 
-bool OpenGLESPlayer2::initComponents() {
-    LOGD(TAG, "init");
-    eglCore = new EGLCore();
-    eglCore->init();
-    surface = eglCore->createWindowSurface(window);
-    eglCore->makeCurrent(surface);
 
-    texture = new Texture();
-
-    if(!(texture->createTexture()))
-    {
-        LOGE(TAG, "create texture failed");
-        releaseComponents();
-        return false;
-    }
-
-
-    render = new Render();
-    if(!render->init(width, height, texture))
-    {
-        LOGE(TAG, "init render failed");
-        releaseComponents();
-        return false;
-    }
-    return true;
-}
-
-void OpenGLESPlayer2::releaseComponents() {
-    if(eglCore)
-    {
-        eglCore->releaseSurface(surface);
-        eglCore->release();
-        delete(eglCore);
-        eglCore = nullptr;
-    }
-
-    if(texture)
-    {
-        texture->dealloc();
-        delete(texture);
-        texture = nullptr;
-    }
-    if(render)
-    {
-        render->dealloc();
-        delete(render);
-        render = nullptr;
-    }
-
-    window = nullptr;
-
-    optional<VideoFrame *> frameOpt;
-    while (frameQueue.getSize() > 0) {
-        frameOpt = frameQueue.pop(false);
-        if (!frameOpt.has_value()) {
-            continue;
-        }
-
-        if (frameOpt.value() != nullptr) {
-            delete(frameOpt.value());
-        }
-    }
-
-    frameQueue.setBlockingPush(true);
-    frameQueue.setBlockingPop(true);
-}
-
-void OpenGLESPlayer2::updateTexImage() {
-    optional<VideoFrame *> frameOpt = frameQueue.pop();
-    if (!frameOpt.has_value()) {
-        LOGE(TAG, "frameOpt has no value");
-        return;
-    }
-
-    VideoFrame* frame = frameOpt.value();
-    if(frame == nullptr)
-    {
-        LOGE(TAG, "frame is null");
-        return;
-    }
-    texture->updateDataToTexture(frame->data, frame->width, frame->height);
-    if (playerCtx != nullptr) {
-        playerCtx->recycleVideoFrame(frame);
-    } else {
-        delete(frame);
-    }
-}
-
-void OpenGLESPlayer2::drawFrame() {
-    LOGD(TAG, "drawFrame");
-    render->render();
-    if(!eglCore->swapBuffers(surface))
-    {
-        LOGE(TAG, "swap buffers failed");
-    }
-}
-
-bool OpenGLESPlayer2::isReady() {
-    return eglCore && texture && render;
-}
 
 void OpenGLESPlayer2::write(VideoFrame* frame) {
     frameQueue.push(frame);
     messageQueue.push(RenderMessage::REFRESH);
 }
 
-void OpenGLESPlayer2::setSrcFormat(AVPixelFormat pixelFormat) {
-    IVideoOutput::setSrcFormat(pixelFormat);
+void OpenGLESPlayer2::setSrcFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) {
+    this->format = pixelFormat;
+    this->colorSpace = colorSpace;
+    this->isHDR = isHDR;
+    messageQueue.push(RenderMessage::SET_SRC_FORMAT);
+}
+
+bool OpenGLESPlayer2::isReady() {
+    return render.isReady();
 }

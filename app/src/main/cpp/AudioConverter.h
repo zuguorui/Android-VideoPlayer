@@ -10,7 +10,7 @@
 #include "PlayerContext.h"
 extern "C" {
 #include "FFmpeg/libswresample/swresample.h"
-};
+}
 
 class AudioConverter {
 public:

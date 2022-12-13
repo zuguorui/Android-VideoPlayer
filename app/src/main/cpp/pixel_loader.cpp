@@ -301,6 +301,8 @@ bool compute_yuv_buffer_size(AVPixelFormat format, int64_t width, int64_t height
     *ySize = yCount * compUseBytes;
     *uSize = uCount * compUseBytes;
     *vSize = vCount * compUseBytes;
+
+    return true;
 }
 
 bool read_yuv_pixel(AVFrame *frame, AVPixelFormat format, int64_t width, int64_t height,

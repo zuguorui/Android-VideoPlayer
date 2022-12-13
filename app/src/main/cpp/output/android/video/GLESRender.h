@@ -31,11 +31,13 @@ public:
 
     bool setWindow(ANativeWindow *window);
 
-    void setSize(int width, int height);
+    void setScreenSize(int width, int height);
 
     void refresh(VideoFrame *videoFrame);
 
     void release();
+
+    bool isReady();
 
 private:
     AVPixelFormat format = AVPixelFormat::AV_PIX_FMT_NONE;
@@ -45,6 +47,9 @@ private:
     bool glSupportFormat = false;
     AVColorSpace colorSpace = AVColorSpace::AVCOL_SPC_NB;
     bool isHDR = false;
+
+    int screenWidth;
+    int screenHeight;
 
     GLuint glInternalFormat = GL_RGB;
     GLuint glDataType = GL_UNSIGNED_BYTE;
@@ -86,6 +91,8 @@ private:
     void prepareVertices();
 
     void deleteVertices();
+
+    void updateVertices();
 
 
 };

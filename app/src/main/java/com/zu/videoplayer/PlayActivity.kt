@@ -18,7 +18,6 @@ fun formatDuration(duration: Long): String
     val hours: Int = totalMinutes / 60
 
     var result = "${if (hours == 0) "" else String.format("%02d:", hours)}${String.format("%02d", minutes)}:${String.format("%02d", seconds)}"
-    var blockQueue = LinkedBlockingQueue<Int>()
 
     return result
 }
@@ -29,6 +28,7 @@ class PlayActivity : AppCompatActivity(), PlayListener {
     private var surfaceViewCallback: SurfaceHolder.Callback = object : SurfaceHolder.Callback{
         override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
             nSetSize(width, height)
+
         }
 
         override fun surfaceDestroyed(holder: SurfaceHolder?) {
@@ -36,10 +36,7 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         }
 
         override fun surfaceCreated(holder: SurfaceHolder?) {
-
             nSetSurface(holder!!.surface)
-
-
         }
     }
 
@@ -80,18 +77,13 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_play)
         filePath = intent.getStringExtra("path")
-        nInit()
 
+        nInit()
         nOpenFile(filePath!!)
-        nStart()
-        isPlaying = true
         btn_play.text = "暂停"
         addSurfaceView()
 
         initViews()
-
-        var tv = TextureView(this)
-
 
     }
 
@@ -132,6 +124,9 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         var duration = nGetDuration()
         seek_pos.max = (duration / 1000).toInt()
         tv_duration.text = formatDuration(duration)
+
+//        nStart()
+        isPlaying = true
     }
 
     override fun onPause() {
@@ -141,7 +136,6 @@ class PlayActivity : AppCompatActivity(), PlayListener {
 
     override fun onDestroy() {
         nStop()
-        nCloseFile()
 
         nDestroy()
         super.onDestroy()
@@ -181,7 +175,6 @@ class PlayActivity : AppCompatActivity(), PlayListener {
     external fun nStart()
     external fun nStop()
     external fun nOpenFile(filePath: String): Boolean
-    external fun nCloseFile()
     external fun nSetSurface(surfaceView: Any)
     external fun nSetSize(width: Int, height: Int)
     external fun nSeek(position: Long)
