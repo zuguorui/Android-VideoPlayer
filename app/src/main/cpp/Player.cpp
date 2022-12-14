@@ -9,6 +9,9 @@
 
 #define TAG "Player"
 
+#define enableAudio false
+#define enableVideo true
+
 using namespace std;
 
 
@@ -24,6 +27,10 @@ Player::~Player() {
 
 void Player::setWindow(void *window) {
     nativeWindow = window;
+    if (createVideoOutputAfterSetWindow) {
+        createVideoOutputAfterSetWindow = false;
+        createVideoOutput();
+    }
 }
 
 void Player::release() {
@@ -104,6 +111,7 @@ bool Player::openFile(string pathStr) {
             trackInfo.durationMS = (int64_t)(stream->duration * av_q2d(stream->time_base) * 1000);
             trackInfo.channels = stream->codecpar->channels;
             trackInfo.sampleRate = stream->codecpar->sample_rate;
+            trackInfo.sampleFormat = static_cast<AVSampleFormat>(stream->codecpar->format);
             audioStreamMap[i] = trackInfo;
         } else if (type == AVMEDIA_TYPE_VIDEO) {
             StreamInfo trackInfo;
@@ -113,6 +121,7 @@ bool Player::openFile(string pathStr) {
             trackInfo.width = stream->codecpar->width;
             trackInfo.height = stream->codecpar->height;
             trackInfo.fps = (float) av_q2d(stream->avg_frame_rate);
+            trackInfo.pixelFormat = static_cast<AVPixelFormat>(stream->codecpar->format);
             videoStreamMap[i] = trackInfo;
         }
     }
@@ -133,44 +142,14 @@ bool Player::openFile(string pathStr) {
     if (audioStreamIndex != -1) {
         LOGD(TAG, "select audio index = %d, detail:", audioStreamIndex);
         av_dump_format(formatCtx, audioStreamIndex, nullptr, 0);
-        audioOutput = getAudioOutput(&playerContext);
-        if (!audioOutput) {
-            LOGE(TAG, "getAudioOutput returns null");
-            release();
-            return false;
-        }
-        AVCodecParameters *params = formatCtx->streams[audioStreamIndex]->codecpar;
-        audioOutput->setSrcFormat(params->sample_rate, params->channels, static_cast<AVSampleFormat>(params->format));
-        if (!audioOutput->create()) {
-            LOGE(TAG, "audio output create failed, sampleRate = %d, channels = %d, sampleFormat = %d", params->sample_rate, params->channels, params->format);
-            release();
-            return false;
-        }
 
+        createAudioOutput();
     }
 
     if (videoStreamIndex != -1) {
         LOGD(TAG, "select video index = %d, detail:", videoStreamIndex);
         av_dump_format(formatCtx, videoStreamIndex, nullptr, 0);
-        videoOutput = getVideoOutput(&playerContext);
-
-        if (!videoOutput) {
-            LOGE(TAG, "getVideoOutput returns null");
-            release();
-            return false;
-        }
-        videoOutput->setScreenSize(screenWidth, screenHeight);
-        if (nativeWindow) {
-            videoOutput->setWindow(nativeWindow);
-        }
-        AVCodecParameters *params = formatCtx->streams[videoStreamIndex]->codecpar;
-        videoOutput->setSrcFormat(static_cast<AVPixelFormat>(params->format), params->color_space,false);
-        if (!videoOutput) {
-            LOGE(TAG, "video output create failed, pixelFormat = %d", params->format);
-            release();
-            return false;
-        }
-
+        createVideoOutput();
     }
 
     return true;
@@ -251,13 +230,13 @@ void Player::readStreamLoop() {
             return;
         }
 
-        if (packet->stream_index == audioStreamIndex) {
+        if (packet->stream_index == audioStreamIndex && enableAudio) {
             ml.push_back(packet);
             pushSuccess = audioPacketQueue.push(packet);
             if (!pushSuccess) {
                 audioPacketQueue.forcePush(packet);
             }
-        } else if (packet->stream_index == videoStreamIndex) {
+        } else if (packet->stream_index == videoStreamIndex && enableVideo) {
             pushSuccess = videoPacketQueue.push(packet);
             if (!pushSuccess) {
                 videoPacketQueue.forcePush(packet);
@@ -459,14 +438,6 @@ void Player::syncLoop() {
     }
 
     while (!stopSyncFlag) {
-        if (audioFrame == nullptr) {
-            optional<AudioFrame *> frameOpt = audioFrameQueue.pop();
-            if (frameOpt.has_value()) {
-                audioFrame = frameOpt.value();
-            } else {
-                break;
-            }
-        }
 
         if (videoFrame == nullptr) {
             optional<VideoFrame *> frameOpt = videoFrameQueue.pop();
@@ -476,41 +447,64 @@ void Player::syncLoop() {
                 break;
             }
         }
+        lastVideoPts = videoFrame->pts;
+        videoOutput->write(videoFrame);
+        videoFrame = nullptr;
 
-        if (videoFrame->pts < audioFrame->pts) {
-            if (firstLoop) {
-                playerContext.recycleVideoFrame(videoFrame);
-                videoFrame = nullptr;
-                lastAudioWriteTime = chrono::system_clock::now();
-                lastAudioPts = audioFrame->pts;
-                audioOutput->write(audioFrame);
-                audioFrame = nullptr;
-                firstLoop = false;
-            } else {
-                if (videoFrame->pts < lastAudioPts) {
-                    playerContext.recycleVideoFrame(videoFrame);
-                    videoFrame = nullptr;
-                    continue;
-                } else {
-                    chrono::system_clock::time_point now = chrono::system_clock::now();
-                    int64_t duration = chrono::duration_cast<chrono::milliseconds>(now - lastAudioWriteTime).count();
-                    if (duration > videoFrame->pts - lastAudioPts) {
-                        int64_t waitMS = duration - (videoFrame->pts - lastAudioPts);
-                        this_thread::sleep_for(chrono::milliseconds(waitMS));
-                    }
-                    lastVideoPts = videoFrame->pts;
-                    videoOutput->write(videoFrame);
-                    videoFrame = nullptr;
-                }
+        this_thread::sleep_for(chrono::milliseconds(17));
 
-            }
-        } else {
-            lastAudioWriteTime = chrono::system_clock::now();
-            lastAudioPts = audioFrame->pts;
-            audioOutput->write(audioFrame);
-            audioFrame = nullptr;
-            firstLoop = false;
-        }
+//        if (audioFrame == nullptr) {
+//            optional<AudioFrame *> frameOpt = audioFrameQueue.pop();
+//            if (frameOpt.has_value()) {
+//                audioFrame = frameOpt.value();
+//            } else {
+//                break;
+//            }
+//        }
+//
+//        if (videoFrame == nullptr) {
+//            optional<VideoFrame *> frameOpt = videoFrameQueue.pop();
+//            if (frameOpt.has_value()) {
+//                videoFrame = frameOpt.value();
+//            } else {
+//                break;
+//            }
+//        }
+//
+//        if (videoFrame->pts < audioFrame->pts) {
+//            if (firstLoop) {
+//                playerContext.recycleVideoFrame(videoFrame);
+//                videoFrame = nullptr;
+//                lastAudioWriteTime = chrono::system_clock::now();
+//                lastAudioPts = audioFrame->pts;
+//                audioOutput->write(audioFrame);
+//                audioFrame = nullptr;
+//                firstLoop = false;
+//            } else {
+//                if (videoFrame->pts < lastAudioPts) {
+//                    playerContext.recycleVideoFrame(videoFrame);
+//                    videoFrame = nullptr;
+//                    continue;
+//                } else {
+//                    chrono::system_clock::time_point now = chrono::system_clock::now();
+//                    int64_t duration = chrono::duration_cast<chrono::milliseconds>(now - lastAudioWriteTime).count();
+//                    if (duration > videoFrame->pts - lastAudioPts) {
+//                        int64_t waitMS = duration - (videoFrame->pts - lastAudioPts);
+//                        this_thread::sleep_for(chrono::milliseconds(waitMS));
+//                    }
+//                    lastVideoPts = videoFrame->pts;
+//                    videoOutput->write(videoFrame);
+//                    videoFrame = nullptr;
+//                }
+//
+//            }
+//        } else {
+//            lastAudioWriteTime = chrono::system_clock::now();
+//            lastAudioPts = audioFrame->pts;
+//            audioOutput->write(audioFrame);
+//            audioFrame = nullptr;
+//            firstLoop = false;
+//        }
 
         if (stateListener != nullptr) {
             stateListener->progressChanged(lastAudioPts, false);
@@ -670,8 +664,13 @@ void Player::stopSyncThread() {
 
 bool Player::play() {
     startReadStreamThread();
-    startDecodeAudioThread();
-    startDecodeVideoThread();
+    if (enableAudio) {
+        startDecodeAudioThread();
+    }
+    if (enableVideo) {
+        startDecodeVideoThread();
+    }
+
     startSyncThread();
     return true;
 }
@@ -722,5 +721,53 @@ void Player::removePlayStateListener() {
 
 bool Player::isPlaying() {
     return syncThread != nullptr && stopSyncFlag == false;
+}
+
+bool Player::createAudioOutput() {
+    audioOutput = getAudioOutput(&playerContext);
+    if (!audioOutput) {
+        LOGE(TAG, "getAudioOutput returns null");
+        release();
+        return false;
+    }
+    AVCodecParameters *params = formatCtx->streams[audioStreamIndex]->codecpar;
+    audioOutput->setSrcFormat(params->sample_rate, params->channels, static_cast<AVSampleFormat>(params->format));
+    if (!audioOutput->create()) {
+        LOGE(TAG, "audio output create failed, sampleRate = %d, channels = %d, sampleFormat = %d", params->sample_rate, params->channels, params->format);
+        release();
+        return false;
+    }
+    return true;
+}
+
+bool Player::createVideoOutput() {
+    if (nativeWindow == nullptr) {
+        createVideoOutputAfterSetWindow = true;
+        return false;
+    }
+    videoOutput = getVideoOutput(&playerContext);
+    if (!videoOutput) {
+        LOGE(TAG, "getVideoOutput returns null");
+        release();
+        return false;
+    }
+    if (!videoOutput->create()) {
+        LOGE(TAG, "videoOutput create failed");
+        release();
+        return false;
+    }
+    videoOutput->setWindow(nativeWindow);
+    videoOutput->setScreenSize(screenWidth, screenHeight);
+    if (nativeWindow) {
+        videoOutput->setWindow(nativeWindow);
+    }
+    AVCodecParameters *params = formatCtx->streams[videoStreamIndex]->codecpar;
+    videoOutput->setSrcFormat(static_cast<AVPixelFormat>(params->format), params->color_space,false);
+    if (!videoOutput) {
+        LOGE(TAG, "video output create failed, pixelFormat = %d", params->format);
+        release();
+        return false;
+    }
+    return true;
 }
 

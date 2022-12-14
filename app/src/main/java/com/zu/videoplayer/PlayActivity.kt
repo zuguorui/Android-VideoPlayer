@@ -80,7 +80,7 @@ class PlayActivity : AppCompatActivity(), PlayListener {
 
         nInit()
         nOpenFile(filePath!!)
-        btn_play.text = "暂停"
+        btn_play.text = "播放"
         addSurfaceView()
 
         initViews()
@@ -124,9 +124,6 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         var duration = nGetDuration()
         seek_pos.max = (duration / 1000).toInt()
         tv_duration.text = formatDuration(duration)
-
-//        nStart()
-        isPlaying = true
     }
 
     override fun onPause() {

@@ -15,6 +15,7 @@
 #include "EGLWindow.h"
 #include "ShaderScripts.h"
 #include "pixel_loader.h"
+#include "SizeMode.h"
 
 #include "VideoFrame.h"
 extern "C" {
@@ -39,6 +40,8 @@ public:
 
     bool isReady();
 
+    void setSizeMode(SizeMode mode);
+
 private:
     AVPixelFormat format = AVPixelFormat::AV_PIX_FMT_NONE;
     int pixelType = PIXEL_TYPE_UNKNOWN;
@@ -48,8 +51,15 @@ private:
     AVColorSpace colorSpace = AVColorSpace::AVCOL_SPC_NB;
     bool isHDR = false;
 
-    int screenWidth;
-    int screenHeight;
+    int screenWidth = 0;
+    int screenHeight = 0;
+
+    SizeMode sizeMode = SizeMode::FIT;
+
+    int frameWidth = 0;
+    int frameHeight = 0;
+
+    float vertices[20];
 
     GLuint glInternalFormat = GL_RGB;
     GLuint glDataType = GL_UNSIGNED_BYTE;
@@ -75,6 +85,8 @@ private:
     GLuint VBO = 0;
     GLuint EBO = 0;
 
+    void updateVertices();
+
     void createYUVPixelBuffer(int64_t yBufSize, int64_t uBufSize, int64_t vBufSize);
 
     void deleteYUVPixelBuffer();
@@ -92,7 +104,6 @@ private:
 
     void deleteVertices();
 
-    void updateVertices();
 
 
 };

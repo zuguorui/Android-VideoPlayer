@@ -117,6 +117,12 @@ private:
 
     IPlayStateListener *stateListener = nullptr;
 
+    bool createVideoOutputAfterSetWindow = false;
+
+    bool createAudioOutput();
+
+    bool createVideoOutput();
+
     void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder, int *streamIndex);
 
     static void decodeAudioCallback(void *context);

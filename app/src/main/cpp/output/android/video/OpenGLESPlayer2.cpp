@@ -19,6 +19,7 @@ OpenGLESPlayer2::~OpenGLESPlayer2() {
 }
 
 bool OpenGLESPlayer2::create() {
+    LOGD(TAG, "create");
     renderThread = new thread(renderCallback, this);
     return true;
 }
@@ -44,12 +45,13 @@ void OpenGLESPlayer2::renderCallback(void *self) {
 
 
 void OpenGLESPlayer2::setWindow(void *window) {
+    LOGD(TAG, "setWindow");
     this->window = (ANativeWindow *)window;
     messageQueue.push(RenderMessage::SET_WINDOW);
 }
 
 void OpenGLESPlayer2::setScreenSize(int32_t width, int32_t height) {
-
+    LOGD(TAG, "setScreenSize");
     this->screenWidth = width;
     this->screenHeight = height;
     messageQueue.push(RenderMessage::SET_SCREEN_SIZE);
@@ -70,11 +72,13 @@ void OpenGLESPlayer2::renderLoop() {
             continue;
         }
         message = messageOpt.value();
-
+        LOGD(TAG, "messsage = %d", message);
         switch (message)
         {
             case SET_WINDOW:
-                render.setWindow(window);
+                if (!render.setWindow(window)) {
+                    LOGE(TAG, "render setWindow failed");
+                }
                 break;
             case SET_SCREEN_SIZE:
                 render.setScreenSize(screenWidth, screenHeight);
@@ -101,6 +105,9 @@ void OpenGLESPlayer2::renderLoop() {
             case EXIT:
                 exitFlag = true;
                 break;
+            case SET_SIZE_MODE:
+                render.setSizeMode(sizeMode);
+                break;
             default:
                 break;
         }
@@ -112,11 +119,13 @@ void OpenGLESPlayer2::renderLoop() {
 
 
 void OpenGLESPlayer2::write(VideoFrame* frame) {
+    LOGD(TAG, "write, pts = %lld, frameQueue.size = %ld", frame->pts, frameQueue.getSize());
     frameQueue.push(frame);
     messageQueue.push(RenderMessage::REFRESH);
 }
 
 void OpenGLESPlayer2::setSrcFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) {
+    LOGD(TAG, "setSrcFormat");
     this->format = pixelFormat;
     this->colorSpace = colorSpace;
     this->isHDR = isHDR;
@@ -125,4 +134,9 @@ void OpenGLESPlayer2::setSrcFormat(AVPixelFormat pixelFormat, AVColorSpace color
 
 bool OpenGLESPlayer2::isReady() {
     return render.isReady();
+}
+
+void OpenGLESPlayer2::setSizeMode(SizeMode mode) {
+    sizeMode = mode;
+    messageQueue.push(RenderMessage::SET_SIZE_MODE);
 }

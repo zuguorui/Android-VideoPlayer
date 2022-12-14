@@ -154,6 +154,7 @@ bool get_yuv_comp_count_ratio(AVPixelFormat format, int *y2u, int *y2v) {
             *y2u = 2;
             *y2v = 2;
             return true;
+        case AVPixelFormat::AV_PIX_FMT_YUV420P:
         case AVPixelFormat::AV_PIX_FMT_NV12:
         case AVPixelFormat::AV_PIX_FMT_NV21:
         case AVPixelFormat::AV_PIX_FMT_YUV420P10BE:
@@ -288,7 +289,7 @@ bool compute_yuv_buffer_size(AVPixelFormat format, int64_t width, int64_t height
     int y2u = 1;
     int y2v = 1;
 
-    if (!get_yuv_comp_count_ratio(format, &y2u, &y2u)) {
+    if (!get_yuv_comp_count_ratio(format, &y2u, &y2v)) {
         return false;
     }
 

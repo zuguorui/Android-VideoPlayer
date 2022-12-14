@@ -20,7 +20,7 @@ public:
 
     bool create(ANativeWindow *nativeWindow);
 
-    bool setSize(int width, int height);
+    bool makeCurrent();
 
     void release();
 

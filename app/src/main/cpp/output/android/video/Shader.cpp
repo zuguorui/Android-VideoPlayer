@@ -24,6 +24,7 @@ Shader::~Shader() {
 bool Shader::compileShader(const char *vertexShaderCode, const char *fragmentShaderCode) {
 
     release();
+
     const static int LOG_BUFFER_SIZE = 512;
 
     GLint success;
@@ -69,8 +70,8 @@ bool Shader::compileShader(const char *vertexShaderCode, const char *fragmentSha
             LOGE(TAG, "link program failed, log: %s", infoLog);
             throw "link program failed";
         }
-    } catch (string msg) {
-        LOGE(TAG, "%s", msg.c_str());
+    } catch (const char* msg) {
+        LOGE(TAG, "%s", msg);
         release();
     }
 
@@ -81,7 +82,9 @@ bool Shader::compileShader(const char *vertexShaderCode, const char *fragmentSha
     if (fragmentShader > 0) {
         glDeleteShader(fragmentShader);
     }
-
+    if (result) {
+        LOGD(TAG, "shader compile success");
+    }
     return result;
 }
 

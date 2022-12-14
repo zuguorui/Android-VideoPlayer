@@ -37,6 +37,8 @@ public:
 
     void write(VideoFrame* frame) override;
 
+    void setSizeMode(SizeMode mode) override;
+
 private:
 
     GLESRender render;
@@ -50,12 +52,15 @@ private:
     AVColorSpace colorSpace;
     bool isHDR;
 
+    SizeMode sizeMode;
+
     enum RenderMessage{
         SET_WINDOW,
         REFRESH,
         SET_SCREEN_SIZE,
         SET_SRC_FORMAT,
         EXIT,
+        SET_SIZE_MODE,
     };
 
     std::thread *renderThread = nullptr;

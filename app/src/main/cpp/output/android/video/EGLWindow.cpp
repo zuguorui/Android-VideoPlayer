@@ -15,6 +15,7 @@ static const EGLint eglConfigAttrs[] = {
         EGL_BLUE_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_RED_SIZE, 8,
+
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
         EGL_NONE
@@ -53,7 +54,19 @@ bool EGLWindow::create(ANativeWindow *nativeWindow) {
             throw "eglChooseConfig failed";
         }
 
-        context = eglCreateContext(display, config, nullptr, eglConfigAttrs);
+        LOGD(TAG, "numConfigs = %d", numConfigs);
+        uint16_t *configS = (uint16_t *)config;
+        for (int i = 0; i < numConfigs; i++) {
+            uint16_t name = configS[2 * i];
+            if (name == EGL_NONE) {
+                break;
+            }
+            uint16_t value = configS[2 * i + 1];
+            LOGD(TAG, "eglConfig, name = 0x%x, value = 0x%x", name, value);
+
+        }
+
+        context = eglCreateContext(display, config, nullptr, eglContextAttrs);
         if (context == EGL_NO_CONTEXT) {
             LOGE(TAG, "eglCreateContext failed, err = %d", eglGetError());
             throw "eglCreateContext failed";
@@ -78,14 +91,21 @@ bool EGLWindow::create(ANativeWindow *nativeWindow) {
             throw "eglMakeCurrent failed";
         }
 
-    } catch (string msg) {
-        LOGE(TAG, "%s", msg.c_str());
+    } catch (const char* msg) {
+        LOGE(TAG, "%s", msg);
         release();
         return false;
     }
 
     return true;
 
+}
+
+bool EGLWindow::makeCurrent() {
+    if (!isReady()) {
+        return false;
+    }
+    return eglMakeCurrent(display, surface, surface, context);
 }
 
 void EGLWindow::release() {

@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include "VideoFrame.h"
 #include "PlayerContext.h"
+#include "SizeMode.h"
+
+
 
 class IVideoOutput {
 public:
@@ -21,6 +24,7 @@ public:
     virtual void setScreenSize(int32_t width, int32_t height) = 0;
     virtual bool isReady() = 0;
     virtual void write(VideoFrame* frame) = 0;
+    virtual void setSizeMode(SizeMode mode) = 0;
 
 protected:
     PlayerContext *playerCtx;

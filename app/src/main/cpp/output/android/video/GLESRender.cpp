@@ -9,28 +9,25 @@
 
 using namespace std;
 
-const static AVPixelFormat SUPPORTED_RGB_FORMAT[] = {
-        AVPixelFormat::AV_PIX_FMT_RGB24
-};
+void dumpData(const char *name, uint8_t *data, int64_t size) {
+    char fullPath[50];
+    sprintf(fullPath, "/data/data/com.zu.android_videoplayer/cache/%s", name);
+    FILE *f = fopen(fullPath, "wb");
+    fwrite(data, 1, size, f);
+    fflush(f);
+    fclose(f);
+}
 
 
-const static AVPixelFormat SUPPORTED_YUV_FORMAT[] =  {
-        AVPixelFormat::AV_PIX_FMT_YUV420P,
-        AVPixelFormat::AV_PIX_FMT_YUV422P,
-        AVPixelFormat::AV_PIX_FMT_YUV444P,
-        AVPixelFormat::AV_PIX_FMT_NV12,
-        AVPixelFormat::AV_PIX_FMT_NV21
-};
+//const static float vertices[] = {
+//        // vertex pos         // tex coords
+//        -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, // view left-bottom to tex left-top
+//        1.0f, -1.0f,  0.0f,  1.0f, 1.0f, // view right-bottom to tex right-top
+//        1.0f,  1.0f,  0.0f,  1.0f, 0.0f, // view right-top to tex right-bottom
+//        -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, // view left-top to tex left-bottom
+//};
 
-const static float vertices[] = {
-        // vertex pos         // tex coords
-        -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, // view left-bottom to tex left-top
-        1.0f, -1.0f,  0.0f,  1.0f, 1.0f, // view right-bottom to tex right-top
-        1.0f,  1.0f,  0.0f,  1.0f, 0.0f, // view right-top to tex right-bottom
-        -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, // view left-top to tex left-bottom
-};
-
-unsigned int indices[] = {
+const static unsigned int indices[] = {
         0, 3, 2,
         2, 1, 0
 };
@@ -44,6 +41,13 @@ GLESRender::~GLESRender() {
 }
 
 bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHDR) {
+
+    LOGD(TAG, "create");
+
+    if (!eglWindow.isReady()) {
+        LOGE(TAG, "eglWindow is not ready");
+        return false;
+    }
 
     pixelType = get_pixel_type(format);
     pixelLayout = get_pixel_layout(format);
@@ -80,8 +84,7 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
             LOGE(TAG, "format = RGB24, compile shader failed");
             return false;
         }
-        shader.use();
-        shader.setInt("tex_rgb", 0);
+
     } else if (pixelType == PIXEL_TYPE_YUV) {
         yuvCompDepth = get_yuv_comp_depth(format);
         if (yuvCompDepth < 0) {
@@ -102,10 +105,7 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
             LOGE(TAG, "format = %d, compile shader failed", format);
             return false;
         }
-        shader.use();
-        shader.setInt("tex_y", 0);
-        shader.setInt("tex_u", 1);
-        shader.setInt("tex_v", 2);
+        eglWindow.makeCurrent();
     } else {
         LOGE(TAG, "unsupported pixel format: %d", format);
         return false;
@@ -124,6 +124,7 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
 }
 
 bool GLESRender::setWindow(ANativeWindow *window) {
+    LOGD(TAG, "setWindow");
     if (!eglWindow.create(window)) {
         LOGE(TAG, "create eglWindow failed");
         return false;
@@ -137,22 +138,31 @@ bool GLESRender::setWindow(ANativeWindow *window) {
 }
 
 void GLESRender::setScreenSize(int width, int height) {
+    bool needUpdateVertices = false;
+    if (screenWidth != width || screenHeight != height) {
+        needUpdateVertices = true;
+    }
     screenWidth = width;
     screenHeight = height;
     if (eglWindow.isReady()) {
         glViewport(0, 0, width, height);
     }
+    if (needUpdateVertices) {
+        updateVertices();
+    }
 
 }
 
 void GLESRender::release() {
-    eglWindow.release();
+
     shader.release();
 
     deleteYUVPixelBuffer();
     deleteVertices();
     deleteRGBTex();
     deleteYUVTex();
+
+    eglWindow.release();
 
 }
 
@@ -161,6 +171,18 @@ void GLESRender::refresh(VideoFrame *videoFrame) {
         LOGE(TAG, "frame.format != format");
         return;
     }
+    bool needUpdateVertices = false;
+    if (videoFrame->width != frameWidth || videoFrame->height != frameHeight) {
+        needUpdateVertices = true;
+    }
+    frameWidth = videoFrame->width;
+    frameHeight = videoFrame->height;
+
+    if (needUpdateVertices) {
+        updateVertices();
+    }
+
+    eglWindow.makeCurrent();
 
     shader.use();
 
@@ -173,9 +195,10 @@ void GLESRender::refresh(VideoFrame *videoFrame) {
         return;
     }
 
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    glEnable(GL_BLEND);
 
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -198,8 +221,11 @@ void GLESRender::createRGBTex(VideoFrame *frame) {
     glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, frame->width, frame->height, 0, glDataFormat, glDataType, frame->avFrame->data[0]);
     glGenerateMipmap(GL_TEXTURE_2D);
 
+    shader.use();
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex_rgb);
+    shader.setInt("tex_rgb", 0);
 }
 
 void GLESRender::deleteRGBTex() {
@@ -220,47 +246,25 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
         return;
     }
 
-    if (pix_y_count < yBufSize) {
-        if (pix_y) {
-            free(pix_y);
-            pix_y = nullptr;
-        }
-        pix_y_count = yBufSize;
-        pix_y = (uint8_t *)malloc(pix_y_count);
-    }
+    createYUVPixelBuffer(yBufSize, uBufSize, vBufSize);
 
-    if (pix_u_count < uBufSize) {
-        if (pix_u) {
-            free(pix_u);
-            pix_u = nullptr;
-        }
-        pix_u_count = uBufSize;
-        pix_u = (uint8_t *) malloc(pix_u_count);
-    }
-
-    if (pix_v_count < vBufSize) {
-        if (pix_v) {
-            free(pix_v);
-            pix_v = nullptr;
-        }
-        pix_v_count = vBufSize;
-        pix_v = (uint8_t *) malloc(pix_v_count);
-    }
-
-    read_yuv_pixel(frame->avFrame, format, frame->width, frame->height,
+    bool readSuccess = read_yuv_pixel(frame->avFrame, format, frame->width, frame->height,
                    pix_y, &y_width, &y_height,
                    pix_u, &u_width, &u_height,
                    pix_v, &v_width, &v_height);
 
+    if (!readSuccess) {
+        LOGE(TAG, "failed to read yuv pixel");
+        return;
+    }
 
     glGenTextures(1, &tex_y);
-
     glBindTexture(GL_TEXTURE_2D, tex_y);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, y_width, y_height, 0, GL_RED, glDataType, pix_y);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, y_width, y_height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pix_y);
     glGenerateMipmap(GL_TEXTURE_2D);
 
 
@@ -270,7 +274,7 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, u_width, u_height, 0, GL_RED, glDataType, pix_u);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, u_width, u_height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pix_u);
     glGenerateMipmap(GL_TEXTURE_2D);
 
 
@@ -280,17 +284,22 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, v_width, v_height, 0, GL_RED, glDataType, pix_v);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, v_width, v_height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pix_v);
     glGenerateMipmap(GL_TEXTURE_2D);
+
+    shader.use();
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex_y);
+    shader.setInt("tex_y", 0);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, tex_u);
+    shader.setInt("tex_u", 1);
 
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, tex_v);
+    shader.setInt("tex_v", 2);
 }
 
 void GLESRender::deleteYUVTex() {
@@ -351,6 +360,8 @@ void GLESRender::deleteYUVPixelBuffer() {
 
 void GLESRender::prepareVertices() {
 
+    deleteVertices();
+
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
@@ -386,5 +397,76 @@ void GLESRender::deleteVertices() {
 
 bool GLESRender::isReady() {
     return eglWindow.isReady() && shader.isReady();
+}
+
+void GLESRender::setSizeMode(SizeMode mode) {
+    bool needUpdateVertices = false;
+    if (sizeMode != mode) {
+        needUpdateVertices = true;
+    }
+    sizeMode = mode;
+    if (needUpdateVertices) {
+        updateVertices();
+    }
+}
+
+void GLESRender::updateVertices() {
+    deleteVertices();
+    if (screenWidth == 0 || screenHeight == 0) {
+        LOGE(TAG, "screen size not set");
+        return;
+    }
+    if (frameWidth == 0 || frameHeight == 0) {
+        LOGE(TAG, "frame size not confirmed");
+        return;
+    }
+
+    float screenLeft, screenRight, screenTop, screenBottom;
+    float frameLeft, frameRight, frameTop, frameBottom;
+
+    frameLeft = 0;
+    frameRight = 1;
+    frameTop = 1;
+    frameBottom = 0;
+
+    if (sizeMode == SizeMode::FULL) {
+        screenLeft = -1;
+        screenRight = 1;
+        screenTop = 1;
+        screenBottom = -1;
+    } else if (sizeMode == SizeMode::FIT) {
+        float frameW2H = frameWidth * 1.0f / frameHeight;
+        float screenW2H = screenWidth * 1.0f / screenHeight;
+
+        if (frameW2H >= screenW2H) {
+            int scaledScreenHeight = (int)(screenWidth * frameHeight * 1.0f / frameWidth);
+            screenLeft = -1;
+            screenRight = 1;
+            screenTop = scaledScreenHeight * 1.0f / screenHeight;
+            screenBottom = -screenTop;
+        } else {
+            int scaledScreenWidth = (int)(screenHeight * frameWidth * 1.0f / frameHeight);
+            screenRight = scaledScreenWidth * 1.0f / screenWidth;
+            screenLeft = -screenRight;
+
+            screenTop = 1;
+            screenBottom = -1;
+        }
+
+        float tmpVert[20] = {
+            screenLeft, screenBottom, 0, frameLeft, frameTop,
+            screenRight, screenBottom, 0, frameRight, frameTop,
+            screenRight, screenTop, 0, frameRight, frameBottom,
+            screenLeft, screenTop, 0, frameLeft, frameBottom,
+        };
+
+        memcpy(vertices, tmpVert, 20 * sizeof(float));
+
+        if (eglWindow.isReady()) {
+            prepareVertices();
+        }
+    }
+
+
 }
 

@@ -32,6 +32,7 @@ struct VideoFrame {
         reset();
         this->avFrame = avFrame;
         this->pixelFormat = avPixelFormat;
+        this->timeBase = timeBase;
         initParams();
     }
 
