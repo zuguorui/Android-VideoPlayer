@@ -45,11 +45,11 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
     pixelType = get_pixel_type(format);
     pixelLayout = get_pixel_layout(format);
 
-    if (pixelType == PIXEL_TYPE_UNKNOWN || pixelLayout == PIXEL_LAYOUT_UNKNOWN) {
+    if (pixelType == PixelType::None || pixelLayout == PixelLayout::None) {
         LOGE(TAG, "unsupported pixel format: %d", format);
         return false;
     }
-    if (pixelType == PIXEL_TYPE_RGB) {
+    if (pixelType == PixelType::RGB) {
         switch (format) {
             case AV_PIX_FMT_RGB24:
                 glDataType = GL_UNSIGNED_BYTE;
@@ -78,7 +78,7 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
             return false;
         }
 
-    } else if (pixelType == PIXEL_TYPE_YUV) {
+    } else if (pixelType == PixelType::YUV) {
         yuvCompDepth = get_yuv_comp_depth(format);
         if (yuvCompDepth < 0) {
             LOGE(TAG, "get_yuv_comp_depth failed, format = %d", format);
@@ -91,10 +91,10 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
             glDataFormat = GL_LUMINANCE;
             fragmentCode = yuv2rgbShaderCode;
         } else if (yuvCompDepth <= 16) {
-            glDataType = GL_HALF_FLOAT;
-            glInternalFormat = GL_R16F;
+            glDataType = GL_FLOAT;
+            glInternalFormat = GL_R32F;
             glDataFormat = GL_RED;
-            fragmentCode = yuv16ui2rgbShaderCode;
+            fragmentCode = yuv2rgbShaderCode;
         } else {
             LOGE(TAG, "unsupported yuvCompDepth: %d", yuvCompDepth);
             return false;
@@ -186,9 +186,9 @@ void GLESRender::refresh(VideoFrame *videoFrame) {
 
     shader.use();
 
-    if (pixelType == PIXEL_TYPE_RGB) {
+    if (pixelType == PixelType::RGB) {
         createRGBTex(videoFrame);
-    } else if (pixelType == PIXEL_TYPE_YUV) {
+    } else if (pixelType == PixelType::YUV) {
         createYUVTex(videoFrame);
     } else {
         LOGE(TAG, "unsupported format %d", format);
@@ -248,6 +248,8 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
 
     createYUVPixelBuffer(yBufSize, uBufSize, vBufSize);
 
+
+
     bool readSuccess = read_yuv_pixel(frame->avFrame, format, frame->width, frame->height,
                    pix_y, &y_width, &y_height,
                    pix_u, &u_width, &u_height,
@@ -258,9 +260,9 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
         return;
     }
 
-    dumpData("y", pix_y, yBufSize);
-    dumpData("u", pix_u, uBufSize);
-    dumpData("v", pix_v, vBufSize);
+//    dumpData("y", pix_y, yBufSize);
+//    dumpData("u", pix_u, uBufSize);
+//    dumpData("v", pix_v, vBufSize);
 
     GLenum glError;
 
@@ -332,31 +334,31 @@ void GLESRender::deleteYUVTex() {
 
 
 void GLESRender::createYUVPixelBuffer(int64_t yBufSize, int64_t uBufSize, int64_t vBufSize) {
-    if (pix_y_count < yBufSize || pix_y == nullptr) {
+    if (pix_y_size < yBufSize || pix_y == nullptr) {
         if (pix_y) {
             free(pix_y);
             pix_y = nullptr;
         }
-        pix_y_count = yBufSize;
-        pix_y = (uint8_t *)malloc(pix_y_count);
+        pix_y_size = yBufSize;
+        pix_y = (uint8_t *)malloc(pix_y_size);
     }
 
-    if (pix_u_count < uBufSize || pix_u == nullptr) {
+    if (pix_u_size < uBufSize || pix_u == nullptr) {
         if (pix_u) {
             free(pix_u);
             pix_u = nullptr;
         }
-        pix_u_count = uBufSize;
-        pix_u = (uint8_t *) malloc(pix_u_count);
+        pix_u_size = uBufSize;
+        pix_u = (uint8_t *) malloc(pix_u_size);
     }
 
-    if (pix_v_count < vBufSize || pix_v == nullptr) {
+    if (pix_v_size < vBufSize || pix_v == nullptr) {
         if (pix_v) {
             free(pix_v);
             pix_v = nullptr;
         }
-        pix_v_count = vBufSize;
-        pix_v = (uint8_t *) malloc(pix_v_count);
+        pix_v_size = vBufSize;
+        pix_v = (uint8_t *) malloc(pix_v_size);
     }
 }
 
@@ -364,19 +366,19 @@ void GLESRender::deleteYUVPixelBuffer() {
     if (pix_y) {
         free(pix_y);
         pix_y = nullptr;
-        pix_y_count = 0;
+        pix_y_size = 0;
     }
 
     if (pix_u) {
         free(pix_u);
         pix_u = nullptr;
-        pix_u_count = 0;
+        pix_u_size = 0;
     }
 
     if (pix_v) {
         free(pix_v);
         pix_v = nullptr;
-        pix_v_count = 0;
+        pix_v_size = 0;
     }
 }
 

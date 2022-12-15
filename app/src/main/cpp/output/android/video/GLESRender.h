@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <float.h>
 #include <iostream>
 #include "android/native_window.h"
 #include "GLES3/gl3.h"
@@ -45,9 +46,9 @@ public:
 
 private:
     AVPixelFormat format = AVPixelFormat::AV_PIX_FMT_NONE;
-    int pixelType = PIXEL_TYPE_UNKNOWN;
+    PixelType pixelType = PixelType::None;
     int yuvCompDepth = 0;
-    int pixelLayout = PIXEL_LAYOUT_UNKNOWN;
+    PixelLayout pixelLayout = PixelLayout::None;
     bool glSupportFormat = false;
     AVColorSpace colorSpace = AVColorSpace::AVCOL_SPC_NB;
     bool isHDR = false;
@@ -70,11 +71,12 @@ private:
     Shader shader;
 
     uint8_t *pix_y = nullptr;
-    int64_t pix_y_count = -1;
+    int64_t pix_y_size = -1;
     uint8_t *pix_u = nullptr;
-    int64_t pix_u_count = -1;
+    int64_t pix_u_size = -1;
     uint8_t *pix_v = nullptr;
-    int64_t pix_v_count = -1;
+    int64_t pix_v_size = -1;
+
 
     GLuint tex_y = 0;
     GLuint tex_u = 0;

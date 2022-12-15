@@ -6,7 +6,7 @@
 
 #define TAG "pixel_loader"
 
-int get_pixel_type(AVPixelFormat format) {
+PixelType get_pixel_type(AVPixelFormat format) {
     switch (format) {
         case AVPixelFormat::AV_PIX_FMT_YUV444P:
         case AVPixelFormat::AV_PIX_FMT_YUV444P10BE:
@@ -44,7 +44,7 @@ int get_pixel_type(AVPixelFormat format) {
         case AVPixelFormat::AV_PIX_FMT_YVYU422:
         case AVPixelFormat::AV_PIX_FMT_UYVY422:
         case AVPixelFormat::AV_PIX_FMT_UYYVYY411:
-            return PIXEL_TYPE_YUV;
+            return PixelType::YUV;
         case AVPixelFormat::AV_PIX_FMT_RGB24:
         case AVPixelFormat::AV_PIX_FMT_RGB555BE:
         case AVPixelFormat::AV_PIX_FMT_RGB555LE:
@@ -55,13 +55,13 @@ int get_pixel_type(AVPixelFormat format) {
         case AVPixelFormat::AV_PIX_FMT_BGR555LE:
         case AVPixelFormat::AV_PIX_FMT_BGR565BE:
         case AVPixelFormat::AV_PIX_FMT_BGR565LE:
-            return PIXEL_TYPE_RGB;
+            return PixelType::RGB;
         default:
-            return PIXEL_TYPE_UNKNOWN;
+            return PixelType::None;
     }
 }
 
-int get_pixel_layout(AVPixelFormat format) {
+PixelLayout get_pixel_layout(AVPixelFormat format) {
     switch (format) {
         case AVPixelFormat::AV_PIX_FMT_YUV444P:
         case AVPixelFormat::AV_PIX_FMT_YUV444P10BE:
@@ -92,7 +92,7 @@ int get_pixel_layout(AVPixelFormat format) {
         case AVPixelFormat::AV_PIX_FMT_YUV420P14LE:
         case AVPixelFormat::AV_PIX_FMT_YUV420P16BE:
         case AVPixelFormat::AV_PIX_FMT_YUV420P16LE:
-            return PIXEL_LAYOUT_PLANNER;
+            return PixelLayout::Planner;
         case AVPixelFormat::AV_PIX_FMT_YUYV422:
         case AVPixelFormat::AV_PIX_FMT_YVYU422:
         case AVPixelFormat::AV_PIX_FMT_UYVY422:
@@ -108,12 +108,12 @@ int get_pixel_layout(AVPixelFormat format) {
         case AVPixelFormat::AV_PIX_FMT_BGR555LE:
         case AVPixelFormat::AV_PIX_FMT_BGR565BE:
         case AVPixelFormat::AV_PIX_FMT_BGR565LE:
-            return PIXEL_LAYOUT_PACKET;
+            return PixelLayout::Packet;
         case AVPixelFormat::AV_PIX_FMT_NV12:
         case AVPixelFormat::AV_PIX_FMT_NV21:
-            return PIXEL_LAYOUT_SEMI_PLANNER;
+            return PixelLayout::Semi_Planner;
         default:
-            return PIXEL_LAYOUT_UNKNOWN;
+            return PixelLayout::None;
     }
 }
 
@@ -279,11 +279,17 @@ bool compute_yuv_buffer_size(AVPixelFormat format, int64_t width, int64_t height
     if (compValidBits <= 0) {
         return false;
     }
+
     int compUseBits = 8;
+#ifdef LOAD_MULTI_BYTES_YUV_AS_FLOAT
+    if (compValidBits > 8) {
+        compUseBits = 32;
+    }
+#else
     if (compValidBits > 8) {
         compUseBits = 16;
     }
-
+#endif
     int compUseBytes = compUseBits / 8;
 
     int y2u = 1;
@@ -311,12 +317,12 @@ bool read_yuv_pixel(AVFrame *frame, AVPixelFormat format, int64_t width, int64_t
                     uint8_t *uBuffer, int *uWidth, int *uHeight,
                     uint8_t *vBuffer, int *vWidth, int *vHeight) {
 
-    int layout = get_pixel_layout(format);
-    if (layout == PIXEL_LAYOUT_PLANNER) {
+    PixelLayout layout = get_pixel_layout(format);
+    if (layout == PixelLayout::Planner) {
         return read_yuv_planner(frame, format, width, height, yBuffer, yWidth, yHeight, uBuffer, uWidth, uHeight, vBuffer, vWidth, vHeight);
-    } else if (layout == PIXEL_LAYOUT_PACKET) {
+    } else if (layout == PixelLayout::Packet) {
         return read_yuv_packet(frame, format, width, height, yBuffer, yWidth, yHeight, uBuffer, uWidth, uHeight, vBuffer, vWidth, vHeight);
-    } else if (layout == PIXEL_LAYOUT_SEMI_PLANNER) {
+    } else if (layout == PixelLayout::Semi_Planner) {
         return read_yuv_semi_planner(frame, format, width, height, yBuffer, yWidth, yHeight, uBuffer, uWidth, uHeight, vBuffer, vWidth, vHeight);
     } else {
         return false;
@@ -339,8 +345,6 @@ bool read_yuv_planner(AVFrame *frame, AVPixelFormat format, int64_t width, int64
 
     int compUseBytes = compUseBits / 8;
 
-    int shiftBits = compUseBits - compValidBits;
-
     int y2u_width, y2u_height, y2v_width, y2v_height;
 
     if (!get_yuv_comp_size_ratio(format, &y2u_width, &y2u_height, &y2v_width, &y2v_height)) {
@@ -362,6 +366,45 @@ bool read_yuv_planner(AVFrame *frame, AVPixelFormat format, int64_t width, int64
     memcpy(yBuffer, frame->data[0], yCount * compUseBytes);
     memcpy(uBuffer, frame->data[1], uCount * compUseBytes);
     memcpy(vBuffer, frame->data[2], vCount * compUseBytes);
+
+#ifdef LOAD_MULTI_BYTES_YUV_AS_FLOAT
+    // load yuv pixels as float 32.
+    if (compUseBytes >= 2) {
+        uint64_t maxValue = 0x01;
+        // compute pixels max value in its depth.
+        for (int i = 1; i < compValidBits; i++) {
+            maxValue = (maxValue << 1) | 0x01;
+        }
+
+        uint16_t *ys = (uint16_t *)yBuffer;
+        float *yf = (float *)yBuffer;
+        // don't use extra space, convert from end
+        // to avoid recover.
+        for (int64_t i = yCount - 1; i >= 0; i--) {
+            yf[i] = ys[i] * 1.0f / maxValue;
+        }
+
+        uint16_t *us = (uint16_t *)uBuffer;
+        float *uf = (float *)uBuffer;
+        for (int64_t i = uCount - 1; i >= 0; i--) {
+            uf[i] = us[i] * 1.0f / maxValue;
+        }
+
+        uint16_t *vs = (uint16_t *)vBuffer;
+        float *vf = (float *)vBuffer;
+        for (int64_t i = vCount - 1; i >= 0; i--) {
+            vf[i] = vs[i] * 1.0f / maxValue;
+        }
+    }
+#else
+
+    // GL textures will convert uint16 to float by
+    // deviding UINT16_MAX. pixels is always not full
+    // 16bit depth, which will make values very small in
+    // GL shader. To avoid this, convert pixel max to
+    // UINT16_MAX.
+
+    int shiftBits = compUseBits - compValidBits;
 
     if (shiftBits != 0) {
         if (compUseBytes == 2) {
@@ -398,7 +441,7 @@ bool read_yuv_planner(AVFrame *frame, AVPixelFormat format, int64_t width, int64
             LOGE(TAG, "shiftBits = %d, compValidBits = %d, compUsedBits = %d", shiftBits, compValidBits, compUseBits);
         }
     }
-
+#endif
     return true;
 }
 
