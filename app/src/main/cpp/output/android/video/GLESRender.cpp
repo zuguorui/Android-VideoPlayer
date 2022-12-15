@@ -19,13 +19,6 @@ void dumpData(const char *name, uint8_t *data, int64_t size) {
 }
 
 
-//const static float vertices[] = {
-//        // vertex pos         // tex coords
-//        -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, // view left-bottom to tex left-top
-//        1.0f, -1.0f,  0.0f,  1.0f, 1.0f, // view right-bottom to tex right-top
-//        1.0f,  1.0f,  0.0f,  1.0f, 0.0f, // view right-top to tex right-bottom
-//        -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, // view left-top to tex left-bottom
-//};
 
 const static unsigned int indices[] = {
         0, 3, 2,
@@ -91,21 +84,27 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
             LOGE(TAG, "get_yuv_comp_depth failed, format = %d", format);
             return false;
         }
-        glInternalFormat = GL_RED;
-        glDataFormat = GL_RED;
+        const char *fragmentCode;
         if (yuvCompDepth <= 8) {
             glDataType = GL_UNSIGNED_BYTE;
+            glInternalFormat = GL_LUMINANCE;
+            glDataFormat = GL_LUMINANCE;
+            fragmentCode = yuv2rgbShaderCode;
         } else if (yuvCompDepth <= 16) {
-            glDataType = GL_UNSIGNED_SHORT;
+            glDataType = GL_HALF_FLOAT;
+            glInternalFormat = GL_R16F;
+            glDataFormat = GL_RED;
+            fragmentCode = yuv16ui2rgbShaderCode;
         } else {
             LOGE(TAG, "unsupported yuvCompDepth: %d", yuvCompDepth);
             return false;
         }
-        if (!shader.compileShader(vertexShaderCode, yuv2rgbShaderCode)) {
+        if (!shader.compileShader(vertexShaderCode, fragmentCode)) {
             LOGE(TAG, "format = %d, compile shader failed", format);
             return false;
         }
         eglWindow.makeCurrent();
+        LOGD(TAG, "yuvCompDepth = %d", yuvCompDepth);
     } else {
         LOGE(TAG, "unsupported pixel format: %d", format);
         return false;
@@ -115,6 +114,7 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
     this->colorSpace = colorSpace;
     this->isHDR = isHDR;
 
+    LOGD(TAG, "create: format = %d, pixType = %d, glDataType = 0x%x", format, pixelType, glDataType);
 
     if (!shader.isReady()) {
         LOGE(TAG, "shader is not ready");
@@ -258,14 +258,26 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
         return;
     }
 
+    dumpData("y", pix_y, yBufSize);
+    dumpData("u", pix_u, uBufSize);
+    dumpData("v", pix_v, vBufSize);
+
+    GLenum glError;
+
     glGenTextures(1, &tex_y);
     glBindTexture(GL_TEXTURE_2D, tex_y);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, y_width, y_height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pix_y);
+    glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, y_width, y_height, 0, glDataFormat, glDataType, pix_y);
     glGenerateMipmap(GL_TEXTURE_2D);
+    glError = glGetError();
+    if (glError != GL_NO_ERROR) {
+        LOGE(TAG, "y, glError: 0x%x", glError);
+    }
+
+
 
 
     glGenTextures(1, &tex_u);
@@ -274,8 +286,13 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, u_width, u_height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pix_u);
+    glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, u_width, u_height, 0, glDataFormat, glDataType, pix_u);
     glGenerateMipmap(GL_TEXTURE_2D);
+
+    glError = glGetError();
+    if (glError != GL_NO_ERROR) {
+        LOGE(TAG, "u, glError: 0x%x", glError);
+    }
 
 
     glGenTextures(1, &tex_v);
@@ -284,8 +301,13 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, v_width, v_height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pix_v);
+    glTexImage2D(GL_TEXTURE_2D, 0, glInternalFormat, v_width, v_height, 0, glDataFormat, glDataType, pix_v);
     glGenerateMipmap(GL_TEXTURE_2D);
+
+    glError = glGetError();
+    if (glError != GL_NO_ERROR) {
+        LOGE(TAG, "v, glError: 0x%x", glError);
+    }
 
     shader.use();
 
@@ -420,6 +442,7 @@ void GLESRender::updateVertices() {
         LOGE(TAG, "frame size not confirmed");
         return;
     }
+    LOGD(TAG, "updateVertices, screenSize = %dx%d, frameSize = %dx%d", screenWidth, screenHeight, frameWidth, frameHeight);
 
     float screenLeft, screenRight, screenTop, screenBottom;
     float frameLeft, frameRight, frameTop, frameBottom;

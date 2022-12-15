@@ -11,7 +11,7 @@
 using namespace std;
 
 static const EGLint eglConfigAttrs[] = {
-        EGL_BUFFER_SIZE, 24,
+
         EGL_BLUE_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_RED_SIZE, 8,

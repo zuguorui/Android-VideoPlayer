@@ -17,6 +17,7 @@
 #include "pixel_loader.h"
 #include "SizeMode.h"
 
+
 #include "VideoFrame.h"
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
