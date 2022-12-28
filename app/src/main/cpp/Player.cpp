@@ -17,6 +17,7 @@ using namespace std;
 
 Player::Player() {
     av_log_set_callback(ffmpegLogCallback);
+
     LOGD(TAG, "constructor, readStreamThread = 0x%x", readStreamThread);
 }
 
@@ -98,6 +99,8 @@ bool Player::openFile(string pathStr) {
         return false;
     }
 
+
+
     audioStreamMap.clear();
     videoStreamMap.clear();
 
@@ -114,6 +117,7 @@ bool Player::openFile(string pathStr) {
             trackInfo.sampleFormat = static_cast<AVSampleFormat>(stream->codecpar->format);
             audioStreamMap[i] = trackInfo;
         } else if (type == AVMEDIA_TYPE_VIDEO) {
+
             StreamInfo trackInfo;
             trackInfo.streamIndex = i;
             trackInfo.type = type;

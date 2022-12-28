@@ -69,7 +69,9 @@ target_link_libraries( # Specifies the target library.
 #        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libiconv.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libfdk-aac.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libmp3lame.so
-        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libx264.x.so
+        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libx264.so
+        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libx265.so
+        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libaom.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libavformat.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libavfilter.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libavcodec.so
