@@ -26,6 +26,10 @@ Player::~Player() {
     LOGD(TAG, "destructor, readStreamThread = 0x%x", readStreamThread);
 }
 
+void Player::initParams() {
+    seekReq = false;
+}
+
 void Player::setWindow(void *window) {
     nativeWindow = window;
     if (createVideoOutputAfterSetWindow) {
@@ -104,6 +108,15 @@ bool Player::openFile(string pathStr) {
     audioStreamMap.clear();
     videoStreamMap.clear();
 
+    durationMS = (int64_t)(formatCtx->duration * 1.0f / AV_TIME_BASE * 1000);
+    int64_t totalSeconds = durationMS / 1000;
+    int64_t seconds = totalSeconds % 60;
+    int64_t totalMinutes = totalSeconds / 60;
+    int64_t minutes = totalMinutes % 60;
+    int64_t hours = totalMinutes / 60;
+
+    LOGD(TAG, "duration = %02lld:%02lld:%02lld", hours, minutes, seconds);
+
     for (int i = 0; i < formatCtx->nb_streams; i++) {
         AVStream *stream = formatCtx->streams[i];
         AVMediaType type = stream->codecpar->codec_type;
@@ -111,7 +124,7 @@ bool Player::openFile(string pathStr) {
             StreamInfo trackInfo;
             trackInfo.streamIndex = i;
             trackInfo.type = type;
-            trackInfo.durationMS = (int64_t)(stream->duration * av_q2d(stream->time_base) * 1000);
+
             trackInfo.channels = stream->codecpar->channels;
             trackInfo.sampleRate = stream->codecpar->sample_rate;
             trackInfo.sampleFormat = static_cast<AVSampleFormat>(stream->codecpar->format);
@@ -121,7 +134,6 @@ bool Player::openFile(string pathStr) {
             StreamInfo trackInfo;
             trackInfo.streamIndex = i;
             trackInfo.type = type;
-            trackInfo.durationMS = (int64_t)(stream->duration * av_q2d(stream->time_base) * 1000);
             trackInfo.width = stream->codecpar->width;
             trackInfo.height = stream->codecpar->height;
             trackInfo.fps = (float) av_q2d(stream->avg_frame_rate);
@@ -207,19 +219,22 @@ void Player::readStreamLoop() {
         }
 
         if (seekReq) {
-            int64_t pts = (int64_t)(seekPtsMS / av_q2d(AV_TIME_BASE_Q));
+
+            int64_t pts = (int64_t)(seekPtsMS / 1000.0f * AV_TIME_BASE);
+            LOGD(TAG, "meet seek, time = %lld", pts);
             int streamIndex = -1;
-            if (audioStreamIndex >= 0) {
-                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
-                streamIndex = audioStreamIndex;
-            } else if (videoStreamIndex >= 0) {
-                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
-                streamIndex = videoStreamIndex;
-            }
+//            if (audioStreamIndex >= 0) {
+//                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
+//                streamIndex = audioStreamIndex;
+//            } else if (videoStreamIndex >= 0) {
+//                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
+//                streamIndex = videoStreamIndex;
+//            }
 
             av_seek_frame(formatCtx, streamIndex, pts, AVSEEK_FLAG_BACKWARD);
             audioPacketQueue.clear();
             videoPacketQueue.clear();
+            seekReq = false;
         }
 
         ret = av_read_frame(formatCtx, packet);
@@ -687,13 +702,7 @@ void Player::pause() {
 }
 
 int64_t Player::getDurationMS() {
-    if (audioStreamIndex >= 0) {
-        return audioStreamMap[audioStreamIndex].durationMS;
-    } else if (videoStreamIndex >= 0) {
-        return videoStreamMap[videoStreamIndex].durationMS;
-    } else {
-        return -1;
-    }
+    return durationMS;
 }
 
 int64_t Player::getCurrentPtsMS() {
@@ -702,7 +711,8 @@ int64_t Player::getCurrentPtsMS() {
 
 bool Player::seek(int64_t ptsMS) {
     seekPtsMS = ptsMS;
-    seekReq = true;
+    seekReq.store(true);
+    return true;
 }
 
 bool Player::setScreenSize(int width, int height) {

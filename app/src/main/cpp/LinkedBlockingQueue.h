@@ -330,6 +330,7 @@ void LinkedBlockingQueue<T>::clear() {
         head = head->next;
         delete(n);
         head->pointer.reset();
+        size--;
     }
 }
 

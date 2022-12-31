@@ -75,6 +75,8 @@ private:
     AVFormatContext *formatCtx = nullptr;
     std::string filePath = "";
 
+    int64_t durationMS = -1;
+
     int audioStreamIndex = -1;
     int videoStreamIndex = -1;
 
@@ -118,6 +120,8 @@ private:
     IPlayStateListener *stateListener = nullptr;
 
     bool createVideoOutputAfterSetWindow = false;
+
+    void initParams();
 
     bool createAudioOutput();
 

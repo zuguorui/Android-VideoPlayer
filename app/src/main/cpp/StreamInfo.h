@@ -16,7 +16,6 @@ struct StreamInfo {
 
     int streamIndex = -1;
     AVMediaType type = AVMEDIA_TYPE_UNKNOWN;
-    int64_t durationMS = -1;
 
     CodecType codecType = CodecType::UNKNOWN;
 
