@@ -9,6 +9,8 @@
 #include "AudioFrame.h"
 #include "IAudioOutput.h"
 #include "PlayerContext.h"
+#include "SampleType.h"
+#include "SampleLayout.h"
 
 
 class OboePlayer: public IAudioOutput {
@@ -35,6 +37,13 @@ public:
 private:
 
     oboe::AudioStream *audioStream = nullptr;
+    SampleLayout sampleLayout = SampleLayout::None;
+    int sampleSize = 0;
+    SampleType sampleType = SampleType::None;
+    uint8_t *packetBuffer = nullptr;
+    int64_t packetBufferSize = 0;
+
+
 };
 
 

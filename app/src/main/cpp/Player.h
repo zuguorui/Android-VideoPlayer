@@ -117,11 +117,12 @@ private:
     int screenWidth = 1920;
     int screenHeight = 1080;
 
+    bool enableAudio = true;
+    bool enableVideo = true;
+
     IPlayStateListener *stateListener = nullptr;
 
     bool createVideoOutputAfterSetWindow = false;
-
-    void initParams();
 
     bool createAudioOutput();
 
