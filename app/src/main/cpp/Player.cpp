@@ -170,6 +170,8 @@ bool Player::openFile(string pathStr) {
         LOGE(TAG, "no available video stream found");
     }
 
+//    enableVideo = false;
+    enableAudio = false;
     return true;
 }
 
@@ -532,7 +534,20 @@ void Player::syncLoop() {
                 stateListener->progressChanged(lastVideoPts, false);
             }
         } else if (enableAudio) {
-
+            if (audioFrame == nullptr) {
+                optional<AudioFrame *> frameOpt = audioFrameQueue.pop();
+                if (frameOpt.has_value()) {
+                    audioFrame = frameOpt.value();
+                } else {
+                    break;
+                }
+            }
+            lastAudioPts = audioFrame->pts;
+            audioOutput->write(audioFrame);
+            audioFrame = nullptr;
+            if (stateListener != nullptr) {
+                stateListener->progressChanged(lastAudioPts, false);
+            }
         } else {
             LOGE(TAG, "both audio and video disabled, break");
             break;
@@ -758,6 +773,7 @@ bool Player::createAudioOutput() {
         release();
         return false;
     }
+    audioOutput->start();
     return true;
 }
 
