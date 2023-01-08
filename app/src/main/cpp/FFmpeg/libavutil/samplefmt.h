@@ -151,7 +151,7 @@ int av_sample_fmt_is_planar(enum AVSampleFormat sample_fmt);
  * Get the required buffer size for the given audio parameters.
  *
  * @param[out] linesize calculated linesize, may be NULL
- * @param nb_channels   the number of channels
+ * @param nb_channels   the number of numChannels
  * @param nb_samples    the number of samples in a single channel
  * @param sample_fmt    the sample format
  * @param align         buffer size alignment (0 = default, 1 = no alignment)
@@ -179,7 +179,7 @@ int av_samples_get_buffer_size(int *linesize, int nb_channels, int nb_samples,
  *
  * The value pointed to by linesize is set to the aligned size of each
  * channel's data buffer for planar layout, or to the aligned size of the
- * buffer for all channels for packed layout.
+ * buffer for all numChannels for packed layout.
  *
  * The buffer in buf must be big enough to contain all the samples
  * (use av_samples_get_buffer_size() to compute its minimum size),
@@ -191,7 +191,7 @@ int av_samples_get_buffer_size(int *linesize, int nb_channels, int nb_samples,
  * @param[out] audio_data  array to be filled with the pointer for each channel
  * @param[out] linesize    calculated linesize, may be NULL
  * @param buf              the pointer to a buffer containing the samples
- * @param nb_channels      the number of channels
+ * @param nb_channels      the number of numChannels
  * @param nb_samples       the number of samples in a single channel
  * @param sample_fmt       the sample format
  * @param align            buffer size alignment (0 = default, 1 = no alignment)
@@ -215,7 +215,7 @@ int av_samples_fill_arrays(uint8_t **audio_data, int *linesize,
  *
  * @param[out] audio_data  array to be filled with the pointer for each channel
  * @param[out] linesize    aligned size for audio buffer(s), may be NULL
- * @param nb_channels      number of audio channels
+ * @param nb_channels      number of audio numChannels
  * @param nb_samples       number of samples per channel
  * @param align            buffer size alignment (0 = default, 1 = no alignment)
  * @return                 >=0 on success or a negative error code on failure
@@ -246,7 +246,7 @@ int av_samples_alloc_array_and_samples(uint8_t ***audio_data, int *linesize, int
  * @param dst_offset offset in samples at which the data will be written to dst
  * @param src_offset offset in samples at which the data will be read from src
  * @param nb_samples number of samples to be copied
- * @param nb_channels number of audio channels
+ * @param nb_channels number of audio numChannels
  * @param sample_fmt audio sample format
  */
 int av_samples_copy(uint8_t **dst, uint8_t * const *src, int dst_offset,
@@ -259,7 +259,7 @@ int av_samples_copy(uint8_t **dst, uint8_t * const *src, int dst_offset,
  * @param audio_data  array of pointers to data planes
  * @param offset      offset in samples at which to start filling
  * @param nb_samples  number of samples to fill
- * @param nb_channels number of audio channels
+ * @param nb_channels number of audio numChannels
  * @param sample_fmt  audio sample format
  */
 int av_samples_set_silence(uint8_t **audio_data, int offset, int nb_samples,

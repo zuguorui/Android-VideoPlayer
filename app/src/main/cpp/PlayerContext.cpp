@@ -41,6 +41,7 @@ AudioFrame* PlayerContext::getEmptyAudioFrame() {
 }
 
 void PlayerContext::recycleAudioFrame(AudioFrame *audioFrame) {
+    audioFrame->reset();
     recycledAudioFrameQueue.push(audioFrame);
 }
 
@@ -58,5 +59,25 @@ VideoFrame* PlayerContext::getEmptyVideoFrame() {
 }
 
 void PlayerContext::recycleVideoFrame(VideoFrame *videoFrame) {
+    videoFrame->reset();
     recycledVideoFrameQueue.push(videoFrame);
+}
+
+
+PacketWrapper *PlayerContext::getEmptyPacketWrapper() {
+    optional<PacketWrapper *> opt = recycledPacketWrapperQueue.pop(false);
+    PacketWrapper *packetWrapper = nullptr;
+    if (opt.has_value()) {
+        packetWrapper = opt.value();
+    }
+
+    if (packetWrapper == nullptr) {
+        packetWrapper = new PacketWrapper();
+    }
+    return packetWrapper;
+}
+
+void PlayerContext::recyclePacketWrapper(PacketWrapper *packetWrapper) {
+    packetWrapper->reset();
+    recycledPacketWrapperQueue.push(packetWrapper);
 }

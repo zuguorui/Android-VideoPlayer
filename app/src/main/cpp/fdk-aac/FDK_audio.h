@@ -387,7 +387,7 @@ typedef struct {
   INT bitRate;               /**< Average bitrate.                   */
   int samplesPerFrame; /**< Number of PCM samples per codec frame and audio
                           channel. */
-  int noChannels;      /**< Number of audio channels.          */
+  int noChannels;      /**< Number of audio numChannels.          */
   int bitsFrame;
   int nSubFrames; /**< Amount of encoder subframes. 1 means no subframing. */
   int BSACnumOfSubFrame; /**< The number of the sub-frames which are grouped and
@@ -639,8 +639,8 @@ typedef enum {
   0x00000008 /**< Support flag for guided downmix with data from DVB ancillary \
                 data fields. */
 #define CAPF_DMX_CH_EXP                                                       \
-  0x00000010 /**< Support flag for simple upmixing by dublicating channels or \
-                adding zero channels. */
+  0x00000010 /**< Support flag for simple upmixing by dublicating numChannels or \
+                adding zero numChannels. */
 #define CAPF_DMX_6_CH                                                   \
   0x00000020 /**< Support flag for 5.1 channel configuration (input and \
                 output). */

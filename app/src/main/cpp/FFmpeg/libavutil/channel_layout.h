@@ -38,9 +38,9 @@
  * @defgroup channel_masks Audio channel masks
  *
  * A channel layout is a 64-bits integer with a bit set for every channel.
- * The number of bits set must be equal to the number of channels.
+ * The number of bits set must be equal to the number of numChannels.
  * The value 0 means that the channel layout is not known.
- * @note this data structure is not powerful enough to handle channels
+ * @note this data structure is not powerful enough to handle numChannels
  * combinations that have the same channel multiple times, such as
  * dual-mono.
  *
@@ -137,8 +137,8 @@ enum AVMatrixEncoding {
  *   5.0(side), 5.1, 5.1(side), 7.1, 7.1(wide), downmix);
  * - the name of a single channel (FL, FR, FC, LFE, BL, BR, FLC, FRC, BC,
  *   SL, SR, TC, TFL, TFC, TFR, TBL, TBC, TBR, DL, DR);
- * - a number of channels, in decimal, followed by 'c', yielding
- *   the default channel layout for that number of channels (@see
+ * - a number of numChannels, in decimal, followed by 'c', yielding
+ *   the default channel layout for that number of numChannels (@see
  *   av_get_default_channel_layout);
  * - a channel layout mask, in hexadecimal starting with "0x" (see the
  *   AV_CH_* macros).
@@ -148,14 +148,14 @@ enum AVMatrixEncoding {
 uint64_t av_get_channel_layout(const char *name);
 
 /**
- * Return a channel layout and the number of channels based on the specified name.
+ * Return a channel layout and the number of numChannels based on the specified name.
  *
  * This function is similar to (@see av_get_channel_layout), but can also parse
  * unknown channel layout specifications.
  *
  * @param[in]  name             channel layout specification string
  * @param[out] channel_layout   parsed channel layout (0 if unknown)
- * @param[out] nb_channels      number of channels
+ * @param[out] nb_channels      number of numChannels
  *
  * @return 0 on success, AVERROR(EINVAL) if the parsing fails.
  */
@@ -177,12 +177,12 @@ struct AVBPrint;
 void av_bprint_channel_layout(struct AVBPrint *bp, int nb_channels, uint64_t channel_layout);
 
 /**
- * Return the number of channels in the channel layout.
+ * Return the number of numChannels in the channel layout.
  */
 int av_get_channel_layout_nb_channels(uint64_t channel_layout);
 
 /**
- * Return default channel layout for a given number of channels.
+ * Return default channel layout for a given number of numChannels.
  */
 int64_t av_get_default_channel_layout(int nb_channels);
 

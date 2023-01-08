@@ -202,7 +202,7 @@ aacEncClose(&hAacEncoder);
 The assignment of the aacEncOpen() function is very flexible and can be used in
 the following way.
 - If the amount of memory consumption is not an issue, the encoder instance can
-be allocated for the maximum number of possible audio channels (for example 6 or
+be allocated for the maximum number of possible audio numChannels (for example 6 or
 8) with the full functional range supported by the library. This is the default
 open procedure for the AAC encoder if memory consumption does not need to be
 minimized. \code aacEncOpen(&hAacEncoder,0,0) \endcode
@@ -224,18 +224,18 @@ library, encoder modules can be allocated selectively. \verbatim
  - MD: Allocate Meta Data module within AAC encoder.
 \endverbatim
 \code aacEncOpen(&hAacEncoder,value,0) \endcode
-- Specifying the maximum number of channels to be supported in the encoder
+- Specifying the maximum number of numChannels to be supported in the encoder
 instance can be done as follows.
- - For example allocate an encoder instance which supports 2 channels for all
+ - For example allocate an encoder instance which supports 2 numChannels for all
 supported AOTs. The library itself may be capable of encoding up to 6 or 8
-channels but in this example only 2 channel encoding is required and thus only
-buffers for 2 channels are allocated to save data memory. \code
+numChannels but in this example only 2 channel encoding is required and thus only
+buffers for 2 numChannels are allocated to save data memory. \code
 aacEncOpen(&hAacEncoder,0,2) \endcode
- - Additionally the maximum number of supported channels in the SBR module can
+ - Additionally the maximum number of supported numChannels in the SBR module can
 be denoted separately.\n In this example the encoder instance provides a maximum
-of 6 channels out of which up to 2 channels support SBR. This encoder instance
+of 6 numChannels out of which up to 2 numChannels support SBR. This encoder instance
 can produce for example 5.1 channel AAC-LC streams or stereo HE-AAC (v2)
-streams. HE-AAC 5.1 multi channel is not possible since only 2 out of 6 channels
+streams. HE-AAC 5.1 multi channel is not possible since only 2 out of 6 numChannels
 support SBR, which saves data memory. \code aacEncOpen(&hAacEncoder,0,6|(2<<8))
 \endcode \n
 
@@ -249,7 +249,7 @@ buffers are necessary e.g. for ancillary data, meta data input or additional
 output buffers describing superframing data in DAB+ or DRM+.\n At least one
 input buffer for audio input data and one output buffer for bitstream data must
 be allocated. The input buffer size can be a user defined multiple of the number
-of input channels. PCM input data will be copied from the user defined PCM
+of input numChannels. PCM input data will be copied from the user defined PCM
 buffer to an internal input buffer and so input data can be less than one AAC
 audio frame. The output buffer size should be 6144 bits per channel excluding
 the LFE channel. If the output data does not fit into the provided buffer, an
@@ -395,7 +395,7 @@ aacEncoder_SetParam(hAacEncoder, AACENC_CHANNELMODE, value);
 \endcode
 Beyond that is an internal auto mode which preinitizializes the ::AACENC_BITRATE
 parameter if the parameter was not set from extern. The bitrate depends on the
-number of effective channels and sampling rate and is determined as follows.
+number of effective numChannels and sampling rate and is determined as follows.
 \code
 AAC-LC (AOT_AAC_LC): 1.5 bits per sample
 HE-AAC (AOT_SBR): 0.625 bits per sample (dualrate sbr)
@@ -406,10 +406,10 @@ HE-AAC v2 (AOT_PS): 0.5 bits per sample
 \subsection channelMode Channel Mode Configuration
 The input audio data is described with the ::AACENC_CHANNELMODE parameter in the
 aacEncoder_SetParam() call. It is not possible to use the encoder instance with
-a 'number of input channels' argument. Instead, the channelMode must be set as
+a 'number of input numChannels' argument. Instead, the channelMode must be set as
 follows. \code aacEncoder_SetParam(hAacEncoder, AACENC_CHANNELMODE, value);
 \endcode The parameter is specified in ::CHANNEL_MODE and can be mapped from the
-number of input channels in the following way. \code CHANNEL_MODE chMode =
+number of input numChannels in the following way. \code CHANNEL_MODE chMode =
 MODE_INVALID;
 
 switch (nChannels) {
@@ -429,7 +429,7 @@ return chMode;
 
 \subsection bitreservoir Bitreservoir Configuration
 In AAC, the default bitreservoir configuration depends on the chosen bitrate per
-frame and the number of effective channels. The size can be determined as below.
+frame and the number of effective numChannels. The size can be determined as below.
 \f[
 bitreservoir = nEffChannels*6144 - (bitrate*framelength/samplerate)
 \f]
@@ -450,7 +450,7 @@ AACENC_BITRESERVOIR, -1); \endcode
 
 To achieve acceptable audio quality with a reduced bitreservoir size setting at
 least 1000 bits per audio channel is recommended. For a multichannel audio file
-with 5.1 channels the bitreservoir reduced to 5000 bits results in acceptable
+with 5.1 numChannels the bitreservoir reduced to 5000 bits results in acceptable
 audio quality.
 
 
@@ -471,11 +471,11 @@ configurations can be adjusted via ::AACENC_BITRATEMODE encoder parameter.
     VBR_5 |    96 - 120   |     112 - 144
 --------------------------------------------
 \endverbatim
-The bitrate ranges apply for individual audio channels. In case of multichannel
+The bitrate ranges apply for individual audio numChannels. In case of multichannel
 configurations the average bitrate might be estimated by multiplying with the
-number of effective channels. This corresponds to all audio input channels
+number of effective numChannels. This corresponds to all audio input numChannels
 exclusively the low frequency channel. At configurations which are making use of
-downmix modules the AAC core channels respectively downmix channels shall be
+downmix modules the AAC core numChannels respectively downmix numChannels shall be
 considered. For ::AACENC_AOT which are using SBR, the average bitrate can be
 estimated by using the ratio of 0.5 for dualrate SBR and 0.75 for downsampled
 SBR configurations.
@@ -661,8 +661,8 @@ MODE_7_1_REAR_SURROUND | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 2 | 0 | 1 | 6 | 7 | 4 |
 \endverbatim
 
 The denoted mapping is important for correct audio channel assignment when using
-MPEG or WAV ordering. The incoming audio channels are distributed MPEG like
-starting at the front channels and ending at the back channels. The distribution
+MPEG or WAV ordering. The incoming audio numChannels are distributed MPEG like
+starting at the front numChannels and ending at the back numChannels. The distribution
 is used as described in Table concering Channel Config and fix channel elements.
 Please see the following example for clarification.
 
@@ -1086,7 +1086,7 @@ typedef struct AACENCODER *HANDLE_AACENCODER;
 typedef struct {
   UINT maxOutBufBytes; /*!< Maximum number of encoder bitstream bytes within one
                           frame. Size depends on maximum number of supported
-                          channels in encoder instance. For superframing (as
+                          numChannels in encoder instance. For superframing (as
                           used for example in DAB+), size has to be a multiple
                           accordingly. */
 
@@ -1097,7 +1097,7 @@ typedef struct {
                           channel. This parameter will automatically be cleared
                           if samplingrate or channel(Mode/Order) changes. */
 
-  UINT inputChannels; /*!< Number of input channels expected in encoding
+  UINT inputChannels; /*!< Number of input numChannels expected in encoding
                          process. */
 
   UINT frameLength; /*!< Amount of input audio samples consumed each frame per
@@ -1141,7 +1141,7 @@ typedef struct {
  */
 typedef struct {
   INT numInSamples; /*!< Number of valid input audio samples (multiple of input
-                       channels). */
+                       numChannels). */
   INT numAncBytes;  /*!< Number of ancillary data bytes to be encoded. */
 
 } AACENC_InArgs;
@@ -1234,10 +1234,10 @@ typedef struct {
     UCHAR dmxGainEnable; /*< Indicates if ext_downmixing_global_gains() exists.
                              - 0: No ext_downmixing_global_gains().
                              - 1: Insert ext_downmixing_global_gains(). */
-    INT dmxGain5;        /*< Gain factor for downmix to 5 channels.
+    INT dmxGain5;        /*< Gain factor for downmix to 5 numChannels.
                               -15.75dB .. -15.75dB; stepsize: 0.25dB
                               Scaled with 16 bit. x*2^16.*/
-    INT dmxGain2;        /*< Gain factor for downmix to 2 channels.
+    INT dmxGain2;        /*< Gain factor for downmix to 2 numChannels.
                               -15.75dB .. -15.75dB; stepsize: 0.25dB
                               Scaled with 16 bit. x*2^16.*/
 
@@ -1348,7 +1348,7 @@ typedef enum {
                    - 120: Length for ELD reduced delay mode (x4). */
 
   AACENC_CHANNELMODE = 0x0106, /*!< Set explicit channel mode. Channel mode must
-                                  match with number of input channels.
+                                  match with number of input numChannels.
                                     - 1-7, 11,12,14 and 33,34: MPEG channel
                                   modes supported, see ::CHANNEL_MODE in
                                   FDK_audio.h. */
@@ -1569,14 +1569,14 @@ extern "C" {
  *                              - 0x10: Metadata module.
  *                              - example: (0x01|0x02|0x04|0x08|0x10) allocates
  * all modules and is equivalent to default configuration denotet by 0x0.
- * \param maxChannels   Number of channels to be allocated. This parameter can
+ * \param maxChannels   Number of numChannels to be allocated. This parameter can
  * be used in different ways:
- *                      - 0: Allocate maximum number of AAC and SBR channels as
+ *                      - 0: Allocate maximum number of AAC and SBR numChannels as
  * supported by the library.
- *                      - nChannels: Use same maximum number of channels for
+ *                      - nChannels: Use same maximum number of numChannels for
  * allocating memory in AAC and SBR module.
- *                      - nChannels | (nSbrCh<<8): Number of SBR channels can be
- * different to AAC channels to save data memory.
+ *                      - nChannels | (nSbrCh<<8): Number of SBR numChannels can be
+ * different to AAC numChannels to save data memory.
  *
  * \return
  *          - AACENC_OK, on succes.

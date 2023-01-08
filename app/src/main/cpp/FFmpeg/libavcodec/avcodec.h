@@ -1194,7 +1194,7 @@ typedef struct AVCodecContext {
 
     /* audio only */
     int sample_rate; ///< samples per second
-    int channels;    ///< number of audio channels
+    int channels;    ///< number of audio numChannels
 
     /**
      * audio sample format
@@ -1289,7 +1289,7 @@ typedef struct AVCodecContext {
      * - data[]
      * - linesize[]
      * - extended_data:
-     *   * if the data is planar audio with more than 8 channels, then this
+     *   * if the data is planar audio with more than 8 numChannels, then this
      *     callback must allocate and fill extended_data to contain all pointers
      *     to all data planes. data[] must hold as many pointers as it can.
      *     extended_data must be allocated with av_malloc() and will be freed in

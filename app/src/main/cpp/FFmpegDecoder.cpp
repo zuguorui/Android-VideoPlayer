@@ -90,3 +90,9 @@ int FFmpegDecoder::receiveFrame(AVFrame *frame) {
     ret = avcodec_receive_frame(codecCtx, frame);
     return ret;
 }
+
+void FFmpegDecoder::flush() {
+    if (codecCtx) {
+        avcodec_flush_buffers(codecCtx);
+    }
+}

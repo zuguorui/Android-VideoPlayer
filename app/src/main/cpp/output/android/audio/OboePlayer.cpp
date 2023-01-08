@@ -109,9 +109,9 @@ void OboePlayer::write(AudioFrame *audioFrame) {
     }
 
     if (sampleLayout == SampleLayout::Packet) {
-        audioStream->write(audioFrame->avFrame->data[0], audioFrame->framesPerChannel, 1000 * 1000 * 1000);
+        audioStream->write(audioFrame->avFrame->data[0], audioFrame->numFrames, 1000 * 1000 * 1000);
     } else if (sampleLayout == SampleLayout::Planner) {
-        int64_t bufferSize = audioFrame->framesPerChannel * audioFrame->channels * sampleSize;
+        int64_t bufferSize = audioFrame->numFrames * audioFrame->numChannels * sampleSize;
         if (packetBufferSize < bufferSize) {
             if (packetBuffer) {
                 free(packetBuffer);
@@ -122,9 +122,9 @@ void OboePlayer::write(AudioFrame *audioFrame) {
             packetBuffer = (uint8_t *)malloc(packetBufferSize);
         }
 
-        merge_channels(audioFrame->avFrame->data, packetBuffer, sampleSize, audioFrame->channels, audioFrame->framesPerChannel);
+        merge_channels(audioFrame->avFrame->data, packetBuffer, sampleSize, audioFrame->numChannels, audioFrame->numFrames);
 
-        audioStream->write(packetBuffer, audioFrame->framesPerChannel, 1000 * 1000 * 1000);
+        audioStream->write(packetBuffer, audioFrame->numFrames, 1000 * 1000 * 1000);
     }
 
 

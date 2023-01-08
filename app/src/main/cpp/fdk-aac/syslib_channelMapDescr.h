@@ -115,7 +115,7 @@ amm-info@iis.fraunhofer.de
 typedef struct {
   const UCHAR*
       pChannelMap; /*!< Actual channel mapping for one single configuration. */
-  UCHAR numChannels; /*!< The number of channels for the channel map which is
+  UCHAR numChannels; /*!< The number of numChannels for the channel map which is
                         the maximum used channel index+1. */
 } CHANNEL_MAP_INFO;
 

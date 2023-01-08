@@ -83,8 +83,8 @@ private:
     std::map<int, StreamInfo> audioStreamMap;
     std::map<int, StreamInfo> videoStreamMap;
 
-    LinkedBlockingQueue<AVPacket *> audioPacketQueue = LinkedBlockingQueue<AVPacket *>(20);
-    LinkedBlockingQueue<AVPacket *> videoPacketQueue = LinkedBlockingQueue<AVPacket *>(5);
+    LinkedBlockingQueue<PacketWrapper *> audioPacketQueue = LinkedBlockingQueue<PacketWrapper *>(20);
+    LinkedBlockingQueue<PacketWrapper *> videoPacketQueue = LinkedBlockingQueue<PacketWrapper *>(5);
 
     LinkedBlockingQueue<AudioFrame *> audioFrameQueue = LinkedBlockingQueue<AudioFrame *>(20);
     LinkedBlockingQueue<VideoFrame *> videoFrameQueue = LinkedBlockingQueue<VideoFrame *>(5);
@@ -99,6 +99,8 @@ private:
     std::atomic_bool stopDecodeVideoFlag = false;
     std::atomic_bool stopSyncFlag = false;
 
+
+
     std::mutex readStreamMu;
     std::mutex decodeVideoMu;
     std::mutex decodeAudioMu;
@@ -110,8 +112,12 @@ private:
     std::atomic_int64_t lastAudioPts = 0;
     std::atomic_int64_t lastVideoPts = 0;
 
-    std::atomic_bool seekReq = false;
+    std::atomic_bool seekFlag = false;
     std::atomic_int64_t seekPtsMS = 0;
+
+    std::atomic_bool audioDecodeSeekFlag = false;
+    std::atomic_bool videoDecodeSeekFlag = false;
+    std::atomic_bool syncSeekFlag = false;
 
     void *nativeWindow = nullptr;
     int screenWidth = 1920;

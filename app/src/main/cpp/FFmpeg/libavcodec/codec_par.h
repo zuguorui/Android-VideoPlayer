@@ -157,11 +157,11 @@ typedef struct AVCodecParameters {
     /**
      * Audio only. The channel layout bitmask. May be 0 if the channel layout is
      * unknown or unspecified, otherwise the number of bits set must be equal to
-     * the channels field.
+     * the numChannels field.
      */
     uint64_t channel_layout;
     /**
-     * Audio only. The number of audio channels.
+     * Audio only. The number of audio numChannels.
      */
     int      channels;
     /**

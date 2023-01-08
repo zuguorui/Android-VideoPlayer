@@ -11,6 +11,7 @@
 #include "VideoFrame.h"
 #include "AudioFrame.h"
 #include "LinkedBlockingQueue.h"
+#include "PacketWrapper.h"
 
 class PlayerContext {
 public:
@@ -23,11 +24,14 @@ public:
     AudioFrame* getEmptyAudioFrame();
     void recycleAudioFrame(AudioFrame *audioFrame);
 
+    PacketWrapper *getEmptyPacketWrapper();
+    void recyclePacketWrapper(PacketWrapper *packetWrapper);
+
 private:
 
     LinkedBlockingQueue<VideoFrame *> recycledVideoFrameQueue = LinkedBlockingQueue<VideoFrame *>(-1);
     LinkedBlockingQueue<AudioFrame *> recycledAudioFrameQueue = LinkedBlockingQueue<AudioFrame *>(-1);
-
+    LinkedBlockingQueue<PacketWrapper *> recycledPacketWrapperQueue = LinkedBlockingQueue<PacketWrapper *>(-1);
 
 
 };

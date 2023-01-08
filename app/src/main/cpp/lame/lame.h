@@ -188,7 +188,7 @@ unsigned long CDECL lame_get_num_samples(const lame_global_flags *);
 int CDECL lame_set_in_samplerate(lame_global_flags *, int);
 int CDECL lame_get_in_samplerate(const lame_global_flags *);
 
-/* number of channels in input stream. default=2  */
+/* number of numChannels in input stream. default=2  */
 int CDECL lame_set_num_channels(lame_global_flags *, int);
 int CDECL lame_get_num_channels(const lame_global_flags *);
 
@@ -265,7 +265,7 @@ int CDECL lame_get_quality(const lame_global_flags *);
 
 /*
   mode = 0,1,2,3 = stereo, jstereo, dual channel (not supported), mono
-  default: lame picks based on compression ration and input channels
+  default: lame picks based on compression ration and input numChannels
 */
 int CDECL lame_set_mode(lame_global_flags *, MPEG_mode);
 MPEG_mode CDECL lame_get_mode(const lame_global_flags *);
@@ -529,7 +529,7 @@ int CDECL lame_get_cwlimit(const lame_global_flags *);
 #endif
 
 /*
-  allow blocktypes to differ between channels?
+  allow blocktypes to differ between numChannels?
   default: 0 for jstereo, 1 for stereo
 */
 int CDECL lame_set_allow_diff_short(lame_global_flags *, int);
@@ -708,7 +708,7 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
  * large enough.
  *
  * NOTE:
- * if gfp->num_channels=2, but gfp->mode = 3 (mono), the L & R channels
+ * if gfp->num_channels=2, but gfp->mode = 3 (mono), the L & R numChannels
  * will be averaged into the L channel before encoding only the L channel
  * This will overwrite the data in buffer_l[] and buffer_r[].
  *
@@ -1032,7 +1032,7 @@ typedef hip_global_flags *hip_t;
 typedef struct {
   int header_parsed;   /* 1 if header was parsed and following data was
                           computed                                       */
-  int stereo;          /* number of channels                             */
+  int stereo;          /* number of numChannels                             */
   int samplerate;      /* sample rate                                    */
   int bitrate;         /* bitrate                                        */
   int mode;            /* mp3 frame type                                 */

@@ -349,18 +349,18 @@ typedef struct AVFrame {
     int linesize[AV_NUM_DATA_POINTERS];
 
     /**
-     * pointers to the data planes/channels.
+     * pointers to the data planes/numChannels.
      *
      * For video, this should simply point to data[].
      *
      * For planar audio, each channel has a separate data pointer, and
      * linesize[0] contains the size of each channel buffer.
      * For packed audio, there is just one data pointer, and linesize[0]
-     * contains the total size of the buffer for all channels.
+     * contains the total size of the buffer for all numChannels.
      *
      * Note: Both data and extended_data should always be set in a valid frame,
-     * but for planar audio with more channels that can fit in data,
-     * extended_data must be used in order to access all channels.
+     * but for planar audio with more numChannels that can fit in data,
+     * extended_data must be used in order to access all numChannels.
      */
     uint8_t **extended_data;
 
@@ -502,7 +502,7 @@ typedef struct AVFrame {
      *
      * There may be at most one AVBuffer per data plane, so for video this array
      * always contains all the references. For planar audio with more than
-     * AV_NUM_DATA_POINTERS channels, there may be more buffers than can fit in
+     * AV_NUM_DATA_POINTERS numChannels, there may be more buffers than can fit in
      * this array. Then the extra AVBufferRef pointers are stored in the
      * extended_buf array.
      */
@@ -617,7 +617,7 @@ typedef struct AVFrame {
 #define FF_DECODE_ERROR_DECODE_SLICES       8
 
     /**
-     * number of audio channels, only used for audio.
+     * number of audio numChannels, only used for audio.
      * - encoding: unused
      * - decoding: Read by user.
      */

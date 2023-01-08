@@ -223,10 +223,10 @@ decoded PCM audio data to a client-supplied buffer. It is the client's
 responsibility to allocate a buffer which is large enough to hold the decoded
 output data. \code ErrorStatus = aacDecoder_DecodeFrame(aacDecoderInfo,
 TimeData, OUT_BUF_SIZE, flags); \endcode If the bitstream configuration (number
-of channels, sample rate, frame size) is not known a priori, you may call
+of numChannels, sample rate, frame size) is not known a priori, you may call
 aacDecoder_GetStreamInfo() to retrieve a structure that contains this
 information. You may use this data to initialize an audio output device. In the
-example program, if the number of channels or the sample rate has changed since
+example program, if the number of numChannels or the sample rate has changed since
 program start or the previously decoded frame, the audio output device is then
 re-initialized. If WAVE file output is chosen, a new WAVE file for each new
 stream configuration is be created. \code p_si =
@@ -277,7 +277,7 @@ obtained by calling aacDecoder_DecodeFrame() with flag ::AACDEC_CONCEAL set
 n-times where n is the count of lost frames. Please note that the decoder has to
 have encountered valid configuration data at least once to be able to generate
 concealed data, because at the minimum the sampling rate, frame size and amount
-of audio channels needs to be known.
+of audio numChannels needs to be known.
 
 If it is not possible to get an estimation of lost frames then a constant
 fullness of the audio output buffer can be achieved by implementing different
@@ -328,7 +328,7 @@ These two arrays indicate the configuration of channel data within the output
 buffer. Both arrays have CStreamInfo::numChannels number of cells. Each cell of
 pChannelType indicates the channel type, which is described in the enum
 ::AUDIO_CHANNEL_TYPE (defined in FDK_audio.h). The cells of pChannelIndices
-indicate the sub index among the channels starting with 0 among channels of the
+indicate the sub index among the numChannels starting with 0 among numChannels of the
 same audio channel type.
 
 The indexing scheme is structured as defined in MPEG-2/4 Standards. Indices
@@ -341,7 +341,7 @@ In case a Program Config is included in the audio configuration, the channel
 mapping described within it will be adopted.
 
 In case of MPEG-D Surround the channel mapping will follow the same criteria
-described in ISO/IEC 13818-7:2005(E), but adding corresponding top channels (if
+described in ISO/IEC 13818-7:2005(E), but adding corresponding top numChannels (if
 available) to the channel types in order to avoid ambiguity. The examples below
 explain these aspects in detail.
 
@@ -395,12 +395,12 @@ CStreamInfo::pChannelType = { ::ACT_FRONT, ::ACT_FRONT, ::ACT_FRONT, ::ACT_LFE,
 CStreamInfo::pChannelIndices = { 1, 2, 0, 0, 0, 1 }
 
 Since ::AAC_PCM_OUTPUT_CHANNEL_MAPPING is 1, WAV file channel ordering will be
-used. For a 5.1 channel scheme, thus the channels would be: front left, front
+used. For a 5.1 channel scheme, thus the numChannels would be: front left, front
 right, center, LFE, surround left, surround right. Thus the third channel is the
-center channel, receiving the index 0. The other front channels are front left,
-front right being placed as first and second channels with indices 1 and 2
+center channel, receiving the index 0. The other front numChannels are front left,
+front right being placed as first and second numChannels with indices 1 and 2
 correspondingly. There is only one LFE, placed as the fourth channel and index
-0. Finally both surround channels get the type definition ACT_BACK, and the
+0. Finally both surround numChannels get the type definition ACT_BACK, and the
 indices 0 and 1.
 
 The output buffer will be formatted as follows:
@@ -436,7 +436,7 @@ CStreamInfo::pChannelType = { ::ACT_FRONT, ::ACT_FRONT, ::ACT_BACK }
 
 CStreamInfo::pChannelIndices = { 0, 1, 0 }
 
-The audio channels will be placed as follows in the audio output buffer:
+The audio numChannels will be placed as follows in the audio output buffer:
 
 \verbatim
 <front left sample 0> <front right sample 0>  <mid surround sample 0>
@@ -643,7 +643,7 @@ typedef enum {
                    0: Leave both signals as they are (default). \n
                    1: Create a dual mono output signal from channel 1. \n
                    2: Create a dual mono output signal from channel 2. \n
-                   3: Create a dual mono output signal by mixing both channels
+                   3: Create a dual mono output signal by mixing both numChannels
                  (L' = R' = 0.5*Ch1 + 0.5*Ch2). */
   AAC_PCM_OUTPUT_CHANNEL_MAPPING =
       0x0003, /*!< Output buffer channel ordering. 0: MPEG PCE style order, 1:
@@ -667,29 +667,29 @@ typedef enum {
                                            ms. Adjustable time must be larger
                                            than 0 ms. */
   AAC_PCM_MIN_OUTPUT_CHANNELS =
-      0x0011, /*!< Minimum number of PCM output channels. If higher than the
-                 number of encoded audio channels, a simple channel extension is
+      0x0011, /*!< Minimum number of PCM output numChannels. If higher than the
+                 number of encoded audio numChannels, a simple channel extension is
                  applied (see note 4 for exceptions). \n -1, 0: Disable channel
                  extension feature. The decoder output contains the same number
-                 of channels as the encoded bitstream. \n 1:    This value is
+                 of numChannels as the encoded bitstream. \n 1:    This value is
                  currently needed only together with the mix-down feature. See
                           ::AAC_PCM_MAX_OUTPUT_CHANNELS and note 2 below. \n
                     2:    Encoded mono signals will be duplicated to achieve a
                  2/0/0.0 channel output configuration. \n 6:    The decoder
-                 tries to reorder encoded signals with less than six channels to
-                 achieve a 3/0/2.1 channel output signal. Missing channels will
+                 tries to reorder encoded signals with less than six numChannels to
+                 achieve a 3/0/2.1 channel output signal. Missing numChannels will
                  be filled with a zero signal. If reordering is not possible the
-                 empty channels will simply be appended. Only available if
+                 empty numChannels will simply be appended. Only available if
                  instance is configured to support multichannel output. \n 8:
                  The decoder tries to reorder encoded signals with less than
-                 eight channels to achieve a 3/0/4.1 channel output signal.
-                 Missing channels will be filled with a zero signal. If
-                 reordering is not possible the empty channels will simply be
+                 eight numChannels to achieve a 3/0/4.1 channel output signal.
+                 Missing numChannels will be filled with a zero signal. If
+                 reordering is not possible the empty numChannels will simply be
                           appended. Only available if instance is configured to
                  support multichannel output.\n NOTE: \n
                      1. The channel signaling (CStreamInfo::pChannelType and
                  CStreamInfo::pChannelIndices) will not be modified. Added empty
-                 channels will be signaled with channel type
+                 numChannels will be signaled with channel type
                         AUDIO_CHANNEL_TYPE::ACT_NONE. \n
                      2. If the parameter value is greater than that of
                  ::AAC_PCM_MAX_OUTPUT_CHANNELS both will be set to the same
@@ -697,21 +697,21 @@ typedef enum {
                      3. This parameter does not affect MPEG Surround processing.
                  \n
                      4. This parameter will be ignored if the number of encoded
-                 audio channels is greater than 8. */
+                 audio numChannels is greater than 8. */
   AAC_PCM_MAX_OUTPUT_CHANNELS =
-      0x0012, /*!< Maximum number of PCM output channels. If lower than the
-                 number of encoded audio channels, downmixing is applied
+      0x0012, /*!< Maximum number of PCM output numChannels. If lower than the
+                 number of encoded audio numChannels, downmixing is applied
                  accordingly (see note 5 for exceptions). If dedicated metadata
                  is available in the stream it will be used to achieve better
                  mixing results. \n -1, 0: Disable downmixing feature. The
-                 decoder output contains the same number of channels as the
+                 decoder output contains the same number of numChannels as the
                  encoded bitstream. \n 1:    All encoded audio configurations
                  with more than one channel will be mixed down to one mono
                  output signal. \n 2:    The decoder performs a stereo mix-down
-                 if the number encoded audio channels is greater than two. \n 6:
-                 If the number of encoded audio channels is greater than six the
+                 if the number encoded audio numChannels is greater than two. \n 6:
+                 If the number of encoded audio numChannels is greater than six the
                  decoder performs a mix-down to meet the target output
-                 configuration of 3/0/2.1 channels. Only available if instance
+                 configuration of 3/0/2.1 numChannels. Only available if instance
                  is configured to support multichannel output. \n 8:    This
                  value is currently needed only together with the channel
                  extension feature. See ::AAC_PCM_MIN_OUTPUT_CHANNELS and note 2
@@ -728,7 +728,7 @@ typedef enum {
                      4. Setting this parameter with any value will disable the
                  binaural processing of the MPEG Surround module
                      5. This parameter will be ignored if the number of encoded
-                 audio channels is greater than 8. */
+                 audio numChannels is greater than 8. */
   AAC_METADATA_PROFILE =
       0x0020, /*!< See ::AAC_MD_PROFILE for all available values. */
   AAC_METADATA_EXPIRY_TIME = 0x0021, /*!< Defines the time in ms after which all
@@ -822,7 +822,7 @@ typedef struct {
                        2048 or 1920 for HE-AAC (v2) \n
                        512 or 480 for AAC-LD and AAC-ELD \n
                        768, 1024, 2048 or 4096 for USAC  */
-  INT numChannels; /*!< The number of output audio channels before the rendering
+  INT numChannels; /*!< The number of output audio numChannels before the rendering
                       module, i.e. the original channel configuration. */
   AUDIO_CHANNEL_TYPE
   *pChannelType; /*!< Audio channel type of each output audio channel. */
@@ -846,9 +846,9 @@ typedef struct {
                                  Typically this is (with a downscale factor of 1):
                                \n   1024 or 960 for AAC-LC \n   512 or 480 for
                                AAC-LD   and AAC-ELD         */
-  INT aacNumChannels;       /*!< The number of audio channels after AAC core
+  INT aacNumChannels;       /*!< The number of audio numChannels after AAC core
                                processing (before PS or MPS processing).       CAUTION: This
-                               are not the final number of output channels! */
+                               are not the final number of output numChannels! */
   AUDIO_OBJECT_TYPE extAot; /*!< Extension Audio Object Type (from ASC)   */
   INT extSamplingRate; /*!< Extension sampling rate in Hz (from ASC) divided by
                           a (ELD) downscale factor if present. */

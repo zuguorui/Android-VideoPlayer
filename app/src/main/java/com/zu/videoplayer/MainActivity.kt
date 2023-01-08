@@ -44,15 +44,15 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra("path", path)
             startActivity(intent)
         }
-        checkPermission()
-
-        Observable.fromCallable {
-            loadVideoFiles(this)
-        }.subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe {
-                videoList = it
-            }
+        if (checkPermission()) {
+            Observable.fromCallable {
+                loadVideoFiles(this)
+            }.subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe {
+                    videoList = it
+                }
+        }
     }
 
 
@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         return result
     }
 
-    fun checkPermission()
+    private fun checkPermission(): Boolean
     {
         val permissions = listPermissions()
         var allGet = true
@@ -82,9 +82,10 @@ class MainActivity : AppCompatActivity() {
         if(!allGet)
         {
             var permissionArray: Array<String> = Array(permissions.size){i: Int -> permissions[i] }
-
             ActivityCompat.requestPermissions(this, permissionArray, 33)
         }
+
+        return allGet
     }
 
 
@@ -105,6 +106,13 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "permission ${permissions[i]} granted")
                     }
                 }
+                Observable.fromCallable {
+                    loadVideoFiles(this)
+                }.subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe {
+                        videoList = it
+                    }
             }
         }
     }

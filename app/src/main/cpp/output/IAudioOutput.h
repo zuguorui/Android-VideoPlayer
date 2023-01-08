@@ -10,7 +10,7 @@
 #include "AudioFrame.h"
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
-};
+}
 
 class IAudioOutput {
 public:

@@ -28,6 +28,8 @@ public:
 
     int receiveFrame(AVFrame *frame);
 
+    void flush();
+
 private:
 
     AVCodecContext *codecCtx;

@@ -43,7 +43,7 @@
  * Context for an Audio FIFO Buffer.
  *
  * - Operates at the sample level rather than the byte level.
- * - Supports multiple channels with either planar or packed sample format.
+ * - Supports multiple numChannels with either planar or packed sample format.
  * - Automatic reallocation when writing to a full buffer.
  */
 typedef struct AVAudioFifo AVAudioFifo;
@@ -59,7 +59,7 @@ void av_audio_fifo_free(AVAudioFifo *af);
  * Allocate an AVAudioFifo.
  *
  * @param sample_fmt  sample format
- * @param channels    number of channels
+ * @param channels    number of numChannels
  * @param nb_samples  initial allocation size, in samples
  * @return            newly allocated AVAudioFifo, or NULL on error
  */

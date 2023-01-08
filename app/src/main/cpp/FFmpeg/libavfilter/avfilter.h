@@ -583,7 +583,7 @@ struct AVFilterLink {
     int max_samples;
 
     /**
-     * Number of channels.
+     * Number of numChannels.
      */
     int channels;
 
@@ -675,7 +675,7 @@ void avfilter_link_free(AVFilterLink **link);
 
 #if FF_API_FILTER_GET_SET
 /**
- * Get the number of channels of a link.
+ * Get the number of numChannels of a link.
  * @deprecated Use av_buffersink_get_channels()
  */
 attribute_deprecated

@@ -23,6 +23,7 @@ struct VideoFrame {
     int64_t pts = -1; // ms
     int64_t durationMS = -1;
     AVRational timeBase;
+    int32_t flags = 0;
 
     VideoFrame() {
 

@@ -15,12 +15,13 @@ extern "C" {
 
 struct AudioFrame {
     int64_t pts = -1; // MS
-    size_t channels = -1;
-    size_t framesPerChannel = -1;
+    size_t numChannels = -1;
+    size_t numFrames = -1;
     AVSampleFormat sampleFormat = AVSampleFormat::AV_SAMPLE_FMT_NONE;
     AVFrame *avFrame = nullptr;
-    int64_t durationMS;
+    int64_t durationMS = 0;
     AVRational timeBase;
+    int32_t flags = 0;
 
     AudioFrame() {
 
@@ -55,8 +56,8 @@ struct AudioFrame {
 
     void reset() {
         pts = -1;
-        channels = -1;
-        framesPerChannel = -1;
+        numChannels = -1;
+        numFrames = -1;
         sampleFormat = AV_SAMPLE_FMT_NONE;
         if (avFrame) {
             av_frame_unref(avFrame);
@@ -67,8 +68,8 @@ struct AudioFrame {
 private:
     void initParams() {
         pts = avFrame->pts * av_q2d(timeBase) * 1000;
-        channels = avFrame->channels;
-        framesPerChannel = avFrame->nb_samples;
+        numChannels = avFrame->channels;
+        numFrames = avFrame->nb_samples;
         durationMS = avFrame->pkt_duration * av_q2d(timeBase) * 1000;
     }
 

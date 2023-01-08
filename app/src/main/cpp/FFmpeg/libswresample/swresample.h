@@ -45,7 +45,7 @@
  *
  * For example the following code will setup conversion from planar float sample
  * format to interleaved signed 16-bit integer, downsampling from 48kHz to
- * 44.1kHz and downmixing from 5.1 channels to stereo (using the default mixing
+ * 44.1kHz and downmixing from 5.1 numChannels to stereo (using the default mixing
  * matrix). This is using the swr_alloc() function.
  * @code
  * SwrContext *swr = swr_alloc();
@@ -379,7 +379,7 @@ int swr_set_channel_mapping(struct SwrContext *s, const int *channel_map);
  *                            normalized.
  * @param[out] matrix         mixing coefficients; matrix[i + stride * o] is
  *                            the weight of input channel i in output channel o.
- * @param stride              distance between adjacent input channels in the
+ * @param stride              distance between adjacent input numChannels in the
  *                            matrix array
  * @param matrix_encoding     matrixed stereo downmix mode (e.g. dplii)
  * @param log_ctx             parent logging context, can be NULL
