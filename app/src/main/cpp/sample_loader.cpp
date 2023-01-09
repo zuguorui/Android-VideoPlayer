@@ -55,25 +55,25 @@ int64_t compute_buffer_size(AVSampleFormat format, int numChannel, int numFrame)
     return frameSize * numChannel * numFrame;
 }
 
-void merge_channels(uint8_t **src, uint8_t *dst, int sampleSize, int numChannel, int numFrame) {
+void merge_channels(uint8_t **src, int64_t startSampleIndex, uint8_t *dst, int sampleSize, int numChannel, int numFrame) {
     uint8_t *dstPtr;
     uint8_t *srcPtr;
     for (int index = 0; index < numFrame; index++) {
         for (int channel = 0; channel < numChannel; channel++) {
             dstPtr = dst + (index * numChannel * sampleSize) + (channel * sampleSize);
-            srcPtr = src[channel] + index * sampleSize;
+            srcPtr = src[channel] + (startSampleIndex + index) * sampleSize;
             memcpy(dstPtr, srcPtr, sampleSize);
         }
     }
 }
 
-void separate_channels(uint8_t *src, uint8_t **dst, int sampleSize, int numChannel, int numFrame) {
+void separate_channels(uint8_t *src, int64_t startSampleIndex, uint8_t **dst, int sampleSize, int numChannel, int numFrame) {
     uint8_t *dstPtr;
     uint8_t *srcPtr;
     for (int index = 0; index < numFrame; index++) {
         for (int channel = 0; channel < numChannel; channel++) {
             dstPtr = dst[channel] + index * sampleSize;
-            srcPtr = src + (index * numChannel * sampleSize) + (channel * sampleSize);
+            srcPtr = src + ((index + startSampleIndex) * numChannel * sampleSize) + (channel * sampleSize);
             memcpy(dstPtr, srcPtr, sampleSize);
         }
     }

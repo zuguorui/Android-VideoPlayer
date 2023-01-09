@@ -29,7 +29,7 @@ public:
 
     void stop() override;
 
-    void write(AudioFrame *audioFrame) override;
+    bool write(AudioFrame *audioFrame) override;
 
     void write(uint8_t *buffer, int framesPerChannel) override;
 

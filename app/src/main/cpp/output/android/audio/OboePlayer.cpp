@@ -83,35 +83,29 @@ void OboePlayer::stop() {
     audioStream->pause();
 }
 
-void OboePlayer::write(AudioFrame *audioFrame) {
+bool OboePlayer::write(AudioFrame *audioFrame) {
     if (audioFrame == nullptr) {
-        return;
+        return false;
     }
+
     if (sampleLayout == SampleLayout::None) {
         LOGE(TAG, "sampleLayout is none");
-        if (playerCtx) {
-            playerCtx->recycleAudioFrame(audioFrame);
-        } else {
-            delete audioFrame;
-        }
-        return;
+        return false;
 
     }
 
     if (audioStream == nullptr) {
         LOGE(TAG, "audioStream is none");
-        if (playerCtx) {
-            playerCtx->recycleAudioFrame(audioFrame);
-        } else {
-            delete audioFrame;
-        }
-        return;
+        return false;
     }
 
     if (sampleLayout == SampleLayout::Packet) {
-        audioStream->write(audioFrame->avFrame->data[0], audioFrame->numFrames, 1000 * 1000 * 1000);
+
+        uint8_t *bufferPtr = audioFrame->avFrame->data[0] + (audioFrame->outputStartIndex * srcChannels * sampleSize);
+        audioStream->write(bufferPtr, audioFrame->outputFrameCount, 1000 * 1000 * 1000);
+
     } else if (sampleLayout == SampleLayout::Planner) {
-        int64_t bufferSize = audioFrame->numFrames * audioFrame->numChannels * sampleSize;
+        int64_t bufferSize = audioFrame->outputFrameCount * srcChannels * sampleSize;
         if (packetBufferSize < bufferSize) {
             if (packetBuffer) {
                 free(packetBuffer);
@@ -122,17 +116,12 @@ void OboePlayer::write(AudioFrame *audioFrame) {
             packetBuffer = (uint8_t *)malloc(packetBufferSize);
         }
 
-        merge_channels(audioFrame->avFrame->data, packetBuffer, sampleSize, audioFrame->numChannels, audioFrame->numFrames);
+        merge_channels(audioFrame->avFrame->data, audioFrame->outputStartIndex, packetBuffer, sampleSize, audioFrame->numChannels, audioFrame->outputFrameCount);
 
-        audioStream->write(packetBuffer, audioFrame->numFrames, 1000 * 1000 * 1000);
+        audioStream->write(packetBuffer, audioFrame->outputFrameCount, 1000 * 1000 * 1000);
     }
+    return true;
 
-
-    if (playerCtx) {
-        playerCtx->recycleAudioFrame(audioFrame);
-    } else {
-        delete audioFrame;
-    }
 }
 
 void OboePlayer::write(uint8_t *buffer, int framesPerChannel) {

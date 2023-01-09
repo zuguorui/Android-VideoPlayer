@@ -29,7 +29,7 @@ public:
     virtual void release() = 0;
     virtual void start() = 0;
     virtual void stop() = 0;
-    virtual void write(AudioFrame *audioFrame) = 0;
+    virtual bool write(AudioFrame *audioFrame) = 0;
     virtual void write(uint8_t *buffer, int framesPerChannel) = 0;
 
     int getSrcSampleRate() {

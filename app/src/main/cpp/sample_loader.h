@@ -20,8 +20,8 @@ SampleLayout get_sample_layout(AVSampleFormat format);
 
 int64_t compute_buffer_size(AVSampleFormat format, int numChannel, int numFrame);
 
-void merge_channels(uint8_t **src, uint8_t *dst, int sampleSize, int numChannel, int numFrame);
+void merge_channels(uint8_t **src, int64_t startSampleIndex, uint8_t *dst, int sampleSize, int numChannel, int numFrame);
 
-void separate_channels(uint8_t *src, uint8_t **dst, int sampleSize, int numChannel, int numFrame);
+void separate_channels(uint8_t *src, int64_t startSampleIndex, uint8_t **dst, int sampleSize, int numChannel, int numFrame);
 
 #endif //ANDROID_VIDEOPLAYER_SAMPLE_LOADER_H

@@ -9,7 +9,7 @@
 #include "PacketWrapper.h"
 #include "Flags.h"
 
-#define TAG "Player"
+#define TAG "PlayerCore"
 
 using namespace std;
 
@@ -242,7 +242,7 @@ void Player::readStreamLoop() {
                 PacketWrapper *p = playerContext.getEmptyPacketWrapper();
                 p->flags = STREAM_FLAG_SOUGHT;
                 audioPacketQueue.forcePush(p);
-                audioDecodeSeekFlag = true;
+//                audioDecodeSeekFlag = true;
             }
 
             if (enableVideo) {
@@ -250,10 +250,10 @@ void Player::readStreamLoop() {
                 PacketWrapper *p = playerContext.getEmptyPacketWrapper();
                 p->flags = STREAM_FLAG_SOUGHT;
                 videoPacketQueue.forcePush(p);
-                videoDecodeSeekFlag = true;
+//                videoDecodeSeekFlag = true;
             }
 
-            syncSeekFlag = true;
+//            syncSeekFlag = true;
 
             seekFlag = false;
         }
@@ -337,6 +337,9 @@ void Player::decodeAudioLoop() {
         pw = packetOpt.value();
 
         if ((pw->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+            LOGD(TAG, "decode audio, meet a seek frame");
+            playerContext.recyclePacketWrapper(pw);
+            pw = nullptr;
             audioFrameQueue.clear();
             audioDecoder->flush();
             audioFrame = playerContext.getEmptyAudioFrame();
@@ -373,13 +376,13 @@ void Player::decodeAudioLoop() {
         }
 
         if (ret == AVERROR(EAGAIN)) {
-            LOGD(TAG, "audio stream again");
+//            LOGD(TAG, "audio stream again");
             continue;
         } else if (ret == AVERROR_EOF) {
-            LOGD(TAG, "audio stream meets eof");
+//            LOGD(TAG, "audio stream meets eof");
             break;
         } else {
-            LOGE(TAG, "audio decoder error: %d", ret);
+//            LOGE(TAG, "audio decoder error: %d", ret);
             break;
         }
     }
@@ -429,6 +432,9 @@ void Player::decodeVideoLoop() {
         pw = packetOpt.value();
 
         if ((pw->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+            LOGD(TAG, "decode video, meet a seek frame");
+            playerContext.recyclePacketWrapper(pw);
+            pw = nullptr;
             videoFrameQueue.clear();
             videoDecoder->flush();
             videoFrame = playerContext.getEmptyVideoFrame();
@@ -466,13 +472,13 @@ void Player::decodeVideoLoop() {
         }
 
         if (ret == AVERROR(EAGAIN)) {
-            LOGD(TAG, "video stream again");
+//            LOGD(TAG, "video stream again");
             continue;
         } else if (ret == AVERROR_EOF) {
-            LOGD(TAG, "video stream meets eof");
+//            LOGD(TAG, "video stream meets eof");
             break;
         } else {
-            LOGE(TAG, "video decoder error: %d", ret);
+//            LOGE(TAG, "video decoder error: %d", ret);
             break;
         }
     }
@@ -508,7 +514,9 @@ void Player::syncLoop() {
     unPlayedAudioFrame = nullptr;
     VideoFrame *videoFrame = unPlayedVideoFrame;
     unPlayedVideoFrame = nullptr;
-    bool firstLoop = true;
+
+    int64_t lastAudioPts = -1;
+    int64_t lastVideoPts = -1;
 
     if (stateListener != nullptr) {
         stateListener->playStateChanged(true);
@@ -534,58 +542,56 @@ void Player::syncLoop() {
                 }
             }
 
+            if (lastAudioPts == -1) {
+                lastAudioPts = audioFrame->pts;
+            }
+
+            if (lastVideoPts == -1) {
+                lastVideoPts = videoFrame->pts;
+            }
+
             if ((audioFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT
                     && (videoFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+                LOGD(TAG, "sync, meet both audio and video seek frame");
                 playerContext.recycleAudioFrame(audioFrame);
                 audioFrame = nullptr;
                 playerContext.recycleVideoFrame(videoFrame);
                 videoFrame = nullptr;
                 continue;
             } else if ((audioFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+                LOGD(TAG, "sync, meet audio seek frame");
                 playerContext.recycleVideoFrame(videoFrame);
                 videoFrame = nullptr;
                 continue;
             } else if ((videoFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+                LOGD(TAG, "sync, meet video seek frame");
                 playerContext.recycleAudioFrame(audioFrame);
                 audioFrame = nullptr;
                 continue;
             }
-
-            if (videoFrame->pts < audioFrame->pts) {
-                if (firstLoop) {
-                    playerContext.recycleVideoFrame(videoFrame);
-                    videoFrame = nullptr;
-                    lastAudioWriteTime = chrono::system_clock::now();
-                    lastAudioPts = audioFrame->pts;
-                    audioOutput->write(audioFrame);
-                    audioFrame = nullptr;
-                    firstLoop = false;
-                } else {
-                    if (videoFrame->pts < lastAudioPts) {
-                        playerContext.recycleVideoFrame(videoFrame);
-                        videoFrame = nullptr;
-                        continue;
-                    } else {
-                        chrono::system_clock::time_point now = chrono::system_clock::now();
-                        int64_t duration = chrono::duration_cast<chrono::milliseconds>(
-                                now - lastAudioWriteTime).count();
-                        if (duration > videoFrame->pts - lastAudioPts) {
-                            int64_t waitMS = duration - (videoFrame->pts - lastAudioPts);
-                            this_thread::sleep_for(chrono::milliseconds(waitMS));
-                        }
-                        lastVideoPts = videoFrame->pts;
-                        videoOutput->write(videoFrame);
-                        videoFrame = nullptr;
-                    }
-
-                }
+            int64_t audioOutputPts = audioFrame->getOutputPts();
+            if (videoFrame->pts <= audioOutputPts) {
+                lastVideoPts = videoFrame->pts;
+                videoOutput->write(videoFrame);
+                videoFrame = nullptr;
             } else {
-                lastAudioWriteTime = chrono::system_clock::now();
-                lastAudioPts = audioFrame->pts;
+                int64_t outputFrames = (videoFrame->pts + 3 - audioOutputPts) * 1.0f / 1000 * audioFrame->sampleRate;
+                outputFrames = min((int64_t)(audioFrame->numFrames - audioFrame->outputStartIndex), outputFrames);
+                audioFrame->outputFrameCount = outputFrames;
+                lastAudioPts = audioOutputPts;
                 audioOutput->write(audioFrame);
-                audioFrame = nullptr;
-                firstLoop = false;
+                audioFrame->outputStartIndex += audioFrame->outputFrameCount;
+                if (audioFrame->outputStartIndex == audioFrame->numFrames) {
+                    playerContext.recycleAudioFrame(audioFrame);
+                    audioFrame = nullptr;
+                }
+
             }
+
+            if (stateListener != nullptr) {
+                stateListener->progressChanged(lastAudioPts, false);
+            }
+
         } else if (enableVideo) {
             if (videoFrame == nullptr) {
                 optional<VideoFrame *> frameOpt = videoFrameQueue.pop();
@@ -615,6 +621,7 @@ void Player::syncLoop() {
             }
             lastAudioPts = audioFrame->pts;
             audioOutput->write(audioFrame);
+            playerContext.recycleAudioFrame(audioFrame);
             audioFrame = nullptr;
             if (stateListener != nullptr) {
                 stateListener->progressChanged(lastAudioPts, false);

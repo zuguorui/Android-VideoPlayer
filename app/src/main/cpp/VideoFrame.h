@@ -67,6 +67,7 @@ struct VideoFrame {
         pixelFormat = AVPixelFormat::AV_PIX_FMT_NONE;
         pts = -1;
         durationMS = -1;
+        flags = 0;
     }
 
 private:

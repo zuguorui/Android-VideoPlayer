@@ -23,7 +23,7 @@ public:
     virtual void release() = 0;
     virtual int sendPacket(const AVPacket *packet) = 0;
     virtual int receiveFrame(AVFrame *frame) = 0;
-    virtual void flush();
+    virtual void flush() = 0;
 };
 
 #endif //ANDROID_VIDEOPLAYER_IDECODER_H
