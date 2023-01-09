@@ -177,6 +177,9 @@ bool Player::openFile(string pathStr) {
     return true;
 }
 
+/*
+ * find a suitable stream and get a decoder for it
+ * */
 void Player::findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder,
                                            int *streamIndex) {
     if (!formatCtx) {
@@ -209,6 +212,11 @@ void Player::readStreamCallback(void *context) {
     ((Player *) context)->readStreamLoop();
 }
 
+/*
+ * Read packet data from source.
+ * If the packet has some flags like STREAM_FLAG_SOUGHT, this packet won't
+ * contain data.
+ * */
 void Player::readStreamLoop() {
     if (!formatCtx) {
         LOGE(TAG, "no format context");
@@ -237,6 +245,8 @@ void Player::readStreamLoop() {
 //            }
 
             av_seek_frame(formatCtx, streamIndex, pts, AVSEEK_FLAG_BACKWARD);
+
+            // put a empty packet width flag STREAM_FLAG_SOUGHT
             if (enableAudio) {
                 audioPacketQueue.clear();
                 PacketWrapper *p = playerContext.getEmptyPacketWrapper();
@@ -510,10 +520,6 @@ void Player::syncCallback(void *context) {
 void Player::syncLoop() {
     chrono::system_clock::time_point lastAudioWriteTime;
     chrono::system_clock::time_point lastVideoWriteTime;
-    AudioFrame *audioFrame = unPlayedAudioFrame;
-    unPlayedAudioFrame = nullptr;
-    VideoFrame *videoFrame = unPlayedVideoFrame;
-    unPlayedVideoFrame = nullptr;
 
     int64_t lastAudioPts = -1;
     int64_t lastVideoPts = -1;
@@ -521,6 +527,11 @@ void Player::syncLoop() {
     if (stateListener != nullptr) {
         stateListener->playStateChanged(true);
     }
+
+    AudioFrame *audioFrame = unPlayedAudioFrame;
+    unPlayedAudioFrame = nullptr;
+    VideoFrame *videoFrame = unPlayedVideoFrame;
+    unPlayedVideoFrame = nullptr;
 
     while (!stopSyncFlag) {
         if (enableAudio && enableVideo) {
