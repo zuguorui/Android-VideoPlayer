@@ -158,7 +158,7 @@ typedef struct AVDRMDeviceContext {
     /**
      * File descriptor of DRM device.
      *
-     * This is used as the device to create frames on, and may also be
+     * This is used as the device to setFormat frames on, and may also be
      * used in some derivation and mapping operations.
      *
      * If no device is required, set to -1.

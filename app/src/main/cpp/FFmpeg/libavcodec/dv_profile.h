@@ -23,7 +23,6 @@
 
 #include "libavutil/pixfmt.h"
 #include "libavutil/rational.h"
-#include "avcodec.h"
 
 /* minimum number of bytes to read from a DV stream in order to
  * determine the profile */
@@ -41,7 +40,7 @@ typedef struct AVDVProfile {
     int              video_stype;           /* stype for VAUX source pack */
     int              frame_size;            /* total size of one frame in bytes */
     int              difseg_size;           /* number of DIF segments per DIF channel */
-    int              n_difchan;             /* number of DIF numChannels per frame */
+    int              n_difchan;             /* number of DIF channels per frame */
     AVRational       time_base;             /* 1/framerate */
     int              ltc_divisor;           /* FPS from the LTS standpoint */
     int              height;                /* picture height in pixels */

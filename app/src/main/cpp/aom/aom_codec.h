@@ -29,7 +29,7 @@
 //
 // The main purpose of the aom_codec_iface_t is to provide a way to generate
 // a default codec config, find out what capabilities the implementation has,
-// and create an aom_codec_ctx_t (which is actually used to interact with the
+// and setFormat an aom_codec_ctx_t (which is actually used to interact with the
 // codec).
 //
 // Note that the implementations for the AV1 algorithm are located in

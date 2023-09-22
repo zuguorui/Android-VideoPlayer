@@ -16,7 +16,7 @@ extern "C" {
 #include "FFmpeg/libavutil/avutil.h"
 }
 
-// I can't create 16bit texture for yuv on Android, so I convert yuv pixels more than 8bit depth to
+// I can't setFormat 16bit texture for yuv on Android, so I convert yuv pixels more than 8bit depth to
 // float32, this will cost a lot. If you can make 16bit texture work, you can undefine
 // LOAD_MULTI_BYTES_YUV_AS_FLOAT, then yuv pixels with more than 8bit depths will be load as
 // uint16.

@@ -19,9 +19,7 @@ public:
 
     ~OboePlayer();
 
-    void setSrcFormat(int sampleRate, int channels, AVSampleFormat sampleFormat) override;
-
-    bool create() override;
+    bool create(int sampleRate, int channels, AVSampleFormat sampleFormat) override;
 
     void release() override;
 
@@ -43,7 +41,9 @@ private:
     uint8_t *packetBuffer = nullptr;
     int64_t packetBufferSize = 0;
 
-
+    int sampleRate = -1;
+    int channels = -1;
+    AVSampleFormat sampleFormat = AVSampleFormat::AV_SAMPLE_FMT_NONE;
 };
 
 

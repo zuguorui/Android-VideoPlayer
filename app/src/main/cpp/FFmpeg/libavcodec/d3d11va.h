@@ -68,7 +68,7 @@ typedef struct AVD3D11VAContext {
     ID3D11VideoContext *video_context;
 
     /**
-     * D3D11 configuration used to create the decoder
+     * D3D11 configuration used to setFormat the decoder
      */
     D3D11_VIDEO_DECODER_CONFIG *cfg;
 
@@ -78,7 +78,7 @@ typedef struct AVD3D11VAContext {
     unsigned surface_count;
 
     /**
-     * The array of Direct3D surfaces used to create the decoder
+     * The array of Direct3D surfaces used to setFormat the decoder
      */
     ID3D11VideoDecoderOutputView **surface;
 

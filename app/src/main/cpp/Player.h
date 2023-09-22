@@ -128,11 +128,11 @@ private:
 
     IPlayStateListener *stateListener = nullptr;
 
-    bool createVideoOutputAfterSetWindow = false;
-
     bool createAudioOutput();
+    void releaseAudioOutput();
 
     bool createVideoOutput();
+    void releaseVideoOutput();
 
     void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder, int *streamIndex);
 
@@ -160,7 +160,7 @@ private:
     void startSyncThread();
     void stopSyncThread();
 
-
+    IDecoder *findDecoder(AVCodecParameters *params);
 };
 
 

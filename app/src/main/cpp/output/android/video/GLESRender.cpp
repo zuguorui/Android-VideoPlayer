@@ -33,9 +33,9 @@ GLESRender::~GLESRender() {
     release();
 }
 
-bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHDR) {
+bool GLESRender::setFormat(AVPixelFormat format, AVColorSpace colorSpace, bool isHDR) {
 
-    LOGD(TAG, "create");
+    LOGD(TAG, "setFormat");
 
     if (!eglWindow.isReady()) {
         LOGE(TAG, "eglWindow is not ready");
@@ -114,7 +114,7 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
     this->colorSpace = colorSpace;
     this->isHDR = isHDR;
 
-    LOGD(TAG, "create: format = %d, pixType = %d, glDataType = 0x%x", format, pixelType, glDataType);
+    LOGD(TAG, "setFormat: format = %d, pixType = %d, glDataType = 0x%x", format, pixelType, glDataType);
 
     if (!shader.isReady()) {
         LOGE(TAG, "shader is not ready");
@@ -126,7 +126,7 @@ bool GLESRender::create(AVPixelFormat format, AVColorSpace colorSpace, bool isHD
 bool GLESRender::setWindow(ANativeWindow *window) {
     LOGD(TAG, "setWindow");
     if (!eglWindow.create(window)) {
-        LOGE(TAG, "create eglWindow failed");
+        LOGE(TAG, "setFormat eglWindow failed");
         return false;
     }
     if (!eglWindow.isReady()) {
@@ -421,6 +421,10 @@ void GLESRender::deleteVertices() {
 
 bool GLESRender::isReady() {
     return eglWindow.isReady() && shader.isReady();
+}
+
+bool GLESRender::isEGLReady() {
+    return eglWindow.isReady();
 }
 
 void GLESRender::setSizeMode(SizeMode mode) {

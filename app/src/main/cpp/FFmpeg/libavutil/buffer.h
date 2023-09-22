@@ -28,8 +28,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "version.h"
-
 /**
  * @defgroup lavu_buffer AVBuffer
  * @ingroup lavu_data
@@ -56,7 +54,7 @@
  * buffer is considered writable if there exists only one reference to it (and
  * it has not been marked as read-only). The av_buffer_is_writable() function is
  * provided to check whether this is true and av_buffer_make_writable() will
- * automatically create a new writable buffer when necessary.
+ * automatically setFormat a new writable buffer when necessary.
  * Of course nothing prevents the calling code from violating this convention,
  * however that is safe only when all the existing references are under its
  * control.
@@ -93,11 +91,7 @@ typedef struct AVBufferRef {
     /**
      * Size of data in bytes.
      */
-#if FF_API_BUFFER_SIZE_T
-    int      size;
-#else
     size_t   size;
-#endif
 } AVBufferRef;
 
 /**
@@ -105,21 +99,13 @@ typedef struct AVBufferRef {
  *
  * @return an AVBufferRef of given size or NULL when out of memory
  */
-#if FF_API_BUFFER_SIZE_T
-AVBufferRef *av_buffer_alloc(int size);
-#else
 AVBufferRef *av_buffer_alloc(size_t size);
-#endif
 
 /**
  * Same as av_buffer_alloc(), except the returned buffer will be initialized
  * to zero.
  */
-#if FF_API_BUFFER_SIZE_T
-AVBufferRef *av_buffer_allocz(int size);
-#else
 AVBufferRef *av_buffer_allocz(size_t size);
-#endif
 
 /**
  * Always treat the buffer as read-only, even when it has only one
@@ -142,11 +128,7 @@ AVBufferRef *av_buffer_allocz(size_t size);
  *
  * @return an AVBufferRef referring to data on success, NULL on failure.
  */
-#if FF_API_BUFFER_SIZE_T
-AVBufferRef *av_buffer_create(uint8_t *data, int size,
-#else
 AVBufferRef *av_buffer_create(uint8_t *data, size_t size,
-#endif
                               void (*free)(void *opaque, uint8_t *data),
                               void *opaque, int flags);
 
@@ -163,7 +145,7 @@ void av_buffer_default_free(void *opaque, uint8_t *data);
  * @return a new AVBufferRef referring to the same AVBuffer as buf or NULL on
  * failure.
  */
-AVBufferRef *av_buffer_ref(AVBufferRef *buf);
+AVBufferRef *av_buffer_ref(const AVBufferRef *buf);
 
 /**
  * Free a given reference and automatically free the buffer if there are no more
@@ -214,11 +196,7 @@ int av_buffer_make_writable(AVBufferRef **buf);
  * reference to it (i.e. the one passed to this function). In all other cases
  * a new buffer is allocated and the data is copied.
  */
-#if FF_API_BUFFER_SIZE_T
-int av_buffer_realloc(AVBufferRef **buf, int size);
-#else
 int av_buffer_realloc(AVBufferRef **buf, size_t size);
-#endif
 
 /**
  * Ensure dst refers to the same data as src.
@@ -234,7 +212,7 @@ int av_buffer_realloc(AVBufferRef **buf, size_t size);
  * @return 0 on success
  *         AVERROR(ENOMEM) on memory allocation failure.
  */
-int av_buffer_replace(AVBufferRef **dst, AVBufferRef *src);
+int av_buffer_replace(AVBufferRef **dst, const AVBufferRef *src);
 
 /**
  * @}
@@ -252,7 +230,7 @@ int av_buffer_replace(AVBufferRef **dst, AVBufferRef *src);
  * same size (the most obvious use case being buffers for raw video or audio
  * frames).
  *
- * At the beginning, the user must call av_buffer_pool_init() to create the
+ * At the beginning, the user must call av_buffer_pool_init() to setFormat the
  * buffer pool. Then whenever a buffer is needed, call av_buffer_pool_get() to
  * get a reference to a new buffer, similar to av_buffer_alloc(). This new
  * reference works in all aspects the same way as the one created by
@@ -285,11 +263,7 @@ typedef struct AVBufferPool AVBufferPool;
  * (av_buffer_alloc()).
  * @return newly created buffer pool on success, NULL on error.
  */
-#if FF_API_BUFFER_SIZE_T
-AVBufferPool *av_buffer_pool_init(int size, AVBufferRef* (*alloc)(int size));
-#else
 AVBufferPool *av_buffer_pool_init(size_t size, AVBufferRef* (*alloc)(size_t size));
-#endif
 
 /**
  * Allocate and initialize a buffer pool with a more complex allocator.
@@ -306,13 +280,8 @@ AVBufferPool *av_buffer_pool_init(size_t size, AVBufferRef* (*alloc)(size_t size
  *                  data. May be NULL.
  * @return newly created buffer pool on success, NULL on error.
  */
-#if FF_API_BUFFER_SIZE_T
-AVBufferPool *av_buffer_pool_init2(int size, void *opaque,
-                                   AVBufferRef* (*alloc)(void *opaque, int size),
-#else
 AVBufferPool *av_buffer_pool_init2(size_t size, void *opaque,
                                    AVBufferRef* (*alloc)(void *opaque, size_t size),
-#endif
                                    void (*pool_free)(void *opaque));
 
 /**
@@ -344,7 +313,7 @@ AVBufferRef *av_buffer_pool_get(AVBufferPool *pool);
  * therefore you have to use this function to access the original opaque
  * parameter of an allocated buffer.
  */
-void *av_buffer_pool_buffer_get_opaque(AVBufferRef *ref);
+void *av_buffer_pool_buffer_get_opaque(const AVBufferRef *ref);
 
 /**
  * @}

@@ -18,9 +18,11 @@ OpenGLESPlayer2::~OpenGLESPlayer2() {
 
 }
 
-bool OpenGLESPlayer2::create() {
+bool OpenGLESPlayer2::create(void *surface) {
     LOGD(TAG, "create");
+    this->window = (ANativeWindow *)surface;
     renderThread = new thread(renderCallback, this);
+    messageQueue.push(RenderMessage::SET_WINDOW);
     return true;
 }
 
@@ -31,11 +33,6 @@ void OpenGLESPlayer2::release() {
         renderThread->join();
     }
 
-//    if(window != nullptr)
-//    {
-//        ANativeWindow_release(window);
-//        window = nullptr;
-//    }
 }
 
 
@@ -43,12 +40,6 @@ void OpenGLESPlayer2::renderCallback(void *self) {
     ((OpenGLESPlayer2 *)self)->renderLoop();
 }
 
-
-void OpenGLESPlayer2::setWindow(void *window) {
-    LOGD(TAG, "setWindow");
-    this->window = (ANativeWindow *)window;
-    messageQueue.push(RenderMessage::SET_WINDOW);
-}
 
 void OpenGLESPlayer2::setScreenSize(int32_t width, int32_t height) {
     LOGD(TAG, "setScreenSize");
@@ -63,9 +54,7 @@ void OpenGLESPlayer2::renderLoop() {
     RenderMessage message;
     bool exitFlag = false;
 
-    while(!exitFlag)
-    {
-
+    while(!exitFlag) {
         messageOpt = messageQueue.pop();
         if (!messageOpt.has_value()) {
             LOGE(TAG, "messageOpt is null");
@@ -73,18 +62,19 @@ void OpenGLESPlayer2::renderLoop() {
         }
         message = messageOpt.value();
         LOGD(TAG, "messsage = %d", message);
-        switch (message)
-        {
+        switch (message) {
             case SET_WINDOW:
                 if (!render.setWindow(window)) {
                     LOGE(TAG, "render setWindow failed");
+                }
+                if (!render.isEGLReady()) {
+                    LOGE(TAG, "after setWindow, EGL is not ready");
                 }
                 break;
             case SET_SCREEN_SIZE:
                 render.setScreenSize(screenWidth, screenHeight);
                 break;
-            case REFRESH:
-            {
+            case REFRESH: {
                 optional<VideoFrame *> frameOpt = frameQueue.pop();
                 if (frameOpt.has_value()) {
                     VideoFrame *frame = frameOpt.value();
@@ -98,8 +88,8 @@ void OpenGLESPlayer2::renderLoop() {
                 break;
             }
             case SET_SRC_FORMAT:
-                if (!render.create(format, colorSpace, isHDR)) {
-                    LOGE(TAG, "render.create failed");
+                if (!render.setFormat(format, colorSpace, isHDR)) {
+                    LOGE(TAG, "render.setFormat failed");
                 }
                 break;
             case EXIT:
@@ -124,12 +114,14 @@ void OpenGLESPlayer2::write(VideoFrame* frame) {
     messageQueue.push(RenderMessage::REFRESH);
 }
 
-void OpenGLESPlayer2::setSrcFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) {
-    LOGD(TAG, "setSrcFormat");
+bool OpenGLESPlayer2::setFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) {
+    LOGD(TAG, "setFormat");
     this->format = pixelFormat;
     this->colorSpace = colorSpace;
     this->isHDR = isHDR;
+    // 首先需要确保建立了EGL环境，才可以使用shader等。
     messageQueue.push(RenderMessage::SET_SRC_FORMAT);
+    return true;
 }
 
 bool OpenGLESPlayer2::isReady() {

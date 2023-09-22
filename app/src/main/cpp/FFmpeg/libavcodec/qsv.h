@@ -21,7 +21,7 @@
 #ifndef AVCODEC_QSV_H
 #define AVCODEC_QSV_H
 
-#include <mfx/mfxvideo.h>
+#include <mfxvideo.h>
 
 #include "libavutil/buffer.h"
 
@@ -36,7 +36,7 @@
 typedef struct AVQSVContext {
     /**
      * If non-NULL, the session to use for encoding or decoding.
-     * Otherwise, libavcodec will try to create an internal session.
+     * Otherwise, libavcodec will try to setFormat an internal session.
      */
     mfxSession session;
 
@@ -53,7 +53,7 @@ typedef struct AVQSVContext {
 
     /**
      * Encoding only. If this field is set to non-zero by the caller, libavcodec
-     * will create an mfxExtOpaqueSurfaceAlloc extended buffer and pass it to
+     * will setFormat an mfxExtOpaqueSurfaceAlloc extended buffer and pass it to
      * the encoder initialization. This only makes sense if iopattern is also
      * set to MFX_IOPATTERN_IN_OPAQUE_MEMORY.
      *
@@ -61,6 +61,8 @@ typedef struct AVQSVContext {
      * required by the encoder and the user-provided value nb_opaque_surfaces.
      * The array of the opaque surfaces will be exported to the caller through
      * the opaque_surfaces field.
+     *
+     * The caller must set this field to zero for oneVPL (MFX_VERSION >= 2.0)
      */
     int opaque_alloc;
 

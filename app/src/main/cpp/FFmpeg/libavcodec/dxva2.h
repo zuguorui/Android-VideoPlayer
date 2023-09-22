@@ -61,7 +61,7 @@ struct dxva_context {
     IDirectXVideoDecoder *decoder;
 
     /**
-     * DXVA2 configuration used to create the decoder
+     * DXVA2 configuration used to setFormat the decoder
      */
     const DXVA2_ConfigPictureDecode *cfg;
 
@@ -71,7 +71,7 @@ struct dxva_context {
     unsigned surface_count;
 
     /**
-     * The array of Direct3D surfaces used to create the decoder
+     * The array of Direct3D surfaces used to setFormat the decoder
      */
     LPDIRECT3DSURFACE9 *surface;
 

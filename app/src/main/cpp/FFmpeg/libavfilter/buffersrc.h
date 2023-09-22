@@ -47,7 +47,7 @@ enum {
 
     /**
      * Keep a reference to the frame.
-     * If the frame if reference-counted, create a new reference; otherwise
+     * If the frame if reference-counted, setFormat a new reference; otherwise
      * copy the frame data.
      */
     AV_BUFFERSRC_FLAG_KEEP_REF = 8,
@@ -110,10 +110,19 @@ typedef struct AVBufferSrcParameters {
      */
     int sample_rate;
 
+#if FF_API_OLD_CHANNEL_LAYOUT
+    /**
+     * Audio only, the audio channel layout
+     * @deprecated use ch_layout
+     */
+    attribute_deprecated
+    uint64_t channel_layout;
+#endif
+
     /**
      * Audio only, the audio channel layout
      */
-    uint64_t channel_layout;
+    AVChannelLayout ch_layout;
 } AVBufferSrcParameters;
 
 /**

@@ -6,9 +6,11 @@
 #define ANDROID_VIDEOPLAYER_FFMPEGDECODER_H
 
 #include "IDecoder.h"
+#include "platform.h"
 
 extern "C" {
 #include "FFmpeg/libavcodec/avcodec.h"
+#include "FFmpeg/libavutil/hwcontext.h"
 };
 
 class FFmpegDecoder: public IDecoder{
@@ -20,7 +22,7 @@ public:
 
     const char* getName();
 
-    bool init(AVCodecParameters *params);
+    bool init(AVCodecParameters *params, PreferCodecType preferType);
 
     void release();
 
@@ -30,10 +32,25 @@ public:
 
     void flush();
 
+    CodecType getCodecType();
+
+    AVPixelFormat getPixelFormat();
+
 private:
 
     AVCodecContext *codecCtx;
     AVCodec *codec;
+    CodecType codecType = CodecType::UNKNOWN;
+
+    // hw
+    AVBufferRef *hwDeviceCtx = nullptr;
+    AVPixelFormat hwPixFormat = AV_PIX_FMT_NONE;
+
+    int initHWDecoder(AVCodecContext *ctx, const enum AVHWDeviceType type);
+
+    bool findHWDecoder(AVCodecParameters *params, AVCodecID codecId);
+
+    bool findSWDecoder(AVCodecParameters *params, AVCodecID codecId);
 
 };
 

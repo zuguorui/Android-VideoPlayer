@@ -55,7 +55,6 @@
 #include "libavutil/attributes.h"
 
 #include "avcodec.h"
-#include "version.h"
 
 struct AVCodecContext;
 struct AVFrame;
@@ -127,7 +126,7 @@ int av_vdpau_bind_context(AVCodecContext *avctx, VdpDevice device,
                           VdpGetProcAddress *get_proc_address, unsigned flags);
 
 /**
- * Gets the parameters to create an adequate VDPAU video surface for the codec
+ * Gets the parameters to setFormat an adequate VDPAU video surface for the codec
  * context using VDPAU hardware decoding acceleration.
  *
  * @note Behavior is undefined if the context was not successfully bound to a
@@ -153,24 +152,6 @@ int av_vdpau_get_surface_parameters(AVCodecContext *avctx, VdpChromaType *type,
  */
 AVVDPAUContext *av_vdpau_alloc_context(void);
 
-#if FF_API_VDPAU_PROFILE
-/**
- * Get a decoder profile that should be used for initializing a VDPAU decoder.
- * Should be called from the AVCodecContext.get_format() callback.
- *
- * @deprecated Use av_vdpau_bind_context() instead.
- *
- * @param avctx the codec context being used for decoding the stream
- * @param profile a pointer into which the result will be written on success.
- *                The contents of profile are undefined if this function returns
- *                an error.
- *
- * @return 0 on success (non-negative), a negative AVERROR on failure.
- */
-attribute_deprecated
-int av_vdpau_get_profile(AVCodecContext *avctx, VdpDecoderProfile *profile);
-#endif
-
-/* @}*/
+/** @} */
 
 #endif /* AVCODEC_VDPAU_H */

@@ -30,7 +30,7 @@ public:
     GLESRender();
     ~GLESRender();
 
-    bool create(AVPixelFormat format, AVColorSpace colorSpace, bool isHDR);
+    bool setFormat(AVPixelFormat format, AVColorSpace colorSpace, bool isHDR);
 
     bool setWindow(ANativeWindow *window);
 
@@ -41,6 +41,8 @@ public:
     void release();
 
     bool isReady();
+
+    bool isEGLReady();
 
     void setSizeMode(SizeMode mode);
 

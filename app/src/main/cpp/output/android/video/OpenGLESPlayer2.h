@@ -23,13 +23,11 @@ public:
     OpenGLESPlayer2(PlayerContext *playerContext);
     ~OpenGLESPlayer2();
 
-    void setSrcFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) override;
+    bool setFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) override;
 
-    bool create() override;
+    bool create(void *surface) override;
 
     void release() override;
-
-    void setWindow(void *window) override;
 
     void setScreenSize(int32_t width, int32_t height) override;
 
@@ -48,9 +46,9 @@ private:
     int32_t screenWidth = 0;
     int32_t screenHeight = 0;
 
-    AVPixelFormat format;
+    AVPixelFormat format = AVPixelFormat::AV_PIX_FMT_NONE;
     AVColorSpace colorSpace;
-    bool isHDR;
+    bool isHDR = false;
 
     SizeMode sizeMode;
 

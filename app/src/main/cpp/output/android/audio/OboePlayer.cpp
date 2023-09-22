@@ -20,15 +20,22 @@ OboePlayer::~OboePlayer() {
     release();
 }
 
-bool OboePlayer::create() {
+bool OboePlayer::create(int sampleRate, int channels, AVSampleFormat sampleFormat) {
+    this->sampleRate = sampleRate;
+    this->channels = channels;
+    this->sampleFormat = sampleFormat;
+
+    sampleSize = av_get_bytes_per_sample(sampleFormat);
+    sampleLayout = get_sample_layout(sampleFormat);
+    sampleType = get_sample_type(sampleFormat);
 
     Result result;
     AudioStreamBuilder builder;
     builder.setDirection(Direction::Output);
-    builder.setChannelCount(srcChannels);
-    builder.setSampleRate(srcSampleRate);
+    builder.setChannelCount(channels);
+    builder.setSampleRate(sampleRate);
 
-    switch (srcSampleFormat) {
+    switch (sampleFormat) {
         case AVSampleFormat::AV_SAMPLE_FMT_S16:
         case AVSampleFormat::AV_SAMPLE_FMT_S16P:
             builder.setFormat(AudioFormat::I16);
@@ -42,7 +49,7 @@ bool OboePlayer::create() {
             builder.setFormat(AudioFormat::Float);
             break;
         default:
-            LOGE(TAG, "unknown sample format: %d", srcSampleFormat);
+            LOGE(TAG, "unknown sample format: %d", sampleFormat);
             return false;
     }
 
@@ -101,11 +108,11 @@ bool OboePlayer::write(AudioFrame *audioFrame) {
 
     if (sampleLayout == SampleLayout::Packet) {
 
-        uint8_t *bufferPtr = audioFrame->avFrame->data[0] + (audioFrame->outputStartIndex * srcChannels * sampleSize);
+        uint8_t *bufferPtr = audioFrame->avFrame->data[0] + (audioFrame->outputStartIndex * channels * sampleSize);
         audioStream->write(bufferPtr, audioFrame->outputFrameCount, 1000 * 1000 * 1000);
 
     } else if (sampleLayout == SampleLayout::Planner) {
-        int64_t bufferSize = audioFrame->outputFrameCount * srcChannels * sampleSize;
+        int64_t bufferSize = audioFrame->outputFrameCount * channels * sampleSize;
         if (packetBufferSize < bufferSize) {
             if (packetBuffer) {
                 free(packetBuffer);
@@ -128,13 +135,6 @@ void OboePlayer::write(uint8_t *buffer, int framesPerChannel) {
     if (audioStream) {
         audioStream->write(buffer, framesPerChannel, -1);
     }
-}
-
-void OboePlayer::setSrcFormat(int sampleRate, int channels, AVSampleFormat sampleFormat) {
-    IAudioOutput::setSrcFormat(sampleRate, channels, sampleFormat);
-    sampleSize = av_get_bytes_per_sample(sampleFormat);
-    sampleLayout = get_sample_layout(sampleFormat);
-    sampleType = get_sample_type(sampleFormat);
 }
 
 

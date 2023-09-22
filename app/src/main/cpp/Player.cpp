@@ -9,6 +9,11 @@
 #include "PacketWrapper.h"
 #include "Flags.h"
 
+extern "C" {
+#include "FFmpeg/libavcodec/avcodec.h"
+#include "FFmpeg/libavutil/hwcontext.h"
+}
+
 #define TAG "PlayerCore"
 
 using namespace std;
@@ -17,7 +22,37 @@ using namespace std;
 Player::Player() {
     av_log_set_callback(ffmpegLogCallback);
 
-    LOGD(TAG, "constructor, readStreamThread = 0x%x", readStreamThread);
+    // 打印FFmpeg支持的codec
+//    void *opaque = nullptr;
+//    while (true) {
+//        const AVCodec *c_temp = av_codec_iterate(&opaque);
+//        if (c_temp == nullptr) {
+//            break;
+//        }
+//        char info[100] = {0};
+//        if (av_codec_is_decoder(c_temp)) {
+//            sprintf(info, "%s[Dec]", info);
+//        } else if (av_codec_is_encoder(c_temp)) {
+//            sprintf(info, "%s[Enc]", info);
+//        } else {
+//            sprintf(info, "%s[XXX]", info);
+//        }
+//
+//        switch (c_temp->type) {
+//            case AVMEDIA_TYPE_VIDEO:
+//                sprintf(info, "%s[Video]", info);
+//                break;
+//            case AVMEDIA_TYPE_AUDIO:
+//                sprintf(info, "%s[Audio]", info);
+//                break;
+//            default:
+//                sprintf(info, "%s[Other]", info);
+//                break;
+//        }
+//        sprintf(info, "%s %10s", info, c_temp->name);
+//        // LOGD(TAG, "%s", info);
+//    }
+
 }
 
 Player::~Player() {
@@ -28,10 +63,6 @@ Player::~Player() {
 
 void Player::setWindow(void *window) {
     nativeWindow = window;
-    if (createVideoOutputAfterSetWindow) {
-        createVideoOutputAfterSetWindow = false;
-        createVideoOutput();
-    }
 }
 
 void Player::release() {
@@ -67,17 +98,8 @@ void Player::release() {
     audioStreamIndex = -1;
     videoStreamIndex = -1;
 
-    if (audioOutput != nullptr) {
-        audioOutput->release();
-        delete (audioOutput);
-        audioOutput = nullptr;
-    }
-
-    if (videoOutput != nullptr) {
-        videoOutput->release();
-        delete (videoOutput);
-        videoOutput = nullptr;
-    }
+    releaseAudioOutput();
+    releaseVideoOutput();
 }
 
 bool Player::openFile(string pathStr) {
@@ -187,17 +209,14 @@ void Player::findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, I
     }
     for (auto it = streams.begin(); it != streams.end(); it++) {
         AVStream *stream = formatCtx->streams[it->first];
-        *decoder = findHWDecoder(stream->codecpar);
+        *decoder = findDecoder(stream->codecpar);
         if (!(*decoder)) {
-            LOGD(TAG, "finding HW decoder for stream %d failed, then find SW decoder", it->first);
-            *decoder = findSWDecoder(stream->codecpar);
-        } else {
-            it->second.codecType = CodecType::HW;
-        }
-
-        if (!(*decoder)) {
-            LOGE(TAG, "finding SW decoder for stream %d failed", it->first);
+            LOGE(TAG, "finding decoder for stream %d failed", it->first);
             it->second.codecType = CodecType::NOT_SUPPORTED;
+        } else {
+            it->second.codecType = (*decoder)->getCodecType();
+            LOGD(TAG, "find a decoder for stream %d, decoder: {name = %s, type = %d}",
+                 *streamIndex, (*decoder)->getName(), (*decoder)->getCodecType());
         }
 
         if (*decoder) {
@@ -470,7 +489,7 @@ void Player::decodeVideoLoop() {
                 break;
             }
             videoFrame = playerContext.getEmptyVideoFrame();
-            videoFrame->setParams(frame, videoStreamMap[videoStreamIndex].pixelFormat,
+            videoFrame->setParams(frame, AVPixelFormat(frame->format),
                                   formatCtx->streams[videoStreamIndex]->time_base);
             if (!videoFrameQueue.push(videoFrame)) {
                 videoFrameQueue.push(videoFrame, false);
@@ -847,6 +866,13 @@ bool Player::isPlaying() {
 }
 
 bool Player::createAudioOutput() {
+    if (audioDecoder == nullptr) {
+        LOGE(TAG, "no audio decoder, can't create audio output");
+        return false;
+    }
+    if (audioOutput != nullptr) {
+        return false;
+    }
     audioOutput = getAudioOutput(&playerContext);
     if (!audioOutput) {
         LOGE(TAG, "getAudioOutput returns null");
@@ -854,10 +880,9 @@ bool Player::createAudioOutput() {
         return false;
     }
     AVCodecParameters *params = formatCtx->streams[audioStreamIndex]->codecpar;
-    audioOutput->setSrcFormat(params->sample_rate, params->channels,
-                              static_cast<AVSampleFormat>(params->format));
-    if (!audioOutput->create()) {
-        LOGE(TAG, "audio output create failed, sampleRate = %d, numChannels = %d, sampleFormat = %d",
+    if (!audioOutput->create(params->sample_rate, params->channels,
+                             static_cast<AVSampleFormat>(params->format))) {
+        LOGE(TAG, "audio output setFormat failed, sampleRate = %d, numChannels = %d, sampleFormat = %d",
              params->sample_rate, params->channels, params->format);
         release();
         return false;
@@ -866,9 +891,25 @@ bool Player::createAudioOutput() {
     return true;
 }
 
+void Player::releaseAudioOutput() {
+    if (audioOutput == nullptr) {
+        return;
+    }
+    audioOutput->release();
+    delete(audioOutput);
+    audioOutput = nullptr;
+}
+
 bool Player::createVideoOutput() {
+    if (videoDecoder == nullptr) {
+        LOGE(TAG, "no video decoder, can't create video output");
+        return false;
+    }
     if (nativeWindow == nullptr) {
-        createVideoOutputAfterSetWindow = true;
+        LOGE(TAG, "no surface set");
+        return false;
+    }
+    if (videoOutput != nullptr) {
         return false;
     }
     videoOutput = getVideoOutput(&playerContext);
@@ -877,24 +918,34 @@ bool Player::createVideoOutput() {
         release();
         return false;
     }
-    if (!videoOutput->create()) {
+    if (!videoOutput->create(nativeWindow)) {
         LOGE(TAG, "videoOutput create failed");
         release();
         return false;
     }
-    videoOutput->setWindow(nativeWindow);
+
+    videoOutput->setFormat(videoDecoder->getPixelFormat(), AVColorSpace::AVCOL_SPC_BT709, false);
+    videoOutput->setSizeMode(SizeMode::FIT);
     videoOutput->setScreenSize(screenWidth, screenHeight);
-    if (nativeWindow) {
-        videoOutput->setWindow(nativeWindow);
-    }
-    AVCodecParameters *params = formatCtx->streams[videoStreamIndex]->codecpar;
-    videoOutput->setSrcFormat(static_cast<AVPixelFormat>(params->format), params->color_space,
-                              false);
-    if (!videoOutput) {
-        LOGE(TAG, "video output create failed, pixelFormat = %d", params->format);
-        release();
-        return false;
-    }
+
     return true;
+}
+
+void Player::releaseVideoOutput() {
+    if (videoOutput == nullptr) {
+        return;
+    }
+    videoOutput->release();
+    delete(videoOutput);
+    videoOutput == nullptr;
+}
+
+IDecoder *Player::findDecoder(AVCodecParameters *params) {
+    FFmpegDecoder *decoder = new FFmpegDecoder();
+    if (!decoder->init(params)) {
+        delete decoder;
+        decoder = nullptr;
+    }
+    return decoder;
 }
 

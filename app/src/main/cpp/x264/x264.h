@@ -924,7 +924,7 @@ X264_API void x264_picture_clean( x264_picture_t *pic );
 #define x264_encoder_open x264_encoder_glue2(x264_encoder_open_,X264_BUILD)
 
 /* x264_encoder_open:
- *      create a new encoder handler, all parameters from x264_param_t are copied */
+ *      setFormat a new encoder handler, all parameters from x264_param_t are copied */
 X264_API x264_t *x264_encoder_open( x264_param_t * );
 
 /* x264_encoder_reconfig:

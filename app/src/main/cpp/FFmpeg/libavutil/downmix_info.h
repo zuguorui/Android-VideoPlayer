@@ -75,19 +75,19 @@ typedef struct AVDownmixInfo {
 
     /**
      * Absolute scale factor representing the nominal level of the surround
-     * numChannels during a regular downmix.
+     * channels during a regular downmix.
      */
     double surround_mix_level;
 
     /**
      * Absolute scale factor representing the nominal level of the surround
-     * numChannels during an Lt/Rt compatible downmix.
+     * channels during an Lt/Rt compatible downmix.
      */
     double surround_mix_level_ltrt;
 
     /**
      * Absolute scale factor representing the level at which the LFE data is
-     * mixed into L/R numChannels during downmixing.
+     * mixed into L/R channels during downmixing.
      */
     double lfe_mix_level;
 } AVDownmixInfo;

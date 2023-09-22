@@ -2043,7 +2043,7 @@ void x265_free_analysis_data(x265_param *param, x265_analysis_data* analysis);
 #define x265_encoder_open x265_encoder_glue2(x265_encoder_open_, X265_BUILD)
 
 /* x265_encoder_open:
- *      create a new encoder handler, all parameters from x265_param are copied */
+ *      setFormat a new encoder handler, all parameters from x265_param are copied */
 x265_encoder* x265_encoder_open(x265_param *);
 
 /* x265_encoder_parameters:

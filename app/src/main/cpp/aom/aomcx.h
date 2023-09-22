@@ -262,7 +262,7 @@ enum aome_enc_control_id {
    */
   AOME_GET_LAST_QUANTIZER_64 = 20,
 
-  /*!\brief Codec control function to set the max no of frames to create arf,
+  /*!\brief Codec control function to set the max no of frames to setFormat arf,
    * unsigned int parameter
    */
   AOME_SET_ARNR_MAXFRAMES = 21,
@@ -1487,7 +1487,7 @@ typedef enum aom_scaling_mode_1d {
  *
  * These defines the data structures for the region of interest map
  *
- * TODO(yaowu): create a unit test for ROI map related APIs
+ * TODO(yaowu): setFormat a unit test for ROI map related APIs
  *
  */
 typedef struct aom_roi_map {

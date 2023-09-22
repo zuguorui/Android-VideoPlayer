@@ -4,19 +4,6 @@
 
 #include "Factory.h"
 
-IDecoder *findHWDecoder(AVCodecParameters *params) {
-    return nullptr;
-}
-
-IDecoder *findSWDecoder(AVCodecParameters *params) {
-    FFmpegDecoder *decoder = new FFmpegDecoder();
-    if (!decoder->init(params)) {
-        delete decoder;
-        decoder = nullptr;
-    }
-    return decoder;
-}
-
 IAudioOutput *getAudioOutput(PlayerContext *playerContext) {
 #if defined OS_ANDROID
     // android audio output

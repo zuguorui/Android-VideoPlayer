@@ -397,7 +397,6 @@ bool read_yuv_planner(AVFrame *frame, AVPixelFormat format, int64_t width, int64
         }
     }
 #else
-
     // GL textures will convert uint16 to float by
     // deviding UINT16_MAX. pixels is always not full
     // 16bit depth, which will make values very small in
@@ -489,6 +488,7 @@ bool read_yuv_packet(AVFrame *frame, AVPixelFormat format, int64_t width, int64_
 
     uint8_t *dstBuffers[] = { yBuffer, uBuffer, vBuffer };
 
+    int64_t pixelCount = frame->width * frame->height;
     int compIndex[8];
     int stride = 0;
 
@@ -529,8 +529,7 @@ bool read_yuv_packet(AVFrame *frame, AVPixelFormat format, int64_t width, int64_
         LOGE(TAG, "unsupported yuv packet format %d", format);
         return false;
     }
-
-    int64_t loopCount = uCount;
+    int64_t loopCount = yCount + uCount + vCount;
     int cj;
     int64_t *wj;
     uint8_t *bj;
@@ -561,7 +560,7 @@ bool read_yuv_semi_planner(AVFrame *frame, AVPixelFormat format, int64_t width, 
         return false;
     }
 
-
+    int64_t pixelCount = frame->width * frame->height;
 
     *yWidth = width;
     *yHeight = height;
@@ -574,14 +573,14 @@ bool read_yuv_semi_planner(AVFrame *frame, AVPixelFormat format, int64_t width, 
     int64_t uCount = (*uWidth) * (*uHeight);
     int64_t vCount = (*vWidth) * (*vHeight);
 
-    uint8_t *uvBuffers[] = { uBuffer, vBuffer };
+    uint8_t *uvBuffers[] = {nullptr, uBuffer, vBuffer };
 
     int compIndex[2];
 
     int64_t uWriteIndex = 0;
     int64_t vWriteIndex = 0;
 
-    int64_t *writeIndex[] = { &uWriteIndex, &vWriteIndex };
+    int64_t *writeIndex[] = {nullptr, &uWriteIndex, &vWriteIndex };
 
     if (format == AVPixelFormat::AV_PIX_FMT_NV12) {
         compIndex[0] = U_INDEX;
@@ -594,13 +593,16 @@ bool read_yuv_semi_planner(AVFrame *frame, AVPixelFormat format, int64_t width, 
         return false;
     }
 
-    int64_t loopCount = uCount;
+    memcpy(yBuffer, frame->data[0], yCount);
+
+    int64_t loopCount = uCount + vCount;
+    int stride = 2;
     int cj;
     int64_t *wj;
     uint8_t *bj;
 
-    for (int64_t i = 0; i < loopCount; i += 2) {
-        for (int j = 0; j < 2; j++) {
+    for (int64_t i = 0; i < loopCount; i += stride) {
+        for (int j = 0; j < stride; j++) {
             cj = compIndex[j];
             wj = writeIndex[cj];
             bj = uvBuffers[cj];

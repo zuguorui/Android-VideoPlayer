@@ -47,6 +47,11 @@ find_library( # Sets the name of the path variable.
         # you want CMake to locate.
         log)
 
+find_library(
+        media-lib
+        mediandk
+)
+
 find_package (oboe REQUIRED CONFIG)
 
 
@@ -60,6 +65,7 @@ target_link_libraries( # Specifies the target library.
         # Links the target library to the log library
         # included in the NDK.
         ${log-lib}
+        ${media-lib}
         OpenSLES
         GLESv3
         EGL

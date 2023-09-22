@@ -3,7 +3,7 @@
 //
 
 /**
- * This file contains some methods to create components which associated with platforms.
+ * This file contains some methods to setFormat components which associated with platforms.
  * */
 
 #ifndef ANDROID_VIDEOPLAYER_FACTORY_H
@@ -29,10 +29,7 @@
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
-};
-
-IDecoder *findHWDecoder(AVCodecParameters *params);
-IDecoder *findSWDecoder(AVCodecParameters *params);
+}
 
 IAudioOutput *getAudioOutput(PlayerContext *playerContext);
 IVideoOutput *getVideoOutput(PlayerContext *playerContext);

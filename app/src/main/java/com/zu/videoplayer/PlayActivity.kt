@@ -37,6 +37,12 @@ class PlayActivity : AppCompatActivity(), PlayListener {
 
         override fun surfaceCreated(holder: SurfaceHolder?) {
             nSetSurface(holder!!.surface)
+            nOpenFile(filePath!!)
+            runOnUiThread {
+                var duration = nGetDuration()
+                seek_pos.max = (duration / 1000).toInt()
+                tv_duration.text = formatDuration(duration)
+            }
         }
     }
 
@@ -79,7 +85,6 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         filePath = intent.getStringExtra("path")
 
         nInit()
-        nOpenFile(filePath!!)
         btn_play.text = "播放"
         addSurfaceView()
 
@@ -121,9 +126,7 @@ class PlayActivity : AppCompatActivity(), PlayListener {
     override fun onResume() {
         super.onResume()
         nSetPlayStateListener(this)
-        var duration = nGetDuration()
-        seek_pos.max = (duration / 1000).toInt()
-        tv_duration.text = formatDuration(duration)
+
     }
 
     override fun onPause() {

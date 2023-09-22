@@ -344,7 +344,7 @@ typedef enum aom_ext_part_status {
 
 /*!\brief Callback of creating an external partition model.
  *
- * The callback is invoked by the encoder to create an external partition
+ * The callback is invoked by the encoder to setFormat an external partition
  * model.
  *
  * \param[in] priv Callback's private data

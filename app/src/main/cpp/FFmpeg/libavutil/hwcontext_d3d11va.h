@@ -146,7 +146,7 @@ typedef struct AVD3D11VAFramesContext {
      * and it does not matter whether it was user-allocated.
      *
      * This is in particular used by the libavcodec D3D11VA hwaccel, which
-     * requires a single array texture. It will create ID3D11VideoDecoderOutputView
+     * requires a single array texture. It will setFormat ID3D11VideoDecoderOutputView
      * objects for each array texture element on decoder initialization.
      */
     ID3D11Texture2D *texture;
@@ -164,6 +164,15 @@ typedef struct AVD3D11VAFramesContext {
      * This field is ignored/invalid if a user-allocated texture is provided.
      */
     UINT MiscFlags;
+
+    /**
+     * In case if texture structure member above is not NULL contains the same texture
+     * pointer for all elements and different indexes into the array texture.
+     * In case if texture structure member above is NULL, all elements contains
+     * pointers to separate non-array textures and 0 indexes.
+     * This field is ignored/invalid if a user-allocated texture is provided.
+    */
+    AVD3D11FrameDescriptor *texture_infos;
 } AVD3D11VAFramesContext;
 
 #endif /* AVUTIL_HWCONTEXT_D3D11VA_H */

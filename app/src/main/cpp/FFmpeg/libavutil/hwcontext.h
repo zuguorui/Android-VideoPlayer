@@ -249,7 +249,7 @@ const char *av_hwdevice_get_type_name(enum AVHWDeviceType type);
 /**
  * Iterate over supported device types.
  *
- * @param type AV_HWDEVICE_TYPE_NONE initially, then the previous type
+ * @param prev AV_HWDEVICE_TYPE_NONE initially, then the previous type
  *             returned by this function in subsequent iterations.
  * @return The next usable device type from enum AVHWDeviceType, or
  *         AV_HWDEVICE_TYPE_NONE if there are no more.
@@ -276,7 +276,7 @@ AVBufferRef *av_hwdevice_ctx_alloc(enum AVHWDeviceType type);
 int av_hwdevice_ctx_init(AVBufferRef *ref);
 
 /**
- * Open a device of the specified type and create an AVHWDeviceContext for it.
+ * Open a device of the specified type and setFormat an AVHWDeviceContext for it.
  *
  * This is a convenience function intended to cover the simple cases. Callers
  * who need to fine-tune device creation/management should open the device
@@ -292,7 +292,7 @@ int av_hwdevice_ctx_init(AVBufferRef *ref);
  *                   will be written here. The reference is owned by the caller
  *                   and must be released with av_buffer_unref() when no longer
  *                   needed. On failure, NULL will be written to this pointer.
- * @param type The type of the device to create.
+ * @param type The type of the device to setFormat.
  * @param device A type-specific string identifying the device to open.
  * @param opts A dictionary of additional (type-specific) options to use in
  *             opening the device. The dictionary remains owned by the caller.
@@ -318,9 +318,9 @@ int av_hwdevice_ctx_create(AVBufferRef **device_ctx, enum AVHWDeviceType type,
  *
  * @param dst_ctx On success, a reference to the newly-created
  *                AVHWDeviceContext.
- * @param type    The type of the new device to create.
+ * @param type    The type of the new device to setFormat.
  * @param src_ctx A reference to an existing AVHWDeviceContext which will be
- *                used to create the new device.
+ *                used to setFormat the new device.
  * @param flags   Currently unused; should be set to zero.
  * @return        Zero on success, a negative AVERROR code on failure.
  */
@@ -336,10 +336,10 @@ int av_hwdevice_ctx_create_derived(AVBufferRef **dst_ctx,
  *
  * @param dst_ctx On success, a reference to the newly-created
  *                AVHWDeviceContext.
- * @param type    The type of the new device to create.
+ * @param type    The type of the new device to setFormat.
  * @param src_ctx A reference to an existing AVHWDeviceContext which will be
- *                used to create the new device.
- * @param options Options for the new device to create, same format as in
+ *                used to setFormat the new device.
+ * @param options Options for the new device to setFormat, same format as in
  *                av_hwdevice_ctx_create.
  * @param flags   Currently unused; should be set to zero.
  * @return        Zero on success, a negative AVERROR code on failure.
@@ -558,11 +558,11 @@ enum {
  * then fill dst with appropriate data to be usable there.  This will only be
  * possible if the hwframe contexts and associated devices are compatible -
  * given compatible devices, av_hwframe_ctx_create_derived() can be used to
- * create a hwframe context for dst in which mapping should be possible.
+ * setFormat a hwframe context for dst in which mapping should be possible.
  *
  * If src has a hwframe context but dst does not, then the src frame is
  * mapped to normal memory and should thereafter be usable as a normal frame.
- * If the format is set on dst, then the mapping will attempt to create dst
+ * If the format is set on dst, then the mapping will attempt to setFormat dst
  * with that format and fail if it is not possible.  If format is unset (is
  * AV_PIX_FMT_NONE) then dst will be mapped with whatever the most appropriate
  * format to use is (probably the sw_format of the src hwframe context).
@@ -570,6 +570,10 @@ enum {
  * A return value of AVERROR(ENOSYS) indicates that the mapping is not
  * possible with the given arguments and hwframe setup, while other return
  * values indicate that it failed somehow.
+ *
+ * On failure, the destination frame will be left blank, except for the
+ * hw_frames_ctx/format fields thay may have been set by the caller - those will
+ * be preserved as they were.
  *
  * @param dst Destination frame, to contain the mapping.
  * @param src Source frame, to be mapped.
@@ -587,7 +591,8 @@ int av_hwframe_map(AVFrame *dst, const AVFrame *src, int flags);
  *
  * @param derived_frame_ctx  On success, a reference to the newly created
  *                           AVHWFramesContext.
- * @param derived_device_ctx A reference to the device to create the new
+ * @param format             The AVPixelFormat for the derived context.
+ * @param derived_device_ctx A reference to the device to setFormat the new
  *                           AVHWFramesContext on.
  * @param source_frame_ctx   A reference to an existing AVHWFramesContext
  *                           which will be mapped to the derived context.
