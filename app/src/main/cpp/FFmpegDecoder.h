@@ -38,8 +38,8 @@ public:
 
 private:
 
-    AVCodecContext *codecCtx;
-    AVCodec *codec;
+    AVCodecContext *codecCtx = nullptr;
+    AVCodec *codec = nullptr;
     CodecType codecType = CodecType::UNKNOWN;
 
     // hw

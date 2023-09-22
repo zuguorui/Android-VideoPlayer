@@ -41,7 +41,7 @@ const char* FFmpegDecoder::getName() {
 }
 
 bool FFmpegDecoder::init(AVCodecParameters *params, PreferCodecType preferType) {
-    int ret;
+
     AVCodecID ffCodecID = AV_CODEC_ID_NONE;
     try {
         ffCodecID = AVCodecID(params->codec_id);
@@ -50,79 +50,26 @@ bool FFmpegDecoder::init(AVCodecParameters *params, PreferCodecType preferType) 
         return false;
     }
 
-    // 先找硬件解码器，不行再找软件解码器
-    const char *hwDecName = getHWDecName(ffCodecID);
-    if (hwDecName != nullptr) {
-        const AVCodec * aCodec = avcodec_find_decoder_by_name(hwDecName);
-        if (aCodec == nullptr) {
-            LOGE(TAG, "Can't find hw decoder for codec: {id = %d, hw_name = %s}", ffCodecID, hwDecName);
-        } else {
-            codec = const_cast<AVCodec *>(aCodec);
-        }
-    }
-
-    if (codec == nullptr) {
-        const AVCodec * aCodec = avcodec_find_decoder(ffCodecID);
-        if (aCodec == nullptr) {
-            LOGE(TAG, "Can't find decoder for codecID %d", ffCodecID);
-            return false;
-        }
-        codec = const_cast<AVCodec *>(aCodec);
-    }
-
-    codecCtx = avcodec_alloc_context3(codec);
-    if (!codecCtx) {
-        LOGE(TAG, "failed to alloc codec context");
-        return false;
-    }
-
-    ret = avcodec_parameters_to_context(codecCtx, params);
-    if (ret < 0) {
-        LOGE(TAG, "copy decoder params failed, err = %d", ret);
-        return false;
-    }
-    bool useHWDecoder = false;
-    for (int i = 0;;i++) {
-        const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
-        if (config == nullptr) {
-            LOGE(TAG, "%s hw config is null", codec->name);
-            break;
-        }
-        if ((config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) &&
-            config->device_type == AVHWDeviceType::AV_HWDEVICE_TYPE_MEDIACODEC) {
-            // 该解码器支持硬件解码
-            out_hw_pix_format = config->pix_fmt;
-            hwPixFormat = config->pix_fmt;
-            codecCtx->get_format = get_hw_format;
-            if (initHWDecoder(codecCtx, AVHWDeviceType::AV_HWDEVICE_TYPE_MEDIACODEC) < 0) {
-                LOGE(TAG, "initHWDecoder failed");
-            } else {
-                useHWDecoder = true;
-                break;
-            }
-        }
-    }
-
-    ret = avcodec_open2(codecCtx, codec, nullptr);
-    if (ret < 0) {
-        char buf[100];
-        av_make_error_string(buf, 100, ret);
-        LOGE(TAG, "open codec failed for %s, err = %s", codec->name, buf);
-        return false;
-    }
-    if (useHWDecoder) {
-        codecType = CodecType::HW;
-        LOGD(TAG, "use HW decoder for %s", codec->name);
+    if (preferType == PreferCodecType::HW) {
+        return findHWDecoder(params, ffCodecID);
+    } else if (preferType == PreferCodecType::SW) {
+        return findSWDecoder(params, ffCodecID);
     } else {
-        codecType = CodecType::SW;
-        LOGD(TAG, "use SW decoder for %s", codec->name);
+        if (findHWDecoder(params, ffCodecID)) {
+            return true;
+        }
+        if (findSWDecoder(params, ffCodecID)) {
+            return true;
+        }
+        return false;
     }
-    return true;
 }
 
 void FFmpegDecoder::release() {
     if (codecCtx) {
-        avcodec_free_context(&codecCtx);
+        if (avcodec_is_open(codecCtx)) {
+            avcodec_free_context(&codecCtx);
+        }
         codecCtx = nullptr;
         codec = nullptr;
     }
@@ -181,16 +128,19 @@ AVPixelFormat FFmpegDecoder::getPixelFormat() {
 }
 
 bool FFmpegDecoder::findHWDecoder(AVCodecParameters *params, AVCodecID codecId) {
+    release();
     int ret;
     const char *hwDecName = getHWDecName(codecId);
-    if (hwDecName != nullptr) {
-        const AVCodec * aCodec = avcodec_find_decoder_by_name(hwDecName);
-        if (aCodec == nullptr) {
-            LOGE(TAG, "Can't find hw decoder for codec: {id = %d, hw_name = %s}", codecId, hwDecName);
-            return false;
-        } else {
-            codec = const_cast<AVCodec *>(aCodec);
-        }
+    if (hwDecName == nullptr) {
+        return false;
+    }
+
+    const AVCodec * aCodec = avcodec_find_decoder_by_name(hwDecName);
+    if (aCodec == nullptr) {
+        LOGE(TAG, "Can't find hw decoder for codec: {id = %d, hw_name = %s}", codecId, hwDecName);
+        return false;
+    } else {
+        codec = const_cast<AVCodec *>(aCodec);
     }
 
     codecCtx = avcodec_alloc_context3(codec);
@@ -239,6 +189,7 @@ bool FFmpegDecoder::findHWDecoder(AVCodecParameters *params, AVCodecID codecId) 
 }
 
 bool FFmpegDecoder::findSWDecoder(AVCodecParameters *params, AVCodecID codecId) {
+    release();
     int ret;
     const AVCodec * aCodec = avcodec_find_decoder(codecId);
     if (aCodec == nullptr) {

@@ -937,12 +937,12 @@ void Player::releaseVideoOutput() {
     }
     videoOutput->release();
     delete(videoOutput);
-    videoOutput == nullptr;
+    videoOutput = nullptr;
 }
 
 IDecoder *Player::findDecoder(AVCodecParameters *params) {
     FFmpegDecoder *decoder = new FFmpegDecoder();
-    if (!decoder->init(params)) {
+    if (!decoder->init(params, PreferCodecType::SW)) {
         delete decoder;
         decoder = nullptr;
     }

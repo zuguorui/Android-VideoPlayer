@@ -4,7 +4,7 @@
 
 #pragma once
 
-enum PreferCodecType {
+enum class PreferCodecType {
     NONE = 0,
     SW,
     HW
