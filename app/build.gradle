@@ -48,6 +48,7 @@ android {
         prefab true
     }
     ndkVersion '21.4.7075529'
+    namespace 'com.zu.videoplayer'
 }
 
 dependencies {
