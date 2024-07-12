@@ -57,7 +57,7 @@ static const char *yuv16ui2rgbShaderCode =
         "}\n";
 
 static const char *rgbShaderCode =
-        "#version 300 se\n"
+        "#version 300 es\n"
         "\n"
         "uniform sampler2D tex_rgb;\n"
         "\n"
