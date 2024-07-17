@@ -66,6 +66,7 @@ bool FFmpegDecoder::init(AVCodecParameters *params, PreferCodecType preferType) 
 }
 
 void FFmpegDecoder::release() {
+    LOGD(TAG, "release, codec_name = %s", codec ? codec->name : "unknown");
     if (codecCtx) {
         if (avcodec_is_open(codecCtx)) {
             avcodec_free_context(&codecCtx);
@@ -73,6 +74,7 @@ void FFmpegDecoder::release() {
         codecCtx = nullptr;
         codec = nullptr;
     }
+    out_hw_pix_format = AV_PIX_FMT_NONE;
 }
 
 int FFmpegDecoder::sendPacket(const AVPacket *packet) {
@@ -135,12 +137,25 @@ bool FFmpegDecoder::findHWDecoder(AVCodecParameters *params, AVCodecID codecId) 
         return false;
     }
 
+
     const AVCodec * aCodec = avcodec_find_decoder_by_name(hwDecName);
     if (aCodec == nullptr) {
         LOGE(TAG, "Can't find hw decoder for codec: {id = %d, hw_name = %s}", codecId, hwDecName);
         return false;
     } else {
         codec = const_cast<AVCodec *>(aCodec);
+        LOGD(TAG, "find HWCodec: name = %s, long_name = %s, wrapper_name = %s", codec->name, codec->long_name, codec->wrapper_name);
+        const AVCodecDescriptor *descriptor = avcodec_descriptor_get_by_name(codec->name);
+        if (descriptor != nullptr) {
+            LOGD(TAG, "HWCodec descriptor: name = %s, long_name = %s", descriptor->name, descriptor->long_name);
+            if (descriptor->profiles != nullptr) {
+                int i = 0;
+                while ((descriptor->profiles + i) != nullptr && (descriptor->profiles + i)->profile != FF_PROFILE_UNKNOWN) {
+                    LOGD(TAG, "HWCodec profile%d: profile = %d, name = %s", i, descriptor->profiles[i].profile, descriptor->profiles[i].name);
+                    i++;
+                }
+            }
+        }
     }
 
     codecCtx = avcodec_alloc_context3(codec);
@@ -153,6 +168,18 @@ bool FFmpegDecoder::findHWDecoder(AVCodecParameters *params, AVCodecID codecId) 
     if (ret < 0) {
         LOGE(TAG, "copy decoder params failed, err = %d", ret);
         return false;
+    }
+
+    for (int i = 0; ; i++) {
+        const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
+        if (config == nullptr) {
+            break;
+        }
+        LOGD(TAG, "hwConfig %d: deviceType = %d, supportHWContext = %d, pixelFormat = %d",
+             i,
+             config->device_type,
+             (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) != 0,
+             config->pix_fmt);
     }
 
     for (int i = 0;;i++) {

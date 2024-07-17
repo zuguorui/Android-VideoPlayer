@@ -7,6 +7,10 @@ cmake_minimum_required(VERSION 3.4.1)
 
 add_definitions(-DOS_ANDROID)
 
+if(ENABLE_PERFORMANCE_MONITOR STREQUAL TRUE)
+        add_definitions(-DENABLE_PERFORMANCE_MONITOR)
+endif ()
+
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
 # You can define multiple libraries, and CMake builds them for you.

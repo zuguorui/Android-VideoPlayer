@@ -3,6 +3,7 @@
 //
 
 #include "OpenGLESPlayer2.h"
+#include "Util.h"
 
 #include "Log.h"
 
@@ -49,19 +50,18 @@ void OpenGLESPlayer2::setScreenSize(int32_t width, int32_t height) {
 }
 
 void OpenGLESPlayer2::renderLoop() {
-    LOGD(TAG, "renderLoop start");
+    LOGD(TAG, "renderLoop: start");
     optional<RenderMessage> messageOpt;
     RenderMessage message;
     bool exitFlag = false;
-
     while(!exitFlag) {
         messageOpt = messageQueue.pop();
         if (!messageOpt.has_value()) {
-            LOGE(TAG, "messageOpt is null");
+            LOGE(TAG, "renderLoop: messageOpt is null");
             continue;
         }
         message = messageOpt.value();
-        LOGD(TAG, "messsage = %d", message);
+        //LOGD(TAG, "renderLoop: messsage = %d", message);
         switch (message) {
             case SET_WINDOW:
                 if (!render.setWindow(window)) {
@@ -79,7 +79,9 @@ void OpenGLESPlayer2::renderLoop() {
                 if (frameOpt.has_value()) {
                     VideoFrame *frame = frameOpt.value();
                     if (render.isReady()) {
+                        int64_t startTime = getSystemClockCurrentMilliseconds();
                         render.refresh(frame);
+                        LOGD(TAG, "renderLoop: render.refresh cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
                     } else {
                         LOGE(TAG, "render is not ready");
                     }

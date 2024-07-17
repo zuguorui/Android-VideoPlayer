@@ -4,6 +4,7 @@
 
 #include "GLESRender.h"
 #include "Log.h"
+#include "Util.h"
 
 #define TAG "GLESRender"
 
@@ -183,8 +184,9 @@ void GLESRender::refresh(VideoFrame *videoFrame) {
     }
 
     eglWindow.makeCurrent();
-
     shader.use();
+
+
 
     if (pixelType == PixelType::RGB) {
         createRGBTex(videoFrame);
@@ -247,13 +249,13 @@ void GLESRender::createYUVTex(VideoFrame *frame) {
     }
 
     createYUVPixelBuffer(yBufSize, uBufSize, vBufSize);
-
-
-
+    int64_t startTime = getSystemClockCurrentMilliseconds();
     bool readSuccess = read_yuv_pixel(frame->avFrame, format, frame->width, frame->height,
                    pix_y, &y_width, &y_height,
                    pix_u, &u_width, &u_height,
                    pix_v, &v_width, &v_height);
+
+    LOGD(TAG, "createYUVTex: read pixel cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
 
     if (!readSuccess) {
         LOGE(TAG, "failed to read yuv pixel");

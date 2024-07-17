@@ -111,6 +111,7 @@ bool OboePlayer::write(AudioFrame *audioFrame) {
         uint8_t *bufferPtr = audioFrame->avFrame->data[0] + (audioFrame->outputStartIndex * channels * sampleSize);
         audioStream->write(bufferPtr, audioFrame->outputFrameCount, 1000 * 1000 * 1000);
 
+
     } else if (sampleLayout == SampleLayout::Planner) {
         int64_t bufferSize = audioFrame->outputFrameCount * channels * sampleSize;
         if (packetBufferSize < bufferSize) {

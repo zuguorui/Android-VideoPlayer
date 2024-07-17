@@ -5,6 +5,8 @@
 #ifndef ANDROID_VIDEOPLAYER_UTIL_H
 #define ANDROID_VIDEOPLAYER_UTIL_H
 
+#include <chrono>
+
 extern "C" {
 #include "FFmpeg/libavutil/frame.h"
 #include "FFmpeg/libavcodec/packet.h"
@@ -16,6 +18,10 @@ static void av_frame_ptr_deleter(AVFrame *frame) {
 
 static void av_packet_ptr_deleter(AVPacket *packet) {
     av_packet_free(&packet);
+}
+
+static int64_t getSystemClockCurrentMilliseconds() {
+    return std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
 }
 
 #endif //ANDROID_VIDEOPLAYER_UTIL_H

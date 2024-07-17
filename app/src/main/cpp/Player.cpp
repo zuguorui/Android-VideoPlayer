@@ -12,52 +12,55 @@
 extern "C" {
 #include "FFmpeg/libavcodec/avcodec.h"
 #include "FFmpeg/libavutil/hwcontext.h"
+
 }
 
-#define TAG "PlayerCore"
+#define TAG "Player"
 
 using namespace std;
+
+void printFFmpegSupportedCodec() {
+    // 打印FFmpeg支持的codec
+    void *opaque = nullptr;
+    while (true) {
+        const AVCodec *c_temp = av_codec_iterate(&opaque);
+        if (c_temp == nullptr) {
+            break;
+        }
+        char info[100] = {0};
+        if (av_codec_is_decoder(c_temp)) {
+            sprintf(info, "%s[Dec]", info);
+        } else if (av_codec_is_encoder(c_temp)) {
+            sprintf(info, "%s[Enc]", info);
+        } else {
+            sprintf(info, "%s[XXX]", info);
+        }
+
+        switch (c_temp->type) {
+            case AVMEDIA_TYPE_VIDEO:
+                sprintf(info, "%s[Video]", info);
+                break;
+            case AVMEDIA_TYPE_AUDIO:
+                sprintf(info, "%s[Audio]", info);
+                break;
+            default:
+                sprintf(info, "%s[Other]", info);
+                break;
+        }
+        sprintf(info, "%s %10s", info, c_temp->name);
+        LOGD(TAG, "%s", info);
+    }
+}
 
 
 Player::Player() {
     av_log_set_callback(ffmpegLogCallback);
-
-    // 打印FFmpeg支持的codec
-//    void *opaque = nullptr;
-//    while (true) {
-//        const AVCodec *c_temp = av_codec_iterate(&opaque);
-//        if (c_temp == nullptr) {
-//            break;
-//        }
-//        char info[100] = {0};
-//        if (av_codec_is_decoder(c_temp)) {
-//            sprintf(info, "%s[Dec]", info);
-//        } else if (av_codec_is_encoder(c_temp)) {
-//            sprintf(info, "%s[Enc]", info);
-//        } else {
-//            sprintf(info, "%s[XXX]", info);
-//        }
-//
-//        switch (c_temp->type) {
-//            case AVMEDIA_TYPE_VIDEO:
-//                sprintf(info, "%s[Video]", info);
-//                break;
-//            case AVMEDIA_TYPE_AUDIO:
-//                sprintf(info, "%s[Audio]", info);
-//                break;
-//            default:
-//                sprintf(info, "%s[Other]", info);
-//                break;
-//        }
-//        sprintf(info, "%s %10s", info, c_temp->name);
-//        // LOGD(TAG, "%s", info);
-//    }
-
+    //printFFmpegSupportedCodec();
 }
 
 Player::~Player() {
+    LOGD(TAG, "~Player");
     release();
-    LOGD(TAG, "destructor, readStreamThread = 0x%x", readStreamThread);
 }
 
 
@@ -66,8 +69,10 @@ void Player::setWindow(void *window) {
 }
 
 void Player::release() {
+    LOGD(TAG, "release");
     pause();
     if (videoDecoder) {
+        LOGD(TAG, "delete videoDecoder");
         delete videoDecoder;
         videoDecoder = nullptr;
     }
@@ -132,7 +137,7 @@ bool Player::openFile(string pathStr) {
     int64_t minutes = totalMinutes % 60;
     int64_t hours = totalMinutes / 60;
 
-    LOGD(TAG, "duration = %02lld:%02lld:%02lld", hours, minutes, seconds);
+    LOGD(TAG, "duration = %02ld:%02ld:%02ld", hours, minutes, seconds);
 
     for (int i = 0; i < formatCtx->nb_streams; i++) {
         AVStream *stream = formatCtx->streams[i];
@@ -156,6 +161,7 @@ bool Player::openFile(string pathStr) {
             trackInfo.fps = (float) av_q2d(stream->avg_frame_rate);
             trackInfo.pixelFormat = static_cast<AVPixelFormat>(stream->codecpar->format);
             videoStreamMap[i] = trackInfo;
+            LOGD(TAG, "videoStream %d: pixelFormat = %d, width = %d, height = %d, fps = %f", i, stream->codecpar->format, trackInfo.width, trackInfo.height, trackInfo.fps);
         }
     }
 
@@ -194,7 +200,15 @@ bool Player::openFile(string pathStr) {
         LOGE(TAG, "no available video stream found");
     }
 
-//    enableVideo = false;
+    LOGD(TAG, "AV_TIME_BASE_Q = %lf", av_q2d(AV_TIME_BASE_Q));
+    if (enableVideo) {
+        LOGD(TAG, "videoStream timebase = %lf", av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
+    }
+    if (enableAudio) {
+        LOGD(TAG, "audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
+    }
+
+    enableVideo = false;
 //    enableAudio = false;
     return true;
 }
@@ -216,7 +230,10 @@ void Player::findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, I
         } else {
             it->second.codecType = (*decoder)->getCodecType();
             LOGD(TAG, "find a decoder for stream %d, decoder: {name = %s, type = %d}",
-                 *streamIndex, (*decoder)->getName(), (*decoder)->getCodecType());
+                 it->first, (*decoder)->getName(), (*decoder)->getCodecType());
+            if (it->second.type == AVMediaType::AVMEDIA_TYPE_VIDEO) {
+                LOGD(TAG, "find a video decoder, pixel_format = %d", (*decoder)->getPixelFormat());
+            }
         }
 
         if (*decoder) {
@@ -237,6 +254,7 @@ void Player::readStreamCallback(void *context) {
  * contain data.
  * */
 void Player::readStreamLoop() {
+    LOGD(TAG, "start readStreamLoop");
     if (!formatCtx) {
         LOGE(TAG, "no format context");
         return;
@@ -251,10 +269,14 @@ void Player::readStreamLoop() {
         }
 
         if (seekFlag) {
-
-            int64_t pts = (int64_t) (seekPtsMS / 1000.0f * AV_TIME_BASE);
-            LOGD(TAG, "meet seek, time = %lld", pts);
-            int streamIndex = -1;
+            LOGD(TAG, "AV_TIME_BASE_Q = %lf", av_q2d(AV_TIME_BASE_Q));
+            if (enableVideo) {
+                LOGD(TAG, "videoStream timebase = %lf", av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
+            }
+            if (enableAudio) {
+                LOGD(TAG, "audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
+            }
+//            int streamIndex = -1;
 //            if (audioStreamIndex >= 0) {
 //                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
 //                streamIndex = audioStreamIndex;
@@ -262,8 +284,17 @@ void Player::readStreamLoop() {
 //                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
 //                streamIndex = videoStreamIndex;
 //            }
+            if (enableVideo && enableAudio) {
+                int64_t pts = (int64_t) (seekPtsMS / 1000.0f * AV_TIME_BASE);
+                av_seek_frame(formatCtx, -1, pts, AVSEEK_FLAG_BACKWARD);
+            } else if (enableVideo) {
+                int64_t pts = (int64_t)(seekPtsMS / 1000 / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
+                av_seek_frame(formatCtx, videoStreamIndex, pts, AVSEEK_FLAG_BACKWARD);
+            } else {
+                int64_t pts = (int64_t)(seekPtsMS / 1000 / av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
+                av_seek_frame(formatCtx, audioStreamIndex, pts, AVSEEK_FLAG_BACKWARD);
+            }
 
-            av_seek_frame(formatCtx, streamIndex, pts, AVSEEK_FLAG_BACKWARD);
 
             // put a empty packet width flag STREAM_FLAG_SOUGHT
             if (enableAudio) {
@@ -380,7 +411,7 @@ void Player::decodeAudioLoop() {
 
         ret = audioDecoder->sendPacket(pw->avPacket);
         if (ret < 0) {
-            LOGE(TAG, "audio decoder send packet failed, err = %d", ret);
+            LOGE(TAG, "audio decoder send packet failed, err = %d, msg = %s", ret, av_err2str(ret));
             break;
         }
 
@@ -388,6 +419,8 @@ void Player::decodeAudioLoop() {
             frame = av_frame_alloc();
             ret = audioDecoder->receiveFrame(frame);
             if (ret < 0) {
+//                LOGE(TAG, "decodeAudioLoop: receiveFrame failed, ret = %d, error = %s", ret,
+//                     av_err2str(ret));
                 av_frame_unref(frame);
                 av_frame_free(&frame);
                 frame = nullptr;
@@ -452,13 +485,18 @@ void Player::decodeVideoLoop() {
     PacketWrapper *pw = nullptr;
     AVFrame *frame = nullptr;
     VideoFrame *videoFrame = nullptr;
+    int64_t lastDecodeTime = -1;
+    int64_t lastPts = -1;
     while (!stopDecodeVideoFlag && enableVideo) {
+
         packetOpt = videoPacketQueue.pop();
         if (!packetOpt.has_value()) {
             LOGE(TAG, "video packetOpt has no value");
             break;
         }
         pw = packetOpt.value();
+
+
 
         if ((pw->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
             LOGD(TAG, "decode video, meet a seek frame");
@@ -473,13 +511,16 @@ void Player::decodeVideoLoop() {
             continue;
         }
 
+        int64_t startTime1 = getSystemClockCurrentMilliseconds();
         ret = videoDecoder->sendPacket(pw->avPacket);
         if (ret < 0) {
-            LOGE(TAG, "video decoder send packet failed, err = %d", ret);
+            LOGE(TAG, "decodeVideoLoop: video decoder send packet failed, err = %d", ret);
             break;
         }
+        //LOGD(TAG, "decodeVideoLoop: send one packet cost %ld ms", getSystemClockCurrentMilliseconds() - startTime1);
 
         while (true) {
+            int64_t startTime = getSystemClockCurrentMilliseconds();
             frame = av_frame_alloc();
             ret = videoDecoder->receiveFrame(frame);
             if (ret < 0) {
@@ -488,15 +529,29 @@ void Player::decodeVideoLoop() {
                 frame = nullptr;
                 break;
             }
+
             videoFrame = playerContext.getEmptyVideoFrame();
             videoFrame->setParams(frame, AVPixelFormat(frame->format),
                                   formatCtx->streams[videoStreamIndex]->time_base);
+#ifdef ENABLE_PERFORMANCE_MONITOR
+            int64_t now = chrono::time_point_cast<chrono::milliseconds>(chrono::system_clock::now()).time_since_epoch().count();
+            if (lastDecodeTime > 0 && lastPts > 0) {
+                if (now - lastDecodeTime > videoFrame->pts - lastPts) {
+                    //LOGW(TAG, "decodeVideoLoop, overtime decoding, decodeInterval = %ld, frameInterval = %ld", now - lastDecodeTime, videoFrame->pts - lastPts);
+                }
+            }
+            lastDecodeTime = now;
+            lastPts = videoFrame->pts;
+            //LOGD(TAG, "decodeVideoLoop: pix_format = %d", videoFrame->pixelFormat);
+#endif
             if (!videoFrameQueue.push(videoFrame)) {
                 videoFrameQueue.push(videoFrame, false);
             }
             // DON'T delete AVFrame, it will be carried to output by VideoFrame.
             videoFrame = nullptr;
             frame = nullptr;
+
+            //LOGD(TAG, "decodeVideoLoop: receive one frame cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
 
         }
 
@@ -537,8 +592,8 @@ void Player::syncCallback(void *context) {
 }
 
 void Player::syncLoop() {
-    chrono::system_clock::time_point lastAudioWriteTime;
-    chrono::system_clock::time_point lastVideoWriteTime;
+    int64_t lastAudioWriteTime = -1;
+    int64_t lastVideoWriteTime = -1;
 
     int64_t lastAudioPts = -1;
     int64_t lastVideoPts = -1;
@@ -582,19 +637,19 @@ void Player::syncLoop() {
 
             if ((audioFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT
                     && (videoFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
-                LOGD(TAG, "sync, meet both audio and video seek frame");
+                LOGD(TAG, "syncLoop, meet both audio and video seek frame");
                 playerContext.recycleAudioFrame(audioFrame);
                 audioFrame = nullptr;
                 playerContext.recycleVideoFrame(videoFrame);
                 videoFrame = nullptr;
                 continue;
             } else if ((audioFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
-                LOGD(TAG, "sync, meet audio seek frame");
+                LOGD(TAG, "syncLoop, meet audio seek frame");
                 playerContext.recycleVideoFrame(videoFrame);
                 videoFrame = nullptr;
                 continue;
             } else if ((videoFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
-                LOGD(TAG, "sync, meet video seek frame");
+                LOGD(TAG, "syncLoop, meet video seek frame");
                 playerContext.recycleAudioFrame(audioFrame);
                 audioFrame = nullptr;
                 continue;
@@ -631,11 +686,31 @@ void Player::syncLoop() {
                     break;
                 }
             }
+            if ((videoFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+                LOGD(TAG, "syncLoop, meet video seek frame");
+                playerContext.recycleVideoFrame(videoFrame);
+                videoFrame = nullptr;
+                continue;
+            }
+
+            //int32_t fps = videoStreamMap[videoStreamIndex].fps;
+            //LOGD(TAG, "fps = %d", fps);
+            //int64_t frameInterval = 1000 / fps;
+
+            int64_t now = chrono::time_point_cast<chrono::milliseconds>(chrono::system_clock::now()).time_since_epoch().count();
+            if (lastVideoWriteTime > 0 && lastVideoPts > 0) {
+                if (now - lastVideoWriteTime > videoFrame->pts - lastVideoPts) {
+#ifdef EMANLE_PERFORMACE_MONITOR
+                    LOGW(TAG, "syncLoop, video frame delay, frameInterval = %ld ms, actualInterval = %ld ms", videoFrame->pts - lastVideoPts, now - lastVideoWriteTime);
+#endif
+                } else {
+                    this_thread::sleep_for(chrono::milliseconds((videoFrame->pts - lastVideoPts) - (now - lastVideoWriteTime)));
+                }
+            }
             lastVideoPts = videoFrame->pts;
+            lastVideoWriteTime = now;
             videoOutput->write(videoFrame);
             videoFrame = nullptr;
-
-            this_thread::sleep_for(chrono::milliseconds(17));
 
             if (stateListener != nullptr) {
                 stateListener->progressChanged(lastVideoPts, false);
@@ -649,7 +724,14 @@ void Player::syncLoop() {
                     break;
                 }
             }
+            if ((audioFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+                LOGD(TAG, "syncLoop, meet audio seek frame");
+                playerContext.recycleAudioFrame(audioFrame);
+                audioFrame = nullptr;
+                continue;
+            }
             lastAudioPts = audioFrame->pts;
+            audioFrame->outputFrameCount = audioFrame->numFrames;
             audioOutput->write(audioFrame);
             playerContext.recycleAudioFrame(audioFrame);
             audioFrame = nullptr;
@@ -657,7 +739,7 @@ void Player::syncLoop() {
                 stateListener->progressChanged(lastAudioPts, false);
             }
         } else {
-            LOGE(TAG, "both audio and video disabled, break");
+            LOGE(TAG, "syncLoop, both audio and video disabled, break");
             break;
         }
 
@@ -942,7 +1024,7 @@ void Player::releaseVideoOutput() {
 
 IDecoder *Player::findDecoder(AVCodecParameters *params) {
     FFmpegDecoder *decoder = new FFmpegDecoder();
-    if (!decoder->init(params, PreferCodecType::SW)) {
+    if (!decoder->init(params, PreferCodecType::NONE)) {
         delete decoder;
         decoder = nullptr;
     }

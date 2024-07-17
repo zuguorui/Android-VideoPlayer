@@ -148,11 +148,11 @@ int64_t get_adts_aac_duration(FILE *file)
             frameCount++;
         }
     }
-    LOGD(TAG, "total file size is %lld bytes, total %d frames", offset, frameCount);
+    LOGD(TAG, "total file size is %ld bytes, total %d frames", offset, frameCount);
 
     double frameDuration = 1024 * 1000.0 / sampleRate;
     int64_t duration = (int64_t)(frameCount * frameDuration);
-    LOGD(TAG, "frame duration = %.2lf, total duration = %lld ms", frameDuration, duration);
+    LOGD(TAG, "frame duration = %.2lf, total duration = %ld ms", frameDuration, duration);
     return duration;
 
 

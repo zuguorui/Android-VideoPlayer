@@ -72,7 +72,7 @@ JavaStateListener::~JavaStateListener() {
 //}
 
 void JavaStateListener::progressChanged(int64_t currentProgress, bool isPlayFinished) {
-    LOGD("JavaStateListener: progressChanged, position = %lld", currentProgress);
+    //LOGD("JavaStateListener: progressChanged, position = %lld", currentProgress);
     if(vm == NULL || listener == NULL || progressChangedMethod == NULL)
     {
         return;
@@ -97,7 +97,7 @@ void JavaStateListener::progressChanged(int64_t currentProgress, bool isPlayFini
 }
 
 void JavaStateListener::playStateChanged(bool isPlay) {
-    LOGD("JavaStateListener: playStateChanged, isPlay = %d", isPlay);
+    //LOGD("JavaStateListener: playStateChanged, isPlay = %d", isPlay);
     if(vm == NULL || listener == NULL || playStateChangedMethod == NULL)
     {
         return;

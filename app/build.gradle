@@ -16,7 +16,7 @@ android {
         externalNativeBuild {
             cmake {
                 // oboe need c++_shared
-                arguments '-DANDROID_PLATFORM=26', '-DANDROID_ARM_NEON=TRUE', '-DANDROID_STL=c++_shared'
+                arguments '-DANDROID_PLATFORM=26', '-DANDROID_ARM_NEON=TRUE', '-DANDROID_STL=c++_shared', '-DENABLE_PERFORMANCE_MONITOR=TRUE'
                 cppFlags '-std=c++17'
             }
         }

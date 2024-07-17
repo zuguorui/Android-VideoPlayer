@@ -333,7 +333,7 @@ bool read_yuv_planner(AVFrame *frame, AVPixelFormat format, int64_t width, int64
                       uint8_t *yBuffer, int *yWidth, int *yHeight,
                       uint8_t *uBuffer, int *uWidth, int *uHeight,
                       uint8_t *vBuffer, int *vWidth, int *vHeight) {
-
+    LOGD(TAG, "read_yuv_planner");
     int compValidBits = get_yuv_comp_depth(format);
     if (compValidBits <= 0) {
         return false;
@@ -452,6 +452,7 @@ bool read_yuv_packet(AVFrame *frame, AVPixelFormat format, int64_t width, int64_
                      uint8_t *yBuffer, int *yWidth, int *yHeight,
                      uint8_t *uBuffer, int *uWidth, int *uHeight,
                      uint8_t *vBuffer, int *vWidth, int *vHeight) {
+    LOGD(TAG, "read_yuv_packet");
     // yuv packet is always 8bit depth
 //    int compValidBits = get_yuv_comp_depth(format);
 //    if (compValidBits <= 0) {
@@ -552,7 +553,7 @@ bool read_yuv_semi_planner(AVFrame *frame, AVPixelFormat format, int64_t width, 
                            uint8_t *yBuffer, int *yWidth, int *yHeight,
                            uint8_t *uBuffer, int *uWidth, int *uHeight,
                            uint8_t *vBuffer, int *vWidth, int *vHeight) {
-
+    LOGD(TAG, "read_yuv_semi_planner");
     int y2u_width, y2u_height, y2v_width, y2v_height;
 
     if (!get_yuv_comp_size_ratio(format, &y2u_width, &y2u_height, &y2v_width, &y2v_height)) {

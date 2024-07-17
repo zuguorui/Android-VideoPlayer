@@ -20,6 +20,7 @@ enum CodecState {
 
 class IDecoder {
 public:
+    virtual ~IDecoder() {}
     virtual const char* getName() = 0;
     virtual bool init(AVCodecParameters *params, PreferCodecType preferType) = 0;
     virtual void release() = 0;
