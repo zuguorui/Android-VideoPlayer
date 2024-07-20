@@ -208,8 +208,8 @@ bool Player::openFile(string pathStr) {
         LOGD(TAG, "audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
     }
 
-    enableVideo = false;
-//    enableAudio = false;
+//    enableVideo = false;
+    enableAudio = false;
     return true;
 }
 
@@ -250,13 +250,13 @@ void Player::readStreamCallback(void *context) {
 
 /*
  * Read packet data from source.
- * If the packet has some flags like STREAM_FLAG_SOUGHT, this packet won't
+ * If the packet has some flags like STREAM_FLAG_SEEK, this packet won't
  * contain data.
  * */
 void Player::readStreamLoop() {
-    LOGD(TAG, "start readStreamLoop");
+    LOGI(TAG, "readStreamLoop: start");
     if (!formatCtx) {
-        LOGE(TAG, "no format context");
+        LOGE(TAG, "readStreamLoop: no format context");
         return;
     }
     int ret;
@@ -264,17 +264,17 @@ void Player::readStreamLoop() {
     while (!stopReadFlag) {
         AVPacket *packet = av_packet_alloc();
         if (!packet) {
-            LOGE(TAG, "av_packet_alloc failed");
+            LOGE(TAG, "readStreamLoop: av_packet_alloc failed");
             return;
         }
 
         if (seekFlag) {
-            LOGD(TAG, "AV_TIME_BASE_Q = %lf", av_q2d(AV_TIME_BASE_Q));
+            LOGD(TAG, "readStreamLoop: AV_TIME_BASE_Q = %lf", av_q2d(AV_TIME_BASE_Q));
             if (enableVideo) {
-                LOGD(TAG, "videoStream timebase = %lf", av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
+                LOGD(TAG, "readStreamLoop: videoStream timebase = %lf", av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
             }
             if (enableAudio) {
-                LOGD(TAG, "audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
+                LOGD(TAG, "readStreamLoop: audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
             }
 //            int streamIndex = -1;
 //            if (audioStreamIndex >= 0) {
@@ -296,11 +296,11 @@ void Player::readStreamLoop() {
             }
 
 
-            // put a empty packet width flag STREAM_FLAG_SOUGHT
+            // put a empty packet width flag STREAM_FLAG_SEEK
             if (enableAudio) {
                 audioPacketQueue.clear();
                 PacketWrapper *p = playerContext.getEmptyPacketWrapper();
-                p->flags = STREAM_FLAG_SOUGHT;
+                p->flags = STREAM_FLAG_SEEK;
                 audioPacketQueue.forcePush(p);
 //                audioDecodeSeekFlag = true;
             }
@@ -308,7 +308,7 @@ void Player::readStreamLoop() {
             if (enableVideo) {
                 videoPacketQueue.clear();
                 PacketWrapper *p = playerContext.getEmptyPacketWrapper();
-                p->flags = STREAM_FLAG_SOUGHT;
+                p->flags = STREAM_FLAG_SEEK;
                 videoPacketQueue.forcePush(p);
 //                videoDecodeSeekFlag = true;
             }
@@ -324,26 +324,28 @@ void Player::readStreamLoop() {
             if (packet->stream_index == audioStreamIndex && enableAudio) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->setParams(packet);
-                if (videoPacketQueue.getSize() == 0) {
-                    audioPacketQueue.forcePush(pw);
-                } else {
-                    pushSuccess = audioPacketQueue.push(pw);
-                    if (!pushSuccess) {
-                        audioPacketQueue.forcePush(pw);
-                    }
-                }
+                audioPacketQueue.push(pw);
+//                if (videoPacketQueue.getSize() == 0) {
+//                    audioPacketQueue.forcePush(pw);
+//                } else {
+//                    pushSuccess = audioPacketQueue.push(pw);
+//                    if (!pushSuccess) {
+//                        audioPacketQueue.forcePush(pw);
+//                    }
+//                }
 
             } else if (packet->stream_index == videoStreamIndex && enableVideo) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->setParams(packet);
-                if (audioPacketQueue.getSize() == 0) {
-                    videoPacketQueue.forcePush(pw);
-                } else {
-                    pushSuccess = videoPacketQueue.push(pw);
-                    if (!pushSuccess) {
-                        videoPacketQueue.forcePush(pw);
-                    }
-                }
+                videoPacketQueue.push(pw);
+//                if (audioPacketQueue.getSize() == 0) {
+//                    videoPacketQueue.forcePush(pw);
+//                } else {
+//                    pushSuccess = videoPacketQueue.push(pw);
+//                    if (!pushSuccess) {
+//                        videoPacketQueue.forcePush(pw);
+//                    }
+//                }
             } else {
                 av_packet_unref(packet);
                 av_packet_free(&packet);
@@ -353,21 +355,23 @@ void Player::readStreamLoop() {
             packet = nullptr;
             if (enableAudio) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
+                pw->flags |= STREAM_FLAG_EOF;
                 audioPacketQueue.forcePush(pw);
             }
             if (enableVideo) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
+                pw->flags |= STREAM_FLAG_EOF;
                 videoPacketQueue.forcePush(pw);
             }
         } else if (ret < 0) {
-            LOGE(TAG, "av_read_frame failed");
+            LOGE(TAG, "readStreamLoop: av_read_packet failed, err = %s", av_err2str(ret));
             av_packet_free(&packet);
             packet = nullptr;
             return;
         }
 
-
     }
+    LOGI(TAG, "readStreamLoop: end");
 }
 
 void Player::decodeAudioCallback(void *context) {
@@ -382,6 +386,7 @@ void Player::decodeAudioLoop() {
         LOGE(TAG, "audio decoder is null");
         return;
     }
+    LOGI(TAG, "decodeAudioLoop: start");
     int ret;
     optional<PacketWrapper *> packetOpt;
     PacketWrapper *pw = nullptr;
@@ -396,17 +401,23 @@ void Player::decodeAudioLoop() {
         }
         pw = packetOpt.value();
 
-        if ((pw->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+        if ((pw->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
             LOGD(TAG, "decode audio, meet a seek frame");
             playerContext.recyclePacketWrapper(pw);
             pw = nullptr;
             audioFrameQueue.clear();
             audioDecoder->flush();
             audioFrame = playerContext.getEmptyAudioFrame();
-            audioFrame->flags |= STREAM_FLAG_SOUGHT;
+            audioFrame->flags |= STREAM_FLAG_SEEK;
             audioFrameQueue.forcePush(audioFrame);
             audioFrame = nullptr;
             continue;
+        }
+
+        if ((pw->flags & STREAM_FLAG_EOF) == STREAM_FLAG_EOF) {
+            playerContext.recyclePacketWrapper(pw);
+            pw = nullptr;
+
         }
 
         ret = audioDecoder->sendPacket(pw->avPacket);
@@ -421,7 +432,6 @@ void Player::decodeAudioLoop() {
             if (ret < 0) {
 //                LOGE(TAG, "decodeAudioLoop: receiveFrame failed, ret = %d, error = %s", ret,
 //                     av_err2str(ret));
-                av_frame_unref(frame);
                 av_frame_free(&frame);
                 frame = nullptr;
                 break;
@@ -435,6 +445,11 @@ void Player::decodeAudioLoop() {
             // DON'T delete AVFrame here, it will be carried to output by AudioFrame
             audioFrame = nullptr;
             frame = nullptr;
+        }
+
+        if (pw) {
+            playerContext.recyclePacketWrapper(pw);
+            pw = nullptr;
         }
 
         if (ret == AVERROR(EAGAIN)) {
@@ -464,7 +479,7 @@ void Player::decodeAudioLoop() {
         audioFrame = nullptr;
     }
 
-    LOGD(TAG, "audio decode loop finish");
+    LOGI(TAG, "decodeAudioLoop: end");
 
 }
 
@@ -480,6 +495,7 @@ void Player::decodeVideoLoop() {
         LOGE(TAG, "video decoder is null");
         return;
     }
+    LOGI(TAG, "decodeVideoLoop: start");
     int ret;
     optional<PacketWrapper *> packetOpt;
     PacketWrapper *pw = nullptr;
@@ -496,18 +512,17 @@ void Player::decodeVideoLoop() {
         }
         pw = packetOpt.value();
 
-
-
-        if ((pw->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
-            LOGD(TAG, "decode video, meet a seek frame");
+        if ((pw->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
+            LOGD(TAG, "decodeVideoLoop: meet a seek frame");
             playerContext.recyclePacketWrapper(pw);
             pw = nullptr;
             videoFrameQueue.clear();
             videoDecoder->flush();
             videoFrame = playerContext.getEmptyVideoFrame();
-            videoFrame->flags |= STREAM_FLAG_SOUGHT;
+            videoFrame->flags |= STREAM_FLAG_SEEK;
             videoFrameQueue.forcePush(videoFrame);
             videoFrame = nullptr;
+            LOGD(TAG, "decodeVideoLoop: meet a seek frame, seek end");
             continue;
         }
 
@@ -524,7 +539,6 @@ void Player::decodeVideoLoop() {
             frame = av_frame_alloc();
             ret = videoDecoder->receiveFrame(frame);
             if (ret < 0) {
-                av_frame_unref(frame);
                 av_frame_free(&frame);
                 frame = nullptr;
                 break;
@@ -533,6 +547,12 @@ void Player::decodeVideoLoop() {
             videoFrame = playerContext.getEmptyVideoFrame();
             videoFrame->setParams(frame, AVPixelFormat(frame->format),
                                   formatCtx->streams[videoStreamIndex]->time_base);
+//            AVRational frameTimeBase = frame->time_base;
+//            AVRational streamTimeBase = formatCtx->streams[videoStreamIndex]->time_base;
+//            if (frameTimeBase.den != streamTimeBase.den || frameTimeBase.num != streamTimeBase.num) {
+//                LOGE(TAG, "frame time_base = %lf, stream time_base = %lf", av_q2d(frameTimeBase),
+//                     av_q2d(streamTimeBase));
+//            }
 #ifdef ENABLE_PERFORMANCE_MONITOR
             int64_t now = chrono::time_point_cast<chrono::milliseconds>(chrono::system_clock::now()).time_since_epoch().count();
             if (lastDecodeTime > 0 && lastPts > 0) {
@@ -553,6 +573,11 @@ void Player::decodeVideoLoop() {
 
             //LOGD(TAG, "decodeVideoLoop: receive one frame cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
 
+        }
+
+        if (pw) {
+            playerContext.recyclePacketWrapper(pw);
+            pw = nullptr;
         }
 
         if (ret == AVERROR(EAGAIN)) {
@@ -582,7 +607,7 @@ void Player::decodeVideoLoop() {
         videoFrame = nullptr;
     }
 
-    LOGD(TAG, "video decode loop finish");
+    LOGI(TAG, "decodeVideoLoop: end");
 
 }
 
@@ -592,6 +617,7 @@ void Player::syncCallback(void *context) {
 }
 
 void Player::syncLoop() {
+    LOGI(TAG, "syncLoop: start");
     int64_t lastAudioWriteTime = -1;
     int64_t lastVideoWriteTime = -1;
 
@@ -635,20 +661,20 @@ void Player::syncLoop() {
                 lastVideoPts = videoFrame->pts;
             }
 
-            if ((audioFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT
-                    && (videoFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+            if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK
+                    && (videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
                 LOGD(TAG, "syncLoop, meet both audio and video seek frame");
                 playerContext.recycleAudioFrame(audioFrame);
                 audioFrame = nullptr;
                 playerContext.recycleVideoFrame(videoFrame);
                 videoFrame = nullptr;
                 continue;
-            } else if ((audioFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+            } else if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
                 LOGD(TAG, "syncLoop, meet audio seek frame");
                 playerContext.recycleVideoFrame(videoFrame);
                 videoFrame = nullptr;
                 continue;
-            } else if ((videoFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+            } else if ((videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
                 LOGD(TAG, "syncLoop, meet video seek frame");
                 playerContext.recycleAudioFrame(audioFrame);
                 audioFrame = nullptr;
@@ -686,30 +712,31 @@ void Player::syncLoop() {
                     break;
                 }
             }
-            if ((videoFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+            if ((videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
                 LOGD(TAG, "syncLoop, meet video seek frame");
                 playerContext.recycleVideoFrame(videoFrame);
                 videoFrame = nullptr;
+                lastVideoWriteTime = -1;
+                lastVideoPts = -1;
                 continue;
             }
 
-            //int32_t fps = videoStreamMap[videoStreamIndex].fps;
-            //LOGD(TAG, "fps = %d", fps);
-            //int64_t frameInterval = 1000 / fps;
-
-            int64_t now = chrono::time_point_cast<chrono::milliseconds>(chrono::system_clock::now()).time_since_epoch().count();
+            int64_t now = getSystemClockCurrentMilliseconds();
             if (lastVideoWriteTime > 0 && lastVideoPts > 0) {
+                // LOGD(TAG, "syncLoop: frameInterval = %ld ms, writeInterval = %ld ms", videoFrame->pts - lastVideoPts, now - lastVideoWriteTime);
                 if (now - lastVideoWriteTime > videoFrame->pts - lastVideoPts) {
 #ifdef EMANLE_PERFORMACE_MONITOR
                     LOGW(TAG, "syncLoop, video frame delay, frameInterval = %ld ms, actualInterval = %ld ms", videoFrame->pts - lastVideoPts, now - lastVideoWriteTime);
 #endif
                 } else {
-                    this_thread::sleep_for(chrono::milliseconds((videoFrame->pts - lastVideoPts) - (now - lastVideoWriteTime)));
+                    //int64_t sleepStart = getSystemClockCurrentMilliseconds();
+                    this_thread::sleep_for(chrono::microseconds(((videoFrame->pts - lastVideoPts) - (now - lastVideoWriteTime)) * 1000));
+                    //LOGD(TAG, "syncLoop: sleep %ld ms", getSystemClockCurrentMilliseconds() - sleepStart);
                 }
             }
-            lastVideoPts = videoFrame->pts;
-            lastVideoWriteTime = now;
             videoOutput->write(videoFrame);
+            lastVideoPts = videoFrame->pts;
+            lastVideoWriteTime = getSystemClockCurrentMilliseconds();
             videoFrame = nullptr;
 
             if (stateListener != nullptr) {
@@ -724,10 +751,12 @@ void Player::syncLoop() {
                     break;
                 }
             }
-            if ((audioFrame->flags & STREAM_FLAG_SOUGHT) == STREAM_FLAG_SOUGHT) {
+            if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
                 LOGD(TAG, "syncLoop, meet audio seek frame");
                 playerContext.recycleAudioFrame(audioFrame);
                 audioFrame = nullptr;
+                lastAudioPts = -1;
+                lastAudioWriteTime = -1;
                 continue;
             }
             lastAudioPts = audioFrame->pts;
@@ -756,6 +785,7 @@ void Player::syncLoop() {
     if (stateListener != nullptr) {
         stateListener->playStateChanged(false);
     }
+    LOGI(TAG, "syncLoop: end");
 }
 
 void Player::startReadStreamThread() {

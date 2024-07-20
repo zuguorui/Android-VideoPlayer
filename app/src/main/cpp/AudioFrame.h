@@ -70,7 +70,7 @@ struct AudioFrame {
         outputFrameCount = 0;
         flags = 0;
         if (avFrame) {
-            av_frame_unref(avFrame);
+            av_frame_free(&avFrame);
             avFrame = nullptr;
         }
     }

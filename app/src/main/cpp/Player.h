@@ -83,10 +83,10 @@ private:
     std::map<int, StreamInfo> audioStreamMap;
     std::map<int, StreamInfo> videoStreamMap;
 
-    LinkedBlockingQueue<PacketWrapper *> audioPacketQueue = LinkedBlockingQueue<PacketWrapper *>(20);
+    LinkedBlockingQueue<PacketWrapper *> audioPacketQueue = LinkedBlockingQueue<PacketWrapper *>(100);
     LinkedBlockingQueue<PacketWrapper *> videoPacketQueue = LinkedBlockingQueue<PacketWrapper *>(5);
 
-    LinkedBlockingQueue<AudioFrame *> audioFrameQueue = LinkedBlockingQueue<AudioFrame *>(20);
+    LinkedBlockingQueue<AudioFrame *> audioFrameQueue = LinkedBlockingQueue<AudioFrame *>(100);
     LinkedBlockingQueue<VideoFrame *> videoFrameQueue = LinkedBlockingQueue<VideoFrame *>(5);
 
     std::thread *readStreamThread = nullptr;

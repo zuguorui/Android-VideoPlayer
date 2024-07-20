@@ -3,9 +3,12 @@ package com.zu.videoplayer.util
 import android.content.Context
 import android.database.Cursor
 import android.provider.MediaStore
+import android.util.SparseArray
 import androidx.core.database.getIntOrNull
+import androidx.core.util.set
 import com.zu.videoplayer.bean.VideoBean
 import java.io.File
+import java.util.Deque
 
 fun loadVideoFiles(context: Context): ArrayList<VideoBean> {
     var result = ArrayList<VideoBean>()
@@ -60,6 +63,5 @@ fun loadVideoFromMovieFolder(): ArrayList<VideoBean>? {
             }
         }
     }
-
     return result
 }

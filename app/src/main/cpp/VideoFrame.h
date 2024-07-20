@@ -29,26 +29,13 @@ struct VideoFrame {
 
     }
 
-    void setParams(AVFrame *avFrame, AVPixelFormat avPixelFormat, AVRational timeBase) {
-        reset();
-        this->avFrame = avFrame;
-        this->pixelFormat = avPixelFormat;
-        this->timeBase = timeBase;
-        initParams();
-    }
-
     VideoFrame(AVFrame *avFrame, AVPixelFormat avPixelFormat, AVRational timeBase): VideoFrame() {
         setParams(avFrame, avPixelFormat, timeBase);
     }
 
     VideoFrame(VideoFrame &src) = delete;
 
-    VideoFrame(VideoFrame &&src) {
-        this->avFrame = src.avFrame;
-        this->pixelFormat = src.pixelFormat;
-        src.avFrame = nullptr;
-        initParams();
-    }
+    VideoFrame(VideoFrame &&src) = delete;
 
     ~VideoFrame() {
         if (avFrame) {
@@ -57,9 +44,17 @@ struct VideoFrame {
         }
     }
 
+    void setParams(AVFrame *avFrame, AVPixelFormat avPixelFormat, AVRational timeBase) {
+        reset();
+        this->avFrame = avFrame;
+        this->pixelFormat = avPixelFormat;
+        this->timeBase = timeBase;
+        initParams();
+    }
+
     void reset() {
         if (avFrame) {
-            av_frame_unref(avFrame);
+            av_frame_free(&avFrame);
             avFrame = nullptr;
         }
         width = -1;

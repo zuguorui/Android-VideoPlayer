@@ -3,6 +3,9 @@
 //
 
 #include "PlayerContext.h"
+#include "Log.h"
+
+#define TAG "PlayerContext"
 
 using namespace std;
 
@@ -46,6 +49,7 @@ void PlayerContext::recycleAudioFrame(AudioFrame *audioFrame) {
 }
 
 VideoFrame* PlayerContext::getEmptyVideoFrame() {
+    //LOGD(TAG, "getEmptyVideoFrame: recycler.size = %d", recycledVideoFrameQueue.getSize());
     optional<VideoFrame *> frameOpt = recycledVideoFrameQueue.pop(false);
     VideoFrame *frame = nullptr;
     if (frameOpt.has_value()) {
@@ -63,8 +67,11 @@ void PlayerContext::recycleVideoFrame(VideoFrame *videoFrame) {
     recycledVideoFrameQueue.push(videoFrame);
 }
 
+int getPacketCount = 0;
 
 PacketWrapper *PlayerContext::getEmptyPacketWrapper() {
+    //getPacketCount++;
+    //LOGD(TAG, "getEmptyPacketWrapper: recycler.size = %d", recycledPacketWrapperQueue.getSize());
     optional<PacketWrapper *> opt = recycledPacketWrapperQueue.pop(false);
     PacketWrapper *packetWrapper = nullptr;
     if (opt.has_value()) {
@@ -78,6 +85,8 @@ PacketWrapper *PlayerContext::getEmptyPacketWrapper() {
 }
 
 void PlayerContext::recyclePacketWrapper(PacketWrapper *packetWrapper) {
+    //LOGW(TAG, "recyclePacketWrapper: recycler.size = %d, getPacketCount = %d", recycledPacketWrapperQueue.getSize(), getPacketCount);
+    //getPacketCount = 0;
     packetWrapper->reset();
     recycledPacketWrapperQueue.push(packetWrapper);
 }
