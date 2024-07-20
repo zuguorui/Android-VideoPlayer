@@ -32,9 +32,9 @@ public:
     }
 
     ~ThreadSafeDeque() {
-        while (!deque.empty()) {
-            T t = deque.front();
-            deque.pop_front();
+        while (!mDeque.empty()) {
+            T t = mDeque.front();
+            mDeque.pop_front();
             if (std::is_pointer<T>::value) {
                 delete(t);
             }
@@ -46,10 +46,10 @@ public:
     }
 
     int32_t getSize() {
-        return deque.size();
+        return mDeque.size();
     }
 
-    bool pushBack(const T& t, bool blocking) {
+    bool pushBack(const T& t, bool blocking = true) {
         return push(t, blocking, false);
     }
 
@@ -57,11 +57,11 @@ public:
         forcePush(t, false);
     }
 
-    std::optional<T> popBack(bool blocking) {
+    std::optional<T> popBack(bool blocking = true) {
         return pop(blocking, false);
     }
 
-    bool pushFront(const T& t, bool blocking) {
+    bool pushFront(const T& t, bool blocking = true) {
         return push(t, blocking, true);
     }
 
@@ -69,7 +69,7 @@ public:
         forcePush(t, true);
     }
 
-    std::optional<T> popFront(bool blocking) {
+    std::optional<T> popFront(bool blocking = true) {
         return pop(blocking, true);
     }
 
@@ -96,14 +96,14 @@ public:
     }
 
     void clear() {
-        if (deque.empty()) {
+        if (mDeque.empty()) {
             return;
         }
         std::unique_lock<std::mutex> popLock(popMu);
         std::unique_lock<std::mutex> pushLock(pushMu);
-        while (!deque.empty()) {
-            T& t = deque.front();
-            deque.pop_front();
+        while (!mDeque.empty()) {
+            T& t = mDeque.front();
+            mDeque.pop_front();
             if (std::is_pointer<T>::value) {
                 delete(t);
             }
@@ -112,7 +112,7 @@ public:
     }
 
 private:
-    std::deque<T> deque;
+    std::deque<T> mDeque;
     int32_t capacity;
 
     std::mutex popMu;
@@ -136,22 +136,22 @@ private:
         if (blocking && blockPushFlag) {
             if (capacity > 0) {
                 // wait可能会在不满足条件的情况下被打断，因此仍然需要while来检测。
-                while (deque.size() >= capacity && blockPushFlag) {
+                while (mDeque.size() >= capacity && blockPushFlag) {
                     notFull.wait(lock);
                 }
             }
         }
         // 外部可能会通知取消阻塞，如果此时仍然不满足入队条件，就返回false
         if (capacity > 0) {
-            if (deque.size() >= capacity) {
+            if (mDeque.size() >= capacity) {
                 notEmpty.notify_all();
                 return false;
             }
         }
         if (front) {
-            deque.push_front(t);
+            mDeque.push_front(t);
         } else {
-            deque.push_back(t);
+            mDeque.push_back(t);
         }
         notEmpty.notify_all();
         return true;
@@ -160,32 +160,33 @@ private:
     void forcePush(const T& t, bool front) {
         std::unique_lock<std::mutex> lock(pushMu);
         if (front) {
-            deque.push_front(t);
+            mDeque.push_front(t);
         } else {
-            deque.push_back(t);
+            mDeque.push_back(t);
         }
+        notEmpty.notify_all();
     }
 
     std::optional<T> pop(bool blocking, bool front) {
         std::unique_lock<std::mutex> lock(popMu);
         if (blocking && blockPopFlag) {
-            while (deque.empty() && blockPopFlag) {
+            while (mDeque.empty() && blockPopFlag) {
                 notEmpty.wait(lock);
             }
         }
 
-        if (deque.empty()) {
+        if (mDeque.empty()) {
             notFull.notify_all();
             return std::nullopt;
         }
 
         T t;
         if (front) {
-            t = deque.front();
-            deque.pop_front();
+            t = mDeque.front();
+            mDeque.pop_front();
         } else {
-            t = deque.back();
-            deque.pop_back();
+            t = mDeque.back();
+            mDeque.pop_back();
         }
 
         notFull.notify_all();

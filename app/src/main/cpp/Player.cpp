@@ -105,10 +105,10 @@ void Player::release() {
     releaseAudioOutput();
     releaseVideoOutput();
 
-    if (stateListener != nullptr) {
-        delete(stateListener);
-        stateListener = nullptr;
-    }
+//    if (stateListener != nullptr) {
+//        delete(stateListener);
+//        stateListener = nullptr;
+//    }
 }
 
 bool Player::openFile(string pathStr) {
@@ -211,7 +211,7 @@ bool Player::openFile(string pathStr) {
     if (enableAudio) {
         LOGD(TAG, "audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
     }
-//    enableVideo = false;
+    enableVideo = false;
 //    enableAudio = false;
     return true;
 }
@@ -381,6 +381,7 @@ void Player::decodeAudioLoop() {
     PacketWrapper *pw = nullptr;
     AVFrame *frame = nullptr;
     AudioFrame *audioFrame = nullptr;
+    int64_t lastAudioPts = -1;
     while (!stopDecodeAudioFlag && enableAudio) {
 
         packetOpt = audioPacketQueue.popFront();
@@ -389,7 +390,6 @@ void Player::decodeAudioLoop() {
             break;
         }
         pw = packetOpt.value();
-
         if ((pw->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
             LOGD(TAG, "decode audio, meet a seek frame");
             playerContext.recyclePacketWrapper(pw);
@@ -400,6 +400,7 @@ void Player::decodeAudioLoop() {
             audioFrame->flags |= STREAM_FLAG_SEEK;
             audioFrameQueue.forcePushBack(audioFrame);
             audioFrame = nullptr;
+            lastAudioPts = -1;
             continue;
         }
 
@@ -425,9 +426,16 @@ void Player::decodeAudioLoop() {
                 frame = nullptr;
                 break;
             }
+
             audioFrame = playerContext.getEmptyAudioFrame();
             audioFrame->setParams(frame, audioStreamMap[audioStreamIndex].sampleFormat,
                                   formatCtx->streams[audioStreamIndex]->time_base);
+
+            if (lastAudioPts > 0 && lastAudioPts > frame->pts) {
+                LOGE(TAG, "decodeAudioLoop: lastAudioPts > frame.pts");
+            }
+            lastAudioPts = audioFrame->pts;
+            //LOGD(TAG, "decodeAudioLoop: audioFrameQueue.size = %d", audioFrameQueue.getSize());
             if (!audioFrameQueue.pushBack(audioFrame)) {
                 audioFrameQueue.pushBack(audioFrame, false);
             }
@@ -463,7 +471,7 @@ void Player::decodeAudioLoop() {
         frame = nullptr;
     }
 
-    if (audioFrame) {
+    if (audioFrame != nullptr) {
         audioFrameQueue.pushBack(audioFrame, false);
         audioFrame = nullptr;
     }
@@ -733,6 +741,7 @@ void Player::syncLoop() {
             }
         } else if (enableAudio) {
             if (audioFrame == nullptr) {
+                LOGD(TAG, "syncLoop: audioFrameQueue.size = %d", audioFrameQueue.getSize());
                 optional<AudioFrame *> frameOpt = audioFrameQueue.popFront();
                 if (frameOpt.has_value()) {
                     audioFrame = frameOpt.value();
@@ -747,6 +756,9 @@ void Player::syncLoop() {
                 lastAudioPts = -1;
                 lastAudioWriteTime = -1;
                 continue;
+            }
+            if (lastAudioPts > 0 && lastAudioPts > audioFrame->pts) {
+                LOGE(TAG, "syncLoop: lastAudioPts > audioFrame.pts");
             }
             lastAudioPts = audioFrame->pts;
             audioFrame->outputFrameCount = audioFrame->numFrames;
