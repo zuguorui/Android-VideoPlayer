@@ -31,6 +31,36 @@ struct AudioFrame {
 
     }
 
+    AudioFrame(AVFrame *avFrame, AVSampleFormat sampleFormat, AVRational timeBase): AudioFrame() {
+        setParams(avFrame, sampleFormat, timeBase);
+    }
+
+    // 不允许拷贝构造函数
+    AudioFrame(AudioFrame &src) = delete;
+
+    // 移动构造函数
+    AudioFrame(AudioFrame &&src) {
+        this->pts = src.pts;
+        this->numChannels = src.numChannels;
+        this->numFrames = src.numFrames;
+        this->sampleRate = src.sampleRate;
+        this->sampleFormat = src.sampleFormat;
+        this->avFrame = src.avFrame;
+        src.avFrame = nullptr;
+        this->durationMS = src.durationMS;
+        this->timeBase = src.timeBase;
+        this->flags = src.flags;
+        this->outputStartIndex = src.outputStartIndex;
+        this->outputFrameCount = src.outputFrameCount;
+    }
+
+    ~AudioFrame() {
+        if (avFrame) {
+            av_frame_free(&avFrame);
+            avFrame = nullptr;
+        }
+    }
+
     void setParams(AVFrame *avFrame, AVSampleFormat sampleFormat, AVRational timeBase) {
         reset();
         this->avFrame = avFrame;
@@ -42,23 +72,6 @@ struct AudioFrame {
         numChannels = avFrame->channels;
         numFrames = avFrame->nb_samples;
         durationMS = (int64_t)(avFrame->pkt_duration * av_q2d(timeBase) * 1000);
-    }
-
-    AudioFrame(AVFrame *avFrame, AVSampleFormat sampleFormat, AVRational timeBase): AudioFrame() {
-        setParams(avFrame, sampleFormat, timeBase);
-    }
-
-    AudioFrame(AudioFrame &src) = delete;
-
-    AudioFrame(AudioFrame &&src) {
-        setParams(src.avFrame, src.sampleFormat, src.timeBase);
-    }
-
-    ~AudioFrame() {
-        if (avFrame) {
-            av_frame_unref(avFrame);
-            avFrame = nullptr;
-        }
     }
 
     void reset() {

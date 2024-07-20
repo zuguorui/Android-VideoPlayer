@@ -41,7 +41,7 @@ enum {
     AV_BUFFERSRC_FLAG_NO_CHECK_FORMAT = 1,
 
     /**
-     * Immediately push the frame to the output.
+     * Immediately pushBack the frame to the output.
      */
     AV_BUFFERSRC_FLAG_PUSH = 4,
 

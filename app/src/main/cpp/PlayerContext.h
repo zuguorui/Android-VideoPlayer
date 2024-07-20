@@ -28,12 +28,9 @@ public:
     void recyclePacketWrapper(PacketWrapper *packetWrapper);
 
 private:
-
     LinkedBlockingQueue<VideoFrame *> recycledVideoFrameQueue = LinkedBlockingQueue<VideoFrame *>(-1);
     LinkedBlockingQueue<AudioFrame *> recycledAudioFrameQueue = LinkedBlockingQueue<AudioFrame *>(-1);
     LinkedBlockingQueue<PacketWrapper *> recycledPacketWrapperQueue = LinkedBlockingQueue<PacketWrapper *>(-1);
-
-
 };
 
 

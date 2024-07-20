@@ -35,11 +35,21 @@ struct VideoFrame {
 
     VideoFrame(VideoFrame &src) = delete;
 
-    VideoFrame(VideoFrame &&src) = delete;
+    VideoFrame(VideoFrame &&src) {
+        this->width = src.width;
+        this->height = src.height;
+        this->pixelFormat = src.pixelFormat;
+        this->avFrame = src.avFrame;
+        src.avFrame = nullptr;
+        this->pts = src.pts;
+        this->durationMS = src.durationMS;
+        this->timeBase = src.timeBase;
+        this->flags = src.flags;
+    }
 
     ~VideoFrame() {
         if (avFrame) {
-            av_frame_unref(avFrame);
+            av_frame_free(&avFrame);
             avFrame = nullptr;
         }
     }

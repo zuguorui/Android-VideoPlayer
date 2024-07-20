@@ -23,12 +23,12 @@ bool OpenGLESPlayer2::create(void *surface) {
     LOGD(TAG, "create");
     this->window = (ANativeWindow *)surface;
     renderThread = new thread(renderCallback, this);
-    messageQueue.push(RenderMessage::SET_WINDOW);
+    messageQueue.pushBack(RenderMessage::SET_WINDOW);
     return true;
 }
 
 void OpenGLESPlayer2::release() {
-    messageQueue.push(RenderMessage::EXIT);
+    messageQueue.pushBack(RenderMessage::EXIT);
     if(renderThread != nullptr && renderThread->joinable())
     {
         renderThread->join();
@@ -46,7 +46,7 @@ void OpenGLESPlayer2::setScreenSize(int32_t width, int32_t height) {
     LOGD(TAG, "setScreenSize");
     this->screenWidth = width;
     this->screenHeight = height;
-    messageQueue.push(RenderMessage::SET_SCREEN_SIZE);
+    messageQueue.pushBack(RenderMessage::SET_SCREEN_SIZE);
 }
 
 void OpenGLESPlayer2::renderLoop() {
@@ -55,7 +55,7 @@ void OpenGLESPlayer2::renderLoop() {
     RenderMessage message;
     bool exitFlag = false;
     while(!exitFlag) {
-        messageOpt = messageQueue.pop();
+        messageOpt = messageQueue.popFront();
         if (!messageOpt.has_value()) {
             LOGE(TAG, "renderLoop: messageOpt is null");
             continue;
@@ -75,7 +75,7 @@ void OpenGLESPlayer2::renderLoop() {
                 render.setScreenSize(screenWidth, screenHeight);
                 break;
             case REFRESH: {
-                optional<VideoFrame *> frameOpt = frameQueue.pop();
+                optional<VideoFrame *> frameOpt = frameQueue.popFront();
                 if (frameOpt.has_value()) {
                     VideoFrame *frame = frameOpt.value();
                     if (render.isReady()) {
@@ -112,8 +112,8 @@ void OpenGLESPlayer2::renderLoop() {
 
 void OpenGLESPlayer2::write(VideoFrame* frame) {
     LOGD(TAG, "write, pts = %lld, frameQueue.size = %ld", frame->pts, frameQueue.getSize());
-    frameQueue.push(frame);
-    messageQueue.push(RenderMessage::REFRESH);
+    frameQueue.pushBack(frame);
+    messageQueue.pushBack(RenderMessage::REFRESH);
 }
 
 bool OpenGLESPlayer2::setFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) {
@@ -122,7 +122,7 @@ bool OpenGLESPlayer2::setFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpa
     this->colorSpace = colorSpace;
     this->isHDR = isHDR;
     // 首先需要确保建立了EGL环境，才可以使用shader等。
-    messageQueue.push(RenderMessage::SET_SRC_FORMAT);
+    messageQueue.pushBack(RenderMessage::SET_SRC_FORMAT);
     return true;
 }
 
@@ -132,5 +132,5 @@ bool OpenGLESPlayer2::isReady() {
 
 void OpenGLESPlayer2::setSizeMode(SizeMode mode) {
     sizeMode = mode;
-    messageQueue.push(RenderMessage::SET_SIZE_MODE);
+    messageQueue.pushBack(RenderMessage::SET_SIZE_MODE);
 }

@@ -115,10 +115,6 @@ private:
     std::atomic_bool seekFlag = false;
     std::atomic_int64_t seekPtsMS = 0;
 
-//    std::atomic_bool audioDecodeSeekFlag = false;
-//    std::atomic_bool videoDecodeSeekFlag = false;
-//    std::atomic_bool syncSeekFlag = false;
-
     void *nativeWindow = nullptr;
     int screenWidth = 1920;
     int screenHeight = 1080;

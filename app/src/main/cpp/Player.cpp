@@ -72,7 +72,6 @@ void Player::release() {
     LOGD(TAG, "release");
     pause();
     if (videoDecoder) {
-        LOGD(TAG, "delete videoDecoder");
         delete videoDecoder;
         videoDecoder = nullptr;
     }
@@ -105,6 +104,11 @@ void Player::release() {
 
     releaseAudioOutput();
     releaseVideoOutput();
+
+    if (stateListener != nullptr) {
+        delete(stateListener);
+        stateListener = nullptr;
+    }
 }
 
 bool Player::openFile(string pathStr) {
@@ -207,9 +211,8 @@ bool Player::openFile(string pathStr) {
     if (enableAudio) {
         LOGD(TAG, "audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
     }
-
 //    enableVideo = false;
-    enableAudio = false;
+//    enableAudio = false;
     return true;
 }
 
@@ -260,7 +263,6 @@ void Player::readStreamLoop() {
         return;
     }
     int ret;
-    bool pushSuccess = false;
     while (!stopReadFlag) {
         AVPacket *packet = av_packet_alloc();
         if (!packet) {
@@ -276,14 +278,7 @@ void Player::readStreamLoop() {
             if (enableAudio) {
                 LOGD(TAG, "readStreamLoop: audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
             }
-//            int streamIndex = -1;
-//            if (audioStreamIndex >= 0) {
-//                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
-//                streamIndex = audioStreamIndex;
-//            } else if (videoStreamIndex >= 0) {
-//                pts = (int64_t)(seekPtsMS / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
-//                streamIndex = videoStreamIndex;
-//            }
+
             if (enableVideo && enableAudio) {
                 int64_t pts = (int64_t) (seekPtsMS / 1000.0f * AV_TIME_BASE);
                 av_seek_frame(formatCtx, -1, pts, AVSEEK_FLAG_BACKWARD);
@@ -301,19 +296,15 @@ void Player::readStreamLoop() {
                 audioPacketQueue.clear();
                 PacketWrapper *p = playerContext.getEmptyPacketWrapper();
                 p->flags = STREAM_FLAG_SEEK;
-                audioPacketQueue.forcePush(p);
-//                audioDecodeSeekFlag = true;
+                audioPacketQueue.forcePushBack(p);
             }
 
             if (enableVideo) {
                 videoPacketQueue.clear();
                 PacketWrapper *p = playerContext.getEmptyPacketWrapper();
                 p->flags = STREAM_FLAG_SEEK;
-                videoPacketQueue.forcePush(p);
-//                videoDecodeSeekFlag = true;
+                videoPacketQueue.forcePushBack(p);
             }
-
-//            syncSeekFlag = true;
 
             seekFlag = false;
         }
@@ -324,28 +315,26 @@ void Player::readStreamLoop() {
             if (packet->stream_index == audioStreamIndex && enableAudio) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->setParams(packet);
-                audioPacketQueue.push(pw);
-//                if (videoPacketQueue.getSize() == 0) {
-//                    audioPacketQueue.forcePush(pw);
-//                } else {
-//                    pushSuccess = audioPacketQueue.push(pw);
-//                    if (!pushSuccess) {
-//                        audioPacketQueue.forcePush(pw);
-//                    }
-//                }
+                //audioPacketQueue.pushBack(pw);
+                if (enableVideo && videoPacketQueue.getSize() == 0) {
+                    audioPacketQueue.forcePushBack(pw);
+                } else {
+                    if (!audioPacketQueue.pushBack(pw)) {
+                        audioPacketQueue.forcePushBack(pw);
+                    }
+                }
 
             } else if (packet->stream_index == videoStreamIndex && enableVideo) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->setParams(packet);
-                videoPacketQueue.push(pw);
-//                if (audioPacketQueue.getSize() == 0) {
-//                    videoPacketQueue.forcePush(pw);
-//                } else {
-//                    pushSuccess = videoPacketQueue.push(pw);
-//                    if (!pushSuccess) {
-//                        videoPacketQueue.forcePush(pw);
-//                    }
-//                }
+                //videoPacketQueue.pushBack(pw);
+                if (enableAudio && audioPacketQueue.getSize() == 0) {
+                    videoPacketQueue.forcePushBack(pw);
+                } else {
+                    if (!videoPacketQueue.pushBack(pw)) {
+                        videoPacketQueue.forcePushBack(pw);
+                    }
+                }
             } else {
                 av_packet_unref(packet);
                 av_packet_free(&packet);
@@ -356,12 +345,12 @@ void Player::readStreamLoop() {
             if (enableAudio) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->flags |= STREAM_FLAG_EOF;
-                audioPacketQueue.forcePush(pw);
+                audioPacketQueue.forcePushBack(pw);
             }
             if (enableVideo) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->flags |= STREAM_FLAG_EOF;
-                videoPacketQueue.forcePush(pw);
+                videoPacketQueue.forcePushBack(pw);
             }
         } else if (ret < 0) {
             LOGE(TAG, "readStreamLoop: av_read_packet failed, err = %s", av_err2str(ret));
@@ -394,7 +383,7 @@ void Player::decodeAudioLoop() {
     AudioFrame *audioFrame = nullptr;
     while (!stopDecodeAudioFlag && enableAudio) {
 
-        packetOpt = audioPacketQueue.pop();
+        packetOpt = audioPacketQueue.popFront();
         if (!packetOpt.has_value()) {
             LOGE(TAG, "audio packetOpt has no value");
             break;
@@ -409,7 +398,7 @@ void Player::decodeAudioLoop() {
             audioDecoder->flush();
             audioFrame = playerContext.getEmptyAudioFrame();
             audioFrame->flags |= STREAM_FLAG_SEEK;
-            audioFrameQueue.forcePush(audioFrame);
+            audioFrameQueue.forcePushBack(audioFrame);
             audioFrame = nullptr;
             continue;
         }
@@ -439,8 +428,8 @@ void Player::decodeAudioLoop() {
             audioFrame = playerContext.getEmptyAudioFrame();
             audioFrame->setParams(frame, audioStreamMap[audioStreamIndex].sampleFormat,
                                   formatCtx->streams[audioStreamIndex]->time_base);
-            if (!audioFrameQueue.push(audioFrame)) {
-                audioFrameQueue.push(audioFrame, false);
+            if (!audioFrameQueue.pushBack(audioFrame)) {
+                audioFrameQueue.pushBack(audioFrame, false);
             }
             // DON'T delete AVFrame here, it will be carried to output by AudioFrame
             audioFrame = nullptr;
@@ -475,7 +464,7 @@ void Player::decodeAudioLoop() {
     }
 
     if (audioFrame) {
-        audioFrameQueue.push(audioFrame, false);
+        audioFrameQueue.pushBack(audioFrame, false);
         audioFrame = nullptr;
     }
 
@@ -505,7 +494,7 @@ void Player::decodeVideoLoop() {
     int64_t lastPts = -1;
     while (!stopDecodeVideoFlag && enableVideo) {
 
-        packetOpt = videoPacketQueue.pop();
+        packetOpt = videoPacketQueue.popFront();
         if (!packetOpt.has_value()) {
             LOGE(TAG, "video packetOpt has no value");
             break;
@@ -520,7 +509,7 @@ void Player::decodeVideoLoop() {
             videoDecoder->flush();
             videoFrame = playerContext.getEmptyVideoFrame();
             videoFrame->flags |= STREAM_FLAG_SEEK;
-            videoFrameQueue.forcePush(videoFrame);
+            videoFrameQueue.forcePushBack(videoFrame);
             videoFrame = nullptr;
             LOGD(TAG, "decodeVideoLoop: meet a seek frame, seek end");
             continue;
@@ -564,8 +553,8 @@ void Player::decodeVideoLoop() {
             lastPts = videoFrame->pts;
             //LOGD(TAG, "decodeVideoLoop: pix_format = %d", videoFrame->pixelFormat);
 #endif
-            if (!videoFrameQueue.push(videoFrame)) {
-                videoFrameQueue.push(videoFrame, false);
+            if (!videoFrameQueue.pushBack(videoFrame)) {
+                videoFrameQueue.pushBack(videoFrame, false);
             }
             // DON'T delete AVFrame, it will be carried to output by VideoFrame.
             videoFrame = nullptr;
@@ -603,7 +592,7 @@ void Player::decodeVideoLoop() {
     }
 
     if (videoFrame) {
-        videoFrameQueue.push(videoFrame, false);
+        videoFrameQueue.pushBack(videoFrame, false);
         videoFrame = nullptr;
     }
 
@@ -636,7 +625,7 @@ void Player::syncLoop() {
     while (!stopSyncFlag) {
         if (enableAudio && enableVideo) {
             if (audioFrame == nullptr) {
-                optional<AudioFrame *> frameOpt = audioFrameQueue.pop();
+                optional<AudioFrame *> frameOpt = audioFrameQueue.popFront();
                 if (frameOpt.has_value()) {
                     audioFrame = frameOpt.value();
                 } else {
@@ -645,7 +634,7 @@ void Player::syncLoop() {
             }
 
             if (videoFrame == nullptr) {
-                optional<VideoFrame *> frameOpt = videoFrameQueue.pop();
+                optional<VideoFrame *> frameOpt = videoFrameQueue.popFront();
                 if (frameOpt.has_value()) {
                     videoFrame = frameOpt.value();
                 } else {
@@ -705,7 +694,7 @@ void Player::syncLoop() {
 
         } else if (enableVideo) {
             if (videoFrame == nullptr) {
-                optional<VideoFrame *> frameOpt = videoFrameQueue.pop();
+                optional<VideoFrame *> frameOpt = videoFrameQueue.popFront();
                 if (frameOpt.has_value()) {
                     videoFrame = frameOpt.value();
                 } else {
@@ -744,7 +733,7 @@ void Player::syncLoop() {
             }
         } else if (enableAudio) {
             if (audioFrame == nullptr) {
-                optional<AudioFrame *> frameOpt = audioFrameQueue.pop();
+                optional<AudioFrame *> frameOpt = audioFrameQueue.popFront();
                 if (frameOpt.has_value()) {
                     audioFrame = frameOpt.value();
                 } else {
@@ -793,8 +782,8 @@ void Player::startReadStreamThread() {
     if (readStreamThread != nullptr) {
         return;
     }
-    audioPacketQueue.setBlockingPush(true);
-    videoPacketQueue.setBlockingPush(true);
+    audioPacketQueue.setBlockPush(true);
+    videoPacketQueue.setBlockPush(true);
     stopReadFlag = false;
     readStreamThread = new thread(readStreamCallback, this);
 
@@ -807,8 +796,8 @@ void Player::stopReadStreamThread() {
         return;
     }
     stopReadFlag = true;
-    audioPacketQueue.setBlockingPush(false);
-    videoPacketQueue.setBlockingPush(false);
+    audioPacketQueue.setBlockPush(false);
+    videoPacketQueue.setBlockPush(false);
 
     if (readStreamThread->joinable()) {
         readStreamThread->join();
@@ -816,8 +805,8 @@ void Player::stopReadStreamThread() {
     delete (readStreamThread);
     readStreamThread = nullptr;
 
-    audioPacketQueue.setBlockingPush(true);
-    videoPacketQueue.setBlockingPush(true);
+    audioPacketQueue.setBlockPush(true);
+    videoPacketQueue.setBlockPush(true);
     stopReadFlag = false;
 }
 
@@ -828,8 +817,8 @@ void Player::startDecodeAudioThread() {
     }
 
     stopDecodeAudioFlag = false;
-    audioPacketQueue.setBlockingPop(true);
-    audioFrameQueue.setBlockingPush(true);
+    audioPacketQueue.setBlockPop(true);
+    audioFrameQueue.setBlockPush(true);
 
     decodeAudioThread = new thread(decodeAudioCallback, this);
 }
@@ -840,8 +829,8 @@ void Player::stopDecodeAudioThread() {
         return;
     }
     stopDecodeAudioFlag = true;
-    audioPacketQueue.setBlockingPop(false);
-    audioFrameQueue.setBlockingPush(false);
+    audioPacketQueue.setBlockPop(false);
+    audioFrameQueue.setBlockPush(false);
 
     if (decodeAudioThread->joinable()) {
         decodeAudioThread->join();
@@ -851,8 +840,8 @@ void Player::stopDecodeAudioThread() {
     decodeAudioThread = nullptr;
 
     stopDecodeAudioFlag = false;
-    audioPacketQueue.setBlockingPop(true);
-    audioFrameQueue.setBlockingPush(true);
+    audioPacketQueue.setBlockPop(true);
+    audioFrameQueue.setBlockPush(true);
 }
 
 void Player::startDecodeVideoThread() {
@@ -862,8 +851,8 @@ void Player::startDecodeVideoThread() {
     }
 
     stopDecodeVideoFlag = false;
-    videoPacketQueue.setBlockingPop(true);
-    videoFrameQueue.setBlockingPush(true);
+    videoPacketQueue.setBlockPop(true);
+    videoFrameQueue.setBlockPush(true);
 
     decodeVideoThread = new thread(decodeVideoCallback, this);
 
@@ -876,8 +865,8 @@ void Player::stopDecodeVideoThread() {
     }
 
     stopDecodeVideoFlag = true;
-    videoPacketQueue.setBlockingPop(false);
-    videoFrameQueue.setBlockingPush(false);
+    videoPacketQueue.setBlockPop(false);
+    videoFrameQueue.setBlockPush(false);
 
     if (decodeVideoThread->joinable()) {
         decodeVideoThread->join();
@@ -887,8 +876,8 @@ void Player::stopDecodeVideoThread() {
     decodeVideoThread = nullptr;
 
     stopDecodeVideoFlag = false;
-    videoPacketQueue.setBlockingPop(true);
-    videoFrameQueue.setBlockingPush(true);
+    videoPacketQueue.setBlockPop(true);
+    videoFrameQueue.setBlockPush(true);
     LOGD(TAG, "stopDecodeVideoThread, thread = 0x%x", readStreamThread);
 }
 
@@ -899,8 +888,8 @@ void Player::startSyncThread() {
     }
 
     stopSyncFlag = false;
-    audioFrameQueue.setBlockingPop(true);
-    videoFrameQueue.setBlockingPop(true);
+    audioFrameQueue.setBlockPop(true);
+    videoFrameQueue.setBlockPop(true);
 
     syncThread = new thread(syncCallback, this);
     LOGD(TAG, "startSyncThread, thread = 0x%x", readStreamThread);
@@ -912,8 +901,8 @@ void Player::stopSyncThread() {
         return;
     }
     stopSyncFlag = true;
-    audioFrameQueue.setBlockingPop(false);
-    videoFrameQueue.setBlockingPop(false);
+    audioFrameQueue.setBlockPop(false);
+    videoFrameQueue.setBlockPop(false);
 
     if (syncThread->joinable()) {
         syncThread->join();
@@ -922,8 +911,8 @@ void Player::stopSyncThread() {
     syncThread = nullptr;
 
     stopSyncFlag = false;
-    audioFrameQueue.setBlockingPop(true);
-    videoFrameQueue.setBlockingPop(true);
+    audioFrameQueue.setBlockPop(true);
+    videoFrameQueue.setBlockPop(true);
 }
 
 bool Player::play() {

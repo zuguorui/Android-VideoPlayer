@@ -10,28 +10,32 @@
 using namespace std;
 
 PlayerContext::PlayerContext() {
-    recycledAudioFrameQueue.setBlockingPop(false);
-    recycledAudioFrameQueue.setBlockingPush(false);
+    recycledAudioFrameQueue.setBlockPop(false);
+    recycledAudioFrameQueue.setBlockPush(false);
 
-    recycledVideoFrameQueue.setBlockingPop(false);
-    recycledVideoFrameQueue.setBlockingPush(false);
+    recycledVideoFrameQueue.setBlockPop(false);
+    recycledVideoFrameQueue.setBlockPush(false);
+
+    recycledPacketWrapperQueue.setBlockPop(false);
+    recycledPacketWrapperQueue.setBlockPush(false);
 }
 
 PlayerContext::~PlayerContext() {
-    optional<void *> frameOpt;
-    while ((frameOpt = recycledVideoFrameQueue.pop()) != nullopt) {
-        VideoFrame *ptr = (VideoFrame *)frameOpt.value();
-        delete ptr;
-    }
+//    optional<void *> frameOpt;
+//    while ((frameOpt = recycledVideoFrameQueue.popFront()) != nullopt) {
+//        VideoFrame *ptr = (VideoFrame *)frameOpt.value();
+//        delete ptr;
+//    }
+//
+//    while ((frameOpt = recycledAudioFrameQueue.popFront()) != nullopt) {
+//        AudioFrame *ptr = (AudioFrame *)frameOpt.value();
+//        delete ptr;
+//    }
 
-    while ((frameOpt = recycledAudioFrameQueue.pop()) != nullopt) {
-        AudioFrame *ptr = (AudioFrame *)frameOpt.value();
-        delete ptr;
-    }
 }
 
 AudioFrame* PlayerContext::getEmptyAudioFrame() {
-    optional<AudioFrame *> frameOpt = recycledAudioFrameQueue.pop(false);
+    optional<AudioFrame *> frameOpt = recycledAudioFrameQueue.popFront(false);
     AudioFrame *frame = nullptr;
     if (frameOpt.has_value()) {
         frame = frameOpt.value();
@@ -45,12 +49,12 @@ AudioFrame* PlayerContext::getEmptyAudioFrame() {
 
 void PlayerContext::recycleAudioFrame(AudioFrame *audioFrame) {
     audioFrame->reset();
-    recycledAudioFrameQueue.push(audioFrame);
+    recycledAudioFrameQueue.pushBack(audioFrame);
 }
 
 VideoFrame* PlayerContext::getEmptyVideoFrame() {
     //LOGD(TAG, "getEmptyVideoFrame: recycler.size = %d", recycledVideoFrameQueue.getSize());
-    optional<VideoFrame *> frameOpt = recycledVideoFrameQueue.pop(false);
+    optional<VideoFrame *> frameOpt = recycledVideoFrameQueue.popFront(false);
     VideoFrame *frame = nullptr;
     if (frameOpt.has_value()) {
         frame = frameOpt.value();
@@ -64,7 +68,7 @@ VideoFrame* PlayerContext::getEmptyVideoFrame() {
 
 void PlayerContext::recycleVideoFrame(VideoFrame *videoFrame) {
     videoFrame->reset();
-    recycledVideoFrameQueue.push(videoFrame);
+    recycledVideoFrameQueue.pushBack(videoFrame);
 }
 
 int getPacketCount = 0;
@@ -72,7 +76,7 @@ int getPacketCount = 0;
 PacketWrapper *PlayerContext::getEmptyPacketWrapper() {
     //getPacketCount++;
     //LOGD(TAG, "getEmptyPacketWrapper: recycler.size = %d", recycledPacketWrapperQueue.getSize());
-    optional<PacketWrapper *> opt = recycledPacketWrapperQueue.pop(false);
+    optional<PacketWrapper *> opt = recycledPacketWrapperQueue.popFront(false);
     PacketWrapper *packetWrapper = nullptr;
     if (opt.has_value()) {
         packetWrapper = opt.value();
@@ -88,5 +92,5 @@ void PlayerContext::recyclePacketWrapper(PacketWrapper *packetWrapper) {
     //LOGW(TAG, "recyclePacketWrapper: recycler.size = %d, getPacketCount = %d", recycledPacketWrapperQueue.getSize(), getPacketCount);
     //getPacketCount = 0;
     packetWrapper->reset();
-    recycledPacketWrapperQueue.push(packetWrapper);
+    recycledPacketWrapperQueue.pushBack(packetWrapper);
 }

@@ -29,7 +29,7 @@ public:
     /**
      * @brief Construct a new Linked Blocking Queue object
      *
-     * @param capacity If capacity <= 0, it means this queue has infinite capacity and will not block push option.
+     * @param capacity If capacity <= 0, it means this queue has infinite capacity and will not block pushBack option.
      */
     LinkedBlockingQueue(int32_t capacity);
     ~LinkedBlockingQueue();
@@ -45,20 +45,20 @@ public:
      * is full.
      *
      * @attention The description above is the normal behavior of pushing. For more
-     * conditions, see {setBlockingPush(bool)}.
+     * conditions, see {setBlockPush(bool)}.
      *
-     * @return Whether push succeed. There are two conditions in which pushing will fail.
+     * @return Whether pushBack succeed. There are two conditions in which pushing will fail.
      * 1. blocking == false and the queue is full (size >= capacity)
-     * 2. A blocking pushing is waked by {setBlockingPush(false)} and the queue is still full.
+     * 2. A blocking pushing is waked by {setBlockPush(false)} and the queue is still full.
      */
-    bool push(const T &t, bool blocking = true);
+    bool pushBack(const T &t, bool blocking = true);
 
     /**
-     * @brief Force push an object in to the queue ignoring capacity.
+     * @brief Force pushBack an object in to the queue ignoring capacity.
      *
      * @param t
      */
-    void forcePush(T &t);
+    void forcePushBack(T &t);
 
     /**
      * @brief Get and remove the earliest pushed element.
@@ -68,19 +68,19 @@ public:
      * return immediately, if the queue is empty, std::nullopt will be returned.
      * @return std::optional<T> The element which was removed.
      */
-    std::optional<T> pop(bool blocking = true);
+    std::optional<T> popFront(bool blocking = true);
 
     /**
      * @brief Set whether block pushing when queue is full.
-     * This is the top level trigger. If blockPush == false, {push(T& t, bool blocking)}
+     * This is the top level trigger. If blockPush == false, {pushBack(T& t, bool blocking)}
      * will never block no matter what value the blocking is. And already blocked threads will
      * be waked.
-     * If blockPush == true, which is default value, {push(T& t, bool blocking)} behaves as its
+     * If blockPush == true, which is default value, {pushBack(T& t, bool blocking)} behaves as its
      * note descriped.
      *
      * @details The intent of this function is to solve the problem that std::thread can't be
      * waked or interrupted when it is waiting except the waited signal notifies it. If you want
-     * to stop a blocking thread, you can use {setBlockingPush(false)} to notify all threads
+     * to stop a blocking thread, you can use {setBlockPush(false)} to notify all threads
      * blocking in pushing, which will have them a opportunity to check their stop flag.
      * Here is a simple code example:
      * @code
@@ -92,13 +92,13 @@ public:
      *      while (!stopFlag)
      *      {
      *          // some work to prepare a element
-     *          pushSucceed = queue.push(element); // this step may blocking.
+     *          pushSucceed = queue.pushBack(element); // this step may blocking.
      *      }
      *      // now you are out of the loop and can finish this thread task
-     *      // if you don't want to waste the element, you can use {forcePush(T& t)} to
-     *      // push the element into queue.
+     *      // if you don't want to waste the element, you can use {forcePushBack(T& t)} to
+     *      // pushBack the element into queue.
      *      if (!pushSucceed) {
-     *          queue.forcePush(element);
+     *          queue.forcePushBack(element);
      *      }
      * }
      *
@@ -112,12 +112,12 @@ public:
      *      // 1. set stop flag to indicate the thread to stop.
      *      stopFlag = true;
      *      // 2. wake possiable blocking threads
-     *      queue.setBlockingPush(false);
+     *      queue.setBlockPush(false);
      *      // 3. waiting the thread to finish its task.
      *      t->join();
      *
      *      // 4. if you want to reuse the queue as blocking one, just set block flag as true.
-     *      queue.setBlockingPush(true);
+     *      queue.setBlockPush(true);
      *
      *      ...
      *      return 0;
@@ -127,28 +127,28 @@ public:
      *
      * @param blockPush
      */
-    void setBlockingPush(bool blockPush);
+    void setBlockPush(bool blockPush);
 
     /**
      * @brief Whether this queue will block pushing when it is full.
      *
      * @return
      */
-    bool isBlockingPush();
+    bool isBlockPush();
 
     /**
-     * @brief see {setBlockingPush(bool blockPush)}
+     * @brief see {setBlockPush(bool blockPush)}
      *
      * @param blockPop
      */
-    void setBlockingPop(bool blockPop);
+    void setBlockPop(bool blockPop);
 
     /**
      * @brief Whether this queue will block popping when it is empty.
      *
      * @return
      */
-    bool isBlockingPop();
+    bool isBlockPop();
 
     void clear();
 
@@ -207,6 +207,9 @@ LinkedBlockingQueue<T>::~LinkedBlockingQueue() {
     while (head != nullptr) {
         p = head;
         head = head->next;
+        if (p->pointer.get() != nullptr) {
+            p->pointer.reset();
+        }
         delete(p);
     }
 }
@@ -238,7 +241,7 @@ int32_t LinkedBlockingQueue<T>::getSize() {
 }
 
 template <typename T>
-bool LinkedBlockingQueue<T>::push(const T& t, bool blocking) {
+bool LinkedBlockingQueue<T>::pushBack(const T& t, bool blocking) {
     std::unique_lock<std::mutex> lock(pushMu);
     if (blocking && blockPushFlag) {
         if (capacity > 0) {
@@ -264,7 +267,7 @@ bool LinkedBlockingQueue<T>::push(const T& t, bool blocking) {
 
 
 template <typename T>
-void LinkedBlockingQueue<T>::forcePush(T &t) {
+void LinkedBlockingQueue<T>::forcePushBack(T &t) {
     std::unique_lock<std::mutex> lock(pushMu);
     enqueue(t);
     size++;
@@ -272,7 +275,7 @@ void LinkedBlockingQueue<T>::forcePush(T &t) {
 }
 
 template <typename T>
-std::optional<T> LinkedBlockingQueue<T>::pop(bool blocking) {
+std::optional<T> LinkedBlockingQueue<T>::popFront(bool blocking) {
     std::unique_lock<std::mutex> lock(popMu);
     if (blocking && blockPopFlag) {
         while (size == 0 && blockPopFlag) {
@@ -291,7 +294,7 @@ std::optional<T> LinkedBlockingQueue<T>::pop(bool blocking) {
 }
 
 template <typename T>
-void LinkedBlockingQueue<T>::setBlockingPush(bool blockPush) {
+void LinkedBlockingQueue<T>::setBlockPush(bool blockPush) {
     this->blockPushFlag = blockPush;
     if (!blockPush) {
         notFull.notify_all();
@@ -299,12 +302,12 @@ void LinkedBlockingQueue<T>::setBlockingPush(bool blockPush) {
 }
 
 template <typename T>
-bool LinkedBlockingQueue<T>::isBlockingPush() {
+bool LinkedBlockingQueue<T>::isBlockPush() {
     return this->blockPushFlag.load();
 }
 
 template <typename T>
-void LinkedBlockingQueue<T>::setBlockingPop(bool blockPop) {
+void LinkedBlockingQueue<T>::setBlockPop(bool blockPop) {
     this->blockPopFlag = blockPop;
     if (!blockPop) {
         notEmpty.notify_all();
@@ -312,7 +315,7 @@ void LinkedBlockingQueue<T>::setBlockingPop(bool blockPop) {
 }
 
 template <typename T>
-bool LinkedBlockingQueue<T>::isBlockingPop() {
+bool LinkedBlockingQueue<T>::isBlockPop() {
     return this->blockPopFlag.load();
 }
 
@@ -322,7 +325,6 @@ void LinkedBlockingQueue<T>::clear() {
         return;
     }
     std::unique_lock<std::mutex> popLock(popMu);
-    notFull.notify_all();
     std::unique_lock<std::mutex> pushLock(pushMu);
     Node *n = nullptr;
     while (head != tail) {
@@ -332,6 +334,8 @@ void LinkedBlockingQueue<T>::clear() {
         head->pointer.reset();
         size--;
     }
+
+    notFull.notify_all();
 }
 
 

@@ -31,6 +31,13 @@ struct PacketWrapper {
         src.flags = 0;
     }
 
+    ~PacketWrapper() {
+        if (avPacket != nullptr) {
+            av_packet_free(&avPacket);
+            avPacket = nullptr;
+        }
+    }
+
     void setParams(AVPacket *packet) {
         this->avPacket = packet;
     }
