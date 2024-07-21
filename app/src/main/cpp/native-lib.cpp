@@ -35,8 +35,12 @@ Java_com_zu_videoplayer_PlayActivity_nDestroy(JNIEnv *env, jobject instance)
         return;
     }
     player->pause();
-    delete player;
+    delete(player);
     player = nullptr;
+
+    if (stateListener != nullptr) {
+        delete(stateListener);
+    }
 }
 
 extern "C" JNIEXPORT void JNICALL

@@ -63,7 +63,7 @@ void OpenGLESPlayer2::renderLoop() {
         message = messageOpt.value();
         //LOGD(TAG, "renderLoop: messsage = %d", message);
         switch (message) {
-            case SET_WINDOW:
+            case RenderMessage::SET_WINDOW:
                 if (!render.setWindow(window)) {
                     LOGE(TAG, "render setWindow failed");
                 }
@@ -71,17 +71,17 @@ void OpenGLESPlayer2::renderLoop() {
                     LOGE(TAG, "after setWindow, EGL is not ready");
                 }
                 break;
-            case SET_SCREEN_SIZE:
+            case RenderMessage::SET_SCREEN_SIZE:
                 render.setScreenSize(screenWidth, screenHeight);
                 break;
-            case REFRESH: {
+            case RenderMessage::REFRESH: {
                 optional<VideoFrame *> frameOpt = frameQueue.popFront();
                 if (frameOpt.has_value()) {
                     VideoFrame *frame = frameOpt.value();
                     if (render.isReady()) {
-                        int64_t startTime = getSystemClockCurrentMilliseconds();
+                        //int64_t startTime = getSystemClockCurrentMilliseconds();
                         render.refresh(frame);
-                        LOGD(TAG, "renderLoop: render.refresh cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
+                        //LOGD(TAG, "renderLoop: render.refresh cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
                     } else {
                         LOGE(TAG, "render is not ready");
                     }
@@ -89,15 +89,15 @@ void OpenGLESPlayer2::renderLoop() {
                 }
                 break;
             }
-            case SET_SRC_FORMAT:
+            case RenderMessage::SET_SRC_FORMAT:
                 if (!render.setFormat(format, colorSpace, isHDR)) {
                     LOGE(TAG, "render.setFormat failed");
                 }
                 break;
-            case EXIT:
+            case RenderMessage::EXIT:
                 exitFlag = true;
                 break;
-            case SET_SIZE_MODE:
+            case RenderMessage::SET_SIZE_MODE:
                 render.setSizeMode(sizeMode);
                 break;
             default:
@@ -111,7 +111,7 @@ void OpenGLESPlayer2::renderLoop() {
 
 
 void OpenGLESPlayer2::write(VideoFrame* frame) {
-    LOGD(TAG, "write, pts = %lld, frameQueue.size = %ld", frame->pts, frameQueue.getSize());
+    //LOGD(TAG, "write, pts = %lld, frameQueue.size = %ld", frame->pts, frameQueue.getSize());
     frameQueue.pushBack(frame);
     messageQueue.pushBack(RenderMessage::REFRESH);
 }

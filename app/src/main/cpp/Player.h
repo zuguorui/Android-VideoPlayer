@@ -11,6 +11,7 @@
 #include <memory>
 #include <map>
 #include <thread>
+#include <list>
 
 #include "Log.h"
 #include "VideoFrame.h"
@@ -30,6 +31,30 @@ extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
 }
 
+/**
+ * 播放器核心。
+ * ==========核心结构============
+ * readStreamLoop -> (audio/video)packetQueue -> (audio/video)decodeLoop -> (audio/video)frameQueue -> syncLoop
+ * packetQueue和frameQueue都使用的是限定容量的同步队列，在容量为空时阻塞pop，容量满时阻塞push。这是为了有效控制
+ * 读取和解码的速度，避免速度过快导致占用内存过大。
+ *
+ * ==========音视频同步==========
+ * packetQueue和frameQueue都使用的是限定容量的同步队列，在容量为空时阻塞pop，容量满时阻塞push。
+ * 这导致容易出现死锁。
+ * 例如：
+ * readStreamLoop连续读取了很多audio数据。但是syncLoop一直拿不到video数据，syncLoop被阻塞在获取videoFrame上
+ * -> syncLoop无法继续消费audioFrame
+ * -> audioFrameQueue满
+ * -> decodeAudioLoop被阻塞在发送audioFrame上，无法继续消费audioPacket
+ * -> audioPacket满
+ * -> readStreamLoop被阻塞在发送audioPacket上，无法继续向下读取
+ * -> readStreamLoop无法获取video数据
+ * -> syncLoop被阻塞在获取videoFrame上
+ *
+ * 为了打破上面的阻塞链，设立了两个cacheList供syncLoop使用，它们作为FIFO队列使用。syncLoop每次都是*非阻塞*地从frameQueue中拿一个
+ * audioFrame/videoFrame，分别从尾部放入cacheList中，然后再从cacheList正式获取要发送的数据。这样就可以保证无论如何，
+ * frameQueue都可以被顺利消费，也就不会阻塞。
+ * */
 class Player {
 
 public:
@@ -83,11 +108,15 @@ private:
     std::map<int, StreamInfo> audioStreamMap;
     std::map<int, StreamInfo> videoStreamMap;
 
-    LinkedBlockingQueue<PacketWrapper *> audioPacketQueue = LinkedBlockingQueue<PacketWrapper *>(100);
-    LinkedBlockingQueue<PacketWrapper *> videoPacketQueue = LinkedBlockingQueue<PacketWrapper *>(5);
+    LinkedBlockingQueue<PacketWrapper *> audioPacketQueue = LinkedBlockingQueue<PacketWrapper *>(10);
+    LinkedBlockingQueue<PacketWrapper *> videoPacketQueue = LinkedBlockingQueue<PacketWrapper *>(10);
 
-    LinkedBlockingQueue<AudioFrame *> audioFrameQueue = LinkedBlockingQueue<AudioFrame *>(100);
-    LinkedBlockingQueue<VideoFrame *> videoFrameQueue = LinkedBlockingQueue<VideoFrame *>(5);
+    LinkedBlockingQueue<AudioFrame *> audioFrameQueue = LinkedBlockingQueue<AudioFrame *>(10);
+    LinkedBlockingQueue<VideoFrame *> videoFrameQueue = LinkedBlockingQueue<VideoFrame *>(10);
+
+    // syncLoop内使用的cache，用来避免同步队列阻塞导致的音视频同步的死锁。
+    std::list<AudioFrame *> syncAudioCacheList;
+    std::list<VideoFrame *> syncVideoCacheList;
 
     std::thread *readStreamThread = nullptr;
     std::thread *decodeAudioThread = nullptr;

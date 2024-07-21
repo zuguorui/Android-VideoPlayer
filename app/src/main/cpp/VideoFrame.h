@@ -8,14 +8,17 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "Log.h"
 
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
 #include "FFmpeg/libavutil/avutil.h"
 }
 
+
 // video frame
 struct VideoFrame {
+    const char* TAG = "VideoFrame";
     int width = -1;
     int height = -1;
     AVPixelFormat pixelFormat = AVPixelFormat::AV_PIX_FMT_NONE;
@@ -48,7 +51,9 @@ struct VideoFrame {
     }
 
     ~VideoFrame() {
+        //LOGD(TAG, "~VideoFrame");
         if (avFrame) {
+            av_frame_unref(avFrame);
             av_frame_free(&avFrame);
             avFrame = nullptr;
         }

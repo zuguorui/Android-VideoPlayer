@@ -102,13 +102,24 @@ void Player::release() {
     audioStreamIndex = -1;
     videoStreamIndex = -1;
 
+    LOGD(TAG, "release: syncAudioCacheList.size = %d", syncAudioCacheList.size());
+    LOGD(TAG, "release: syncVideoCacheList.size = %d", syncVideoCacheList.size());
+    while (!syncAudioCacheList.empty()) {
+        AudioFrame *af = syncAudioCacheList.front();
+        syncAudioCacheList.pop_front();
+        delete(af);
+        //playerContext.recycleAudioFrame(af);
+    }
+
+    while (!syncVideoCacheList.empty()) {
+        VideoFrame *vf = syncVideoCacheList.front();
+        syncVideoCacheList.pop_front();
+        delete(vf);
+        //playerContext.recycleVideoFrame(vf);
+    }
+
     releaseAudioOutput();
     releaseVideoOutput();
-
-//    if (stateListener != nullptr) {
-//        delete(stateListener);
-//        stateListener = nullptr;
-//    }
 }
 
 bool Player::openFile(string pathStr) {
@@ -211,7 +222,7 @@ bool Player::openFile(string pathStr) {
     if (enableAudio) {
         LOGD(TAG, "audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
     }
-    enableVideo = false;
+//    enableVideo = false;
 //    enableAudio = false;
     return true;
 }
@@ -279,16 +290,31 @@ void Player::readStreamLoop() {
                 LOGD(TAG, "readStreamLoop: audioStream timebase = %lf", av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
             }
 
-            if (enableVideo && enableAudio) {
-                int64_t pts = (int64_t) (seekPtsMS / 1000.0f * AV_TIME_BASE);
-                av_seek_frame(formatCtx, -1, pts, AVSEEK_FLAG_BACKWARD);
-            } else if (enableVideo) {
-                int64_t pts = (int64_t)(seekPtsMS / 1000 / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
-                av_seek_frame(formatCtx, videoStreamIndex, pts, AVSEEK_FLAG_BACKWARD);
-            } else {
-                int64_t pts = (int64_t)(seekPtsMS / 1000 / av_q2d(formatCtx->streams[audioStreamIndex]->time_base));
-                av_seek_frame(formatCtx, audioStreamIndex, pts, AVSEEK_FLAG_BACKWARD);
-            }
+            int64_t pts = (int64_t) (seekPtsMS / 1000.0f * AV_TIME_BASE);
+            int64_t startTime = getSystemClockCurrentMilliseconds();
+            //av_seek_frame(formatCtx, -1, pts, AVSEEK_FLAG_BACKWARD);
+            avformat_seek_file(formatCtx, -1, INT64_MIN, pts, INT64_MAX, AVSEEK_FLAG_BACKWARD);
+            LOGD(TAG, "readStreamLoop: seek cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
+
+//            if (enableVideo && enableAudio) {
+//                int64_t pts = (int64_t) (seekPtsMS / 1000.0f * AV_TIME_BASE);
+//                int64_t startTime = getSystemClockCurrentMilliseconds();
+//                av_seek_frame(formatCtx, -1, pts, AVSEEK_FLAG_BACKWARD);
+//                LOGD(TAG, "readStreamLoop: seek cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
+//            } else if (enableVideo) {
+//                int64_t pts = (int64_t)(seekPtsMS / 1000 / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
+//                int64_t startTime = getSystemClockCurrentMilliseconds();
+//                av_seek_frame(formatCtx, videoStreamIndex, pts, AVSEEK_FLAG_BACKWARD);
+//                LOGD(TAG, "readStreamLoop: seek cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
+//            } else {
+//                double timeBase = av_q2d(formatCtx->streams[audioStreamIndex]->time_base);
+//                int64_t pts = (int64_t)(seekPtsMS / 1000 / timeBase);
+//                int64_t offset = 10 * timeBase;
+//                int64_t startTime = getSystemClockCurrentMilliseconds();
+//                //av_seek_frame(formatCtx, audioStreamIndex, pts, AVSEEK_FLAG_BACKWARD);
+//                avformat_seek_file(formatCtx, audioStreamIndex, INT64_MIN, pts, INT64_MAX, AVSEEK_FLAG_BACKWARD);
+//                LOGD(TAG, "readStreamLoop: seek cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
+//            }
 
 
             // put a empty packet width flag STREAM_FLAG_SEEK
@@ -315,26 +341,26 @@ void Player::readStreamLoop() {
             if (packet->stream_index == audioStreamIndex && enableAudio) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->setParams(packet);
-                //audioPacketQueue.pushBack(pw);
-                if (enableVideo && videoPacketQueue.getSize() == 0) {
-                    audioPacketQueue.forcePushBack(pw);
-                } else {
-                    if (!audioPacketQueue.pushBack(pw)) {
-                        audioPacketQueue.forcePushBack(pw);
-                    }
-                }
+                audioPacketQueue.pushBack(pw);
+//                if (enableVideo && videoPacketQueue.getSize() == 0) {
+//                    audioPacketQueue.forcePushBack(pw);
+//                } else {
+//                    if (!audioPacketQueue.pushBack(pw)) {
+//                        audioPacketQueue.forcePushBack(pw);
+//                    }
+//                }
 
             } else if (packet->stream_index == videoStreamIndex && enableVideo) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->setParams(packet);
-                //videoPacketQueue.pushBack(pw);
-                if (enableAudio && audioPacketQueue.getSize() == 0) {
-                    videoPacketQueue.forcePushBack(pw);
-                } else {
-                    if (!videoPacketQueue.pushBack(pw)) {
-                        videoPacketQueue.forcePushBack(pw);
-                    }
-                }
+                videoPacketQueue.pushBack(pw);
+//                if (enableAudio && audioPacketQueue.getSize() == 0) {
+//                    videoPacketQueue.forcePushBack(pw);
+//                } else {
+//                    if (!videoPacketQueue.pushBack(pw)) {
+//                        videoPacketQueue.forcePushBack(pw);
+//                    }
+//                }
             } else {
                 av_packet_unref(packet);
                 av_packet_free(&packet);
@@ -437,7 +463,7 @@ void Player::decodeAudioLoop() {
             lastAudioPts = audioFrame->pts;
             //LOGD(TAG, "decodeAudioLoop: audioFrameQueue.size = %d", audioFrameQueue.getSize());
             if (!audioFrameQueue.pushBack(audioFrame)) {
-                audioFrameQueue.pushBack(audioFrame, false);
+                audioFrameQueue.forcePushBack(audioFrame);
             }
             // DON'T delete AVFrame here, it will be carried to output by AudioFrame
             audioFrame = nullptr;
@@ -501,7 +527,6 @@ void Player::decodeVideoLoop() {
     int64_t lastDecodeTime = -1;
     int64_t lastPts = -1;
     while (!stopDecodeVideoFlag && enableVideo) {
-
         packetOpt = videoPacketQueue.popFront();
         if (!packetOpt.has_value()) {
             LOGE(TAG, "video packetOpt has no value");
@@ -544,14 +569,9 @@ void Player::decodeVideoLoop() {
             videoFrame = playerContext.getEmptyVideoFrame();
             videoFrame->setParams(frame, AVPixelFormat(frame->format),
                                   formatCtx->streams[videoStreamIndex]->time_base);
-//            AVRational frameTimeBase = frame->time_base;
-//            AVRational streamTimeBase = formatCtx->streams[videoStreamIndex]->time_base;
-//            if (frameTimeBase.den != streamTimeBase.den || frameTimeBase.num != streamTimeBase.num) {
-//                LOGE(TAG, "frame time_base = %lf, stream time_base = %lf", av_q2d(frameTimeBase),
-//                     av_q2d(streamTimeBase));
-//            }
+
 #ifdef ENABLE_PERFORMANCE_MONITOR
-            int64_t now = chrono::time_point_cast<chrono::milliseconds>(chrono::system_clock::now()).time_since_epoch().count();
+            int64_t now = getSystemClockCurrentMilliseconds();
             if (lastDecodeTime > 0 && lastPts > 0) {
                 if (now - lastDecodeTime > videoFrame->pts - lastPts) {
                     //LOGW(TAG, "decodeVideoLoop, overtime decoding, decodeInterval = %ld, frameInterval = %ld", now - lastDecodeTime, videoFrame->pts - lastPts);
@@ -562,7 +582,7 @@ void Player::decodeVideoLoop() {
             //LOGD(TAG, "decodeVideoLoop: pix_format = %d", videoFrame->pixelFormat);
 #endif
             if (!videoFrameQueue.pushBack(videoFrame)) {
-                videoFrameQueue.pushBack(videoFrame, false);
+                videoFrameQueue.forcePushBack(videoFrame);
             }
             // DON'T delete AVFrame, it will be carried to output by VideoFrame.
             videoFrame = nullptr;
@@ -630,23 +650,142 @@ void Player::syncLoop() {
     VideoFrame *videoFrame = unPlayedVideoFrame;
     unPlayedVideoFrame = nullptr;
 
+    bool audioSeekFlag = false;
+    bool videoSeekFlag = false;
+
+    auto moveAudioFrame = [&]() -> bool {
+        optional<AudioFrame *> tempAudioFrame = audioFrameQueue.popFront(false);
+        if (tempAudioFrame.has_value()) {
+            AudioFrame *af = tempAudioFrame.value();
+            // 如果遇到seek标志，就清空cacheList。
+            if ((af->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
+                audioSeekFlag = true;
+                playerContext.recycleAudioFrame(af);
+                if (audioFrame != nullptr) {
+                    playerContext.recycleAudioFrame(audioFrame);
+                    audioFrame = nullptr;
+                }
+                while (!syncAudioCacheList.empty()) {
+                    AudioFrame *f = syncAudioCacheList.front();
+                    syncAudioCacheList.pop_front();
+                    playerContext.recycleAudioFrame(f);
+                }
+
+                if (videoFrame != nullptr) {
+                    playerContext.recycleVideoFrame(videoFrame);
+                    videoFrame = nullptr;
+                }
+            } else {
+                syncAudioCacheList.push_back(af);
+            }
+            return true;
+        } else {
+            return false;
+        }
+    };
+
+    auto moveVideoFrame = [&]() -> bool {
+        optional<VideoFrame *> tempVideoFrame = videoFrameQueue.popFront(false);
+        if (tempVideoFrame.has_value()) {
+            VideoFrame *vf = tempVideoFrame.value();
+            // 遇到了seek，清空cacheList。并且要把当前音频帧也要置空。否则audio一帧很长，等它输出完可能会导致seek卡顿。
+            if ((vf->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
+                videoSeekFlag = true;
+                playerContext.recycleVideoFrame(vf);
+                if (videoFrame != nullptr) {
+                    playerContext.recycleVideoFrame(videoFrame);
+                    videoFrame = nullptr;
+                }
+                while (!syncVideoCacheList.empty()) {
+                    VideoFrame *f = syncVideoCacheList.front();
+                    syncVideoCacheList.pop_front();
+                    playerContext.recycleVideoFrame(f);
+                }
+
+                if (audioFrame != nullptr) {
+                    playerContext.recycleAudioFrame(audioFrame);
+                    audioFrame = nullptr;
+                }
+            } else {
+                syncVideoCacheList.push_back(vf);
+            }
+            return true;
+        } else {
+            return false;
+        }
+    };
+
     while (!stopSyncFlag) {
+
         if (enableAudio && enableVideo) {
+            // 分别从videoFrameQueue和audioFrameQueue中获取一帧，并放入cacheList中。避免由于一个队列阻塞，而
+            // 另一个队列迟迟无法获取到AVPacket。这样会导致死锁。
+
+            // 通常来说，一个audioFrame会对应多个videoFrame。因此不能简单每次都move一个audioFrame，否则cacheList
+            // 会变得很大
+
+            // 如果视频帧为null，说明需要获取新的了。
+            // 如果视频流已经遇到了seek标志，那么就不再移动，等待其他流遇到seek。
+            if (videoFrame == nullptr && !videoSeekFlag) {
+                // 移动一帧视频到cacheList里，如果失败，说明后面的视频还未解码好，或者音频队列被阻塞，导致视频无法
+                // 继续解码
+                if (!moveVideoFrame()) {
+                    // 如果audio队列已经满了，那可能是阻塞了。那就移动一帧音频。否则可能只是单纯还没解码好，就继续循环
+                    if (audioFrameQueue.isFull()) {
+                        moveAudioFrame();
+                    }
+                }
+            }
+
+            // 音频和视频逻辑一样
+            if (audioFrame == nullptr && !audioSeekFlag) {
+                if (!moveAudioFrame()) {
+                    if (videoFrameQueue.isFull()) {
+                        moveVideoFrame();
+                    }
+                }
+            }
+
+            // 如果两个流都遇到了seek，那么seek完成，可以进行下面的播放
+            if (audioSeekFlag && videoSeekFlag) {
+                audioSeekFlag = false;
+                videoSeekFlag = false;
+            } else if (audioSeekFlag || videoSeekFlag)  {
+                // 如果只有一个流获取到了seek标志，那么就要继续等待另外的流也获取到seek。
+                continue;
+            }
+
             if (audioFrame == nullptr) {
-                optional<AudioFrame *> frameOpt = audioFrameQueue.popFront();
-                if (frameOpt.has_value()) {
-                    audioFrame = frameOpt.value();
+//                optional<AudioFrame *> frameOpt = audioFrameQueue.popFront();
+//                if (frameOpt.has_value()) {
+//                    audioFrame = frameOpt.value();
+//                } else {
+//                    break;
+//                }
+                if (!syncAudioCacheList.empty()) {
+                    audioFrame = syncAudioCacheList.front();
+                    syncAudioCacheList.pop_front();
+                    //LOGD(TAG, "get a audioFrame, audioFrameQueue.size = %d", audioFrameQueue.getSize());
                 } else {
-                    break;
+                    //LOGD(TAG, "audioFrame is null, waiting... videoFrameQueue.size = %d", videoFrameQueue.getSize());
+                    continue;
                 }
             }
 
             if (videoFrame == nullptr) {
-                optional<VideoFrame *> frameOpt = videoFrameQueue.popFront();
-                if (frameOpt.has_value()) {
-                    videoFrame = frameOpt.value();
+//                optional<VideoFrame *> frameOpt = videoFrameQueue.popFront();
+//                if (frameOpt.has_value()) {
+//                    videoFrame = frameOpt.value();
+//                } else {
+//                    break;
+//                }
+                if (!syncVideoCacheList.empty()) {
+                    videoFrame = syncVideoCacheList.front();
+                    syncVideoCacheList.pop_front();
+                    //LOGD(TAG, "get a video, videoFrameQueue.size = %d", videoFrameQueue.getSize());
                 } else {
-                    break;
+                    //LOGD(TAG, "videoFrame is null, waiting... audioFrameQueue.size = %d", audioFrameQueue.getSize());
+                    continue;
                 }
             }
 
@@ -658,25 +797,26 @@ void Player::syncLoop() {
                 lastVideoPts = videoFrame->pts;
             }
 
-            if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK
-                    && (videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
-                LOGD(TAG, "syncLoop, meet both audio and video seek frame");
-                playerContext.recycleAudioFrame(audioFrame);
-                audioFrame = nullptr;
-                playerContext.recycleVideoFrame(videoFrame);
-                videoFrame = nullptr;
-                continue;
-            } else if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
-                LOGD(TAG, "syncLoop, meet audio seek frame");
-                playerContext.recycleVideoFrame(videoFrame);
-                videoFrame = nullptr;
-                continue;
-            } else if ((videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
-                LOGD(TAG, "syncLoop, meet video seek frame");
-                playerContext.recycleAudioFrame(audioFrame);
-                audioFrame = nullptr;
-                continue;
-            }
+//            if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK
+//                    && (videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
+//                LOGD(TAG, "syncLoop, meet both audio and video seek frame");
+//                playerContext.recycleAudioFrame(audioFrame);
+//                audioFrame = nullptr;
+//                playerContext.recycleVideoFrame(videoFrame);
+//                videoFrame = nullptr;
+//                continue;
+//            } else if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
+//                LOGD(TAG, "syncLoop, meet audio seek frame");
+//                playerContext.recycleVideoFrame(videoFrame);
+//                videoFrame = nullptr;
+//                continue;
+//            } else if ((videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
+//                LOGD(TAG, "syncLoop, meet video seek frame");
+//                playerContext.recycleAudioFrame(audioFrame);
+//                audioFrame = nullptr;
+//                continue;
+//            }
+
             int64_t audioOutputPts = audioFrame->getOutputPts();
             if (videoFrame->pts <= audioOutputPts) {
                 lastVideoPts = videoFrame->pts;
@@ -741,7 +881,7 @@ void Player::syncLoop() {
             }
         } else if (enableAudio) {
             if (audioFrame == nullptr) {
-                LOGD(TAG, "syncLoop: audioFrameQueue.size = %d", audioFrameQueue.getSize());
+                //LOGD(TAG, "syncLoop: audioFrameQueue.size = %d", audioFrameQueue.getSize());
                 optional<AudioFrame *> frameOpt = audioFrameQueue.popFront();
                 if (frameOpt.has_value()) {
                     audioFrame = frameOpt.value();

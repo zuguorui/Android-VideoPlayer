@@ -13,15 +13,17 @@
 #include <optional>
 #include <memory>
 
-
 /**
  * @brief This class is a thread-safe blocking queue.
  *
  * @tparam T
  */
-template <typename T>
+
+
+template <class T>
 class LinkedBlockingQueue {
 public:
+
     LinkedBlockingQueue(LinkedBlockingQueue &a) = delete;
     LinkedBlockingQueue(LinkedBlockingQueue &&a) = delete;
 
@@ -69,6 +71,8 @@ public:
      * @return std::optional<T> The element which was removed.
      */
     std::optional<T> popFront(bool blocking = true);
+
+    //std::optional<const T&> peekFront();
 
     /**
      * @brief Set whether block pushing when queue is full.
@@ -150,10 +154,26 @@ public:
      */
     bool isBlockPop();
 
+    /**
+     * 队列是否已满。
+     * */
+    bool isFull();
+
+    /**
+     * Clear this queue. If the T is pointer type, it will free the memory where the pointer point to
+     * */
     void clear();
+
+    /**
+     * 使用自己的析构器来清理元素。
+     * */
+    void clear(void (*deleter)(T));
 
 
 private:
+    const char* TAG = "LinkedBlockingQueue";
+
+
     int32_t capacity;
     std::atomic_int32_t size;
 
@@ -186,13 +206,14 @@ private:
     std::unique_ptr<T> dequeue();
 };
 
-template <typename T>
+template <class T>
 LinkedBlockingQueue<T>::LinkedBlockingQueue(): LinkedBlockingQueue(INT32_MAX) {
 
 }
 
-template <typename T>
+template <class T>
 LinkedBlockingQueue<T>::LinkedBlockingQueue(int32_t capacity) {
+    //LOGD(TAG, "LinkedBlockingQueue: T.name = %s, isPointer = %d", typeid(T).name(), std::is_pointer<T>::value);
     this->capacity = capacity;
     head = new Node();
     tail = head;
@@ -201,46 +222,64 @@ LinkedBlockingQueue<T>::LinkedBlockingQueue(int32_t capacity) {
     blockPopFlag = true;
 }
 
-template <typename T>
+template <class T>
 LinkedBlockingQueue<T>::~LinkedBlockingQueue() {
-    Node *p = nullptr;
-    while (head != nullptr) {
-        p = head;
+    Node *n = nullptr;
+    while (head != tail) {
+        n = head;
         head = head->next;
-        if (p->pointer.get() != nullptr) {
-            p->pointer.reset();
+        delete(n);
+        // 编译时就确定确定条件值。if constexpr不支持短路规则
+        // 例如if constexpr (condA && condB)，即使condA为false，
+        // condB仍然会被检测，这和一般的if不一样。
+        if constexpr (std::is_pointer<T>::value) {
+            delete(*(head->pointer.get()));
+            head->pointer.reset();
+        } else {
+            head->pointer.reset();
         }
-        delete(p);
+        size--;
     }
 }
 
-template <typename T>
+template <class T>
 void LinkedBlockingQueue<T>::enqueue(const T& t) {
     Node *node = new Node();
     node->pointer = std::make_unique<T>(t);
     tail->next = node;
     tail = node;
+    size++;
 }
 
-template <typename T>
+template <class T>
 std::unique_ptr<T> LinkedBlockingQueue<T>::dequeue() {
     Node *p = head->next;
     delete head;
     head = p;
+    size--;
     return std::move(head->pointer);
 }
 
-template <typename T>
+
+
+template <class T>
 int32_t LinkedBlockingQueue<T>::getCapacity() {
     return capacity;
 }
 
-template <typename T>
+template <class T>
 int32_t LinkedBlockingQueue<T>::getSize() {
     return size;
 }
 
-template <typename T>
+template <class T>
+bool LinkedBlockingQueue<T>::isFull() {
+    std::unique_lock<std::mutex> popLock(popMu);
+    std::unique_lock<std::mutex> pushLock(pushMu);
+    return size >= capacity;
+}
+
+template <class T>
 bool LinkedBlockingQueue<T>::pushBack(const T& t, bool blocking) {
     std::unique_lock<std::mutex> lock(pushMu);
     if (blocking && blockPushFlag) {
@@ -259,22 +298,20 @@ bool LinkedBlockingQueue<T>::pushBack(const T& t, bool blocking) {
     }
 
     enqueue(t);
-    size++;
     notEmpty.notify_all();
     return true;
 }
 
 
 
-template <typename T>
+template <class T>
 void LinkedBlockingQueue<T>::forcePushBack(T &t) {
     std::unique_lock<std::mutex> lock(pushMu);
     enqueue(t);
-    size++;
     notEmpty.notify_all();
 }
 
-template <typename T>
+template <class T>
 std::optional<T> LinkedBlockingQueue<T>::popFront(bool blocking) {
     std::unique_lock<std::mutex> lock(popMu);
     if (blocking && blockPopFlag) {
@@ -288,12 +325,11 @@ std::optional<T> LinkedBlockingQueue<T>::popFront(bool blocking) {
         return std::nullopt;
     }
     std::unique_ptr<T> t = dequeue();
-    size--;
     notFull.notify_all();
     return std::optional<T>(*t);
 }
 
-template <typename T>
+template <class T>
 void LinkedBlockingQueue<T>::setBlockPush(bool blockPush) {
     this->blockPushFlag = blockPush;
     if (!blockPush) {
@@ -301,12 +337,12 @@ void LinkedBlockingQueue<T>::setBlockPush(bool blockPush) {
     }
 }
 
-template <typename T>
+template <class T>
 bool LinkedBlockingQueue<T>::isBlockPush() {
     return this->blockPushFlag.load();
 }
 
-template <typename T>
+template <class T>
 void LinkedBlockingQueue<T>::setBlockPop(bool blockPop) {
     this->blockPopFlag = blockPop;
     if (!blockPop) {
@@ -314,12 +350,12 @@ void LinkedBlockingQueue<T>::setBlockPop(bool blockPop) {
     }
 }
 
-template <typename T>
+template <class T>
 bool LinkedBlockingQueue<T>::isBlockPop() {
     return this->blockPopFlag.load();
 }
 
-template <typename T>
+template <class T>
 void LinkedBlockingQueue<T>::clear() {
     if (size == 0) {
         return;
@@ -331,14 +367,36 @@ void LinkedBlockingQueue<T>::clear() {
         n = head;
         head = head->next;
         delete(n);
-        head->pointer.reset();
+
+        if constexpr (std::is_pointer<T>::value) {
+            delete(*(head->pointer.get()));
+            head->pointer.reset();
+        } else {
+            head->pointer.reset();
+        }
         size--;
     }
 
     notFull.notify_all();
 }
 
-
+template<class T>
+void LinkedBlockingQueue<T>::clear(void (*deleter)(T)) {
+    if (size == 0) {
+        return;
+    }
+    std::unique_lock<std::mutex> popLock(popMu);
+    std::unique_lock<std::mutex> pushLock(pushMu);
+    Node *n = nullptr;
+    while (head != tail) {
+        n = head;
+        head = head->next;
+        delete(n);
+        deleter(*(head->pointer.release()));
+        size--;
+    }
+    notFull.notify_all();
+}
 
 
 #endif //_LINKEDBLOCKINGQUEUE_H_

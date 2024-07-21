@@ -18,6 +18,15 @@
 #include "PlayerContext.h"
 #include "LinkedBlockingQueue.h"
 
+enum class RenderMessage{
+    SET_WINDOW,
+    REFRESH,
+    SET_SCREEN_SIZE,
+    SET_SRC_FORMAT,
+    EXIT,
+    SET_SIZE_MODE,
+};
+
 class OpenGLESPlayer2: public IVideoOutput {
 public:
     OpenGLESPlayer2(PlayerContext *playerContext);
@@ -51,15 +60,6 @@ private:
     bool isHDR = false;
 
     SizeMode sizeMode;
-
-    enum RenderMessage{
-        SET_WINDOW,
-        REFRESH,
-        SET_SCREEN_SIZE,
-        SET_SRC_FORMAT,
-        EXIT,
-        SET_SIZE_MODE,
-    };
 
     std::thread *renderThread = nullptr;
 

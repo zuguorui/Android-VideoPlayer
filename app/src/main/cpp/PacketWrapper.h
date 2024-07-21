@@ -9,6 +9,9 @@ extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
 #include "FFmpeg/libavutil/avutil.h"
 }
+#include "Log.h"
+
+#define TAG "PacketWrapper"
 
 struct PacketWrapper {
     AVPacket *avPacket = nullptr;
@@ -32,13 +35,16 @@ struct PacketWrapper {
     }
 
     ~PacketWrapper() {
+        //LOGD(TAG, "~PacketWrapper");
         if (avPacket != nullptr) {
+            av_packet_unref(avPacket);
             av_packet_free(&avPacket);
             avPacket = nullptr;
         }
     }
 
     void setParams(AVPacket *packet) {
+        reset();
         this->avPacket = packet;
     }
 

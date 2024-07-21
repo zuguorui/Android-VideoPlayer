@@ -21,16 +21,6 @@ PlayerContext::PlayerContext() {
 }
 
 PlayerContext::~PlayerContext() {
-//    optional<void *> frameOpt;
-//    while ((frameOpt = recycledVideoFrameQueue.popFront()) != nullopt) {
-//        VideoFrame *ptr = (VideoFrame *)frameOpt.value();
-//        delete ptr;
-//    }
-//
-//    while ((frameOpt = recycledAudioFrameQueue.popFront()) != nullopt) {
-//        AudioFrame *ptr = (AudioFrame *)frameOpt.value();
-//        delete ptr;
-//    }
 
 }
 
