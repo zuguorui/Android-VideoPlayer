@@ -14,29 +14,52 @@
 #include <memory>
 
 /**
- * @brief This class is a thread-safe blocking queue.
+ * @brief 线程安全的阻塞队列。队列空时，会阻塞pop，队列满时，会阻塞push。
  *
  * @tparam T
  */
 
 
-template <class T>
+template <typename T>
 class LinkedBlockingQueue {
 public:
 
     LinkedBlockingQueue(LinkedBlockingQueue &a) = delete;
     LinkedBlockingQueue(LinkedBlockingQueue &&a) = delete;
 
-    LinkedBlockingQueue();
+    LinkedBlockingQueue() {
+        init(-1);
+    }
     /**
      * @brief Construct a new Linked Blocking Queue object
      *
      * @param capacity If capacity <= 0, it means this queue has infinite capacity and will not block pushBack option.
      */
-    LinkedBlockingQueue(int32_t capacity);
-    ~LinkedBlockingQueue();
-    int32_t getCapacity();
-    int32_t getSize();
+    LinkedBlockingQueue(int32_t capacity) {
+        init(capacity);
+    }
+
+
+
+    ~LinkedBlockingQueue() {
+        clearInner();
+    }
+
+    int32_t getCapacity() {
+        return capacity;
+    }
+    int32_t getSize() {
+        return size;
+    }
+
+    /**
+     * 队列是否已满。
+     * */
+    bool isFull() {
+        std::unique_lock<std::mutex> popLock(popMu);
+        std::unique_lock<std::mutex> pushLock(pushMu);
+        return size >= capacity;
+    }
 
     /**
      * @brief Push an element into queue.
@@ -53,14 +76,38 @@ public:
      * 1. blocking == false and the queue is full (size >= capacity)
      * 2. A blocking pushing is waked by {setBlockPush(false)} and the queue is still full.
      */
-    bool pushBack(const T &t, bool blocking = true);
+    bool pushBack(const T &t, bool blocking = true) {
+        std::unique_lock<std::mutex> lock(pushMu);
+        if (blocking && blockPushFlag) {
+            if (capacity > 0) {
+                while (size >= capacity && blockPushFlag) {
+                    notFull.wait(lock);
+                }
+            }
+        }
+
+        if (capacity > 0) {
+            if (size >= capacity) {
+                notEmpty.notify_all();
+                return false;
+            }
+        }
+
+        enqueue(t);
+        notEmpty.notify_all();
+        return true;
+    }
 
     /**
      * @brief Force pushBack an object in to the queue ignoring capacity.
      *
      * @param t
      */
-    void forcePushBack(T &t);
+    void forcePushBack(T &t) {
+        std::unique_lock<std::mutex> lock(pushMu);
+        enqueue(t);
+        notEmpty.notify_all();
+    }
 
     /**
      * @brief Get and remove the earliest pushed element.
@@ -70,7 +117,22 @@ public:
      * return immediately, if the queue is empty, std::nullopt will be returned.
      * @return std::optional<T> The element which was removed.
      */
-    std::optional<T> popFront(bool blocking = true);
+    std::optional<T> popFront(bool blocking = true) {
+        std::unique_lock<std::mutex> lock(popMu);
+        if (blocking && blockPopFlag) {
+            while (size == 0 && blockPopFlag) {
+                notEmpty.wait(lock);
+            }
+        }
+
+        if (size == 0) {
+            notFull.notify_all();
+            return std::nullopt;
+        }
+        std::unique_ptr<T> t = dequeue();
+        notFull.notify_all();
+        return std::optional<T>(*t);
+    }
 
     //std::optional<const T&> peekFront();
 
@@ -131,48 +193,68 @@ public:
      *
      * @param blockPush
      */
-    void setBlockPush(bool blockPush);
+    void setBlockPush(bool blockPush) {
+        this->blockPushFlag = blockPush;
+        if (!blockPush) {
+            notFull.notify_all();
+        }
+    }
 
     /**
      * @brief Whether this queue will block pushing when it is full.
      *
      * @return
      */
-    bool isBlockPush();
+    bool isBlockPush() {
+        return this->blockPushFlag.load();
+    }
 
     /**
      * @brief see {setBlockPush(bool blockPush)}
      *
      * @param blockPop
      */
-    void setBlockPop(bool blockPop);
+    void setBlockPop(bool blockPop) {
+        this->blockPopFlag = blockPop;
+        if (!blockPop) {
+            notEmpty.notify_all();
+        }
+    }
 
     /**
      * @brief Whether this queue will block popping when it is empty.
      *
      * @return
      */
-    bool isBlockPop();
+    bool isBlockPop() {
+        return this->blockPopFlag.load();
+    }
 
-    /**
-     * 队列是否已满。
-     * */
-    bool isFull();
+
 
     /**
      * Clear this queue. If the T is pointer type, it will free the memory where the pointer point to
      * */
-    void clear();
+    void clear() {
+        std::unique_lock<std::mutex> popLock(popMu);
+        std::unique_lock<std::mutex> pushLock(pushMu);
+        clearInner();
+        notFull.notify_all();
+    }
 
     /**
      * 使用自己的析构器来清理元素。
      * */
-    void clear(void (*deleter)(T));
+    void clear(void (*deleter)(const T&)) {
+        std::unique_lock<std::mutex> popLock(popMu);
+        std::unique_lock<std::mutex> pushLock(pushMu);
+        clearInner(deleter);
+        notFull.notify_all();
+    }
 
 
 private:
     const char* TAG = "LinkedBlockingQueue";
-
 
     int32_t capacity;
     std::atomic_int32_t size;
@@ -202,201 +284,62 @@ private:
     std::atomic_bool blockPushFlag;
     std::atomic_bool blockPopFlag;
 
-    void enqueue(const T& t);
-    std::unique_ptr<T> dequeue();
-};
-
-template <class T>
-LinkedBlockingQueue<T>::LinkedBlockingQueue(): LinkedBlockingQueue(INT32_MAX) {
-
-}
-
-template <class T>
-LinkedBlockingQueue<T>::LinkedBlockingQueue(int32_t capacity) {
-    //LOGD(TAG, "LinkedBlockingQueue: T.name = %s, isPointer = %d", typeid(T).name(), std::is_pointer<T>::value);
-    this->capacity = capacity;
-    head = new Node();
-    tail = head;
-    size = 0;
-    blockPushFlag = true;
-    blockPopFlag = true;
-}
-
-template <class T>
-LinkedBlockingQueue<T>::~LinkedBlockingQueue() {
-    Node *n = nullptr;
-    while (head != tail) {
-        n = head;
-        head = head->next;
-        delete(n);
-        // 编译时就确定确定条件值。if constexpr不支持短路规则
-        // 例如if constexpr (condA && condB)，即使condA为false，
-        // condB仍然会被检测，这和一般的if不一样。
-        if constexpr (std::is_pointer<T>::value) {
-            delete(*(head->pointer.get()));
-            head->pointer.reset();
-        } else {
-            head->pointer.reset();
-        }
-        size--;
+    void enqueue(const T& t) {
+        Node *node = new Node();
+        node->pointer = std::make_unique<T>(t);
+        tail->next = node;
+        tail = node;
+        size++;
     }
-}
+    std::unique_ptr<T> dequeue() {
+        Node *p = head->next;
+        delete head;
+        head = p;
+        size--;
+        return std::move(head->pointer);
+    }
 
-template <class T>
-void LinkedBlockingQueue<T>::enqueue(const T& t) {
-    Node *node = new Node();
-    node->pointer = std::make_unique<T>(t);
-    tail->next = node;
-    tail = node;
-    size++;
-}
+    void init(int capacity) {
+        //LOGD(TAG, "LinkedBlockingQueue: T.name = %s, isPointer = %d", typeid(T).name(), std::is_pointer<T>::value);
+        this->capacity = capacity;
+        head = new Node();
+        tail = head;
+        size = 0;
+        blockPushFlag = true;
+        blockPopFlag = true;
+    }
 
-template <class T>
-std::unique_ptr<T> LinkedBlockingQueue<T>::dequeue() {
-    Node *p = head->next;
-    delete head;
-    head = p;
-    size--;
-    return std::move(head->pointer);
-}
-
-
-
-template <class T>
-int32_t LinkedBlockingQueue<T>::getCapacity() {
-    return capacity;
-}
-
-template <class T>
-int32_t LinkedBlockingQueue<T>::getSize() {
-    return size;
-}
-
-template <class T>
-bool LinkedBlockingQueue<T>::isFull() {
-    std::unique_lock<std::mutex> popLock(popMu);
-    std::unique_lock<std::mutex> pushLock(pushMu);
-    return size >= capacity;
-}
-
-template <class T>
-bool LinkedBlockingQueue<T>::pushBack(const T& t, bool blocking) {
-    std::unique_lock<std::mutex> lock(pushMu);
-    if (blocking && blockPushFlag) {
-        if (capacity > 0) {
-            while (size >= capacity && blockPushFlag) {
-                notFull.wait(lock);
+    void clearInner() {
+        Node *n = nullptr;
+        while (head != tail) {
+            n = head;
+            head = head->next;
+            delete(n);
+            if constexpr (std::is_pointer<T>::value) {
+                // 智能指针会申请一块内存保存数据，它自己持有该内存的指针。head->pointer相当于T*。
+                // 例如T是class*，unique_ptr申请了一块内存存放class*，指向这块内存的指针相当于
+                // class**。因此这里先要释放class*指向的内存，然后让unique_ptr自己释放存放class*
+                // 的内存
+                delete(*(head->pointer.get()));
+                head->pointer.reset();
+            } else {
+                head->pointer.reset();
             }
+            size--;
         }
     }
 
-    if (capacity > 0) {
-        if (size >= capacity) {
-            notEmpty.notify_all();
-            return false;
-        }
-    }
-
-    enqueue(t);
-    notEmpty.notify_all();
-    return true;
-}
-
-
-
-template <class T>
-void LinkedBlockingQueue<T>::forcePushBack(T &t) {
-    std::unique_lock<std::mutex> lock(pushMu);
-    enqueue(t);
-    notEmpty.notify_all();
-}
-
-template <class T>
-std::optional<T> LinkedBlockingQueue<T>::popFront(bool blocking) {
-    std::unique_lock<std::mutex> lock(popMu);
-    if (blocking && blockPopFlag) {
-        while (size == 0 && blockPopFlag) {
-            notEmpty.wait(lock);
-        }
-    }
-
-    if (size == 0) {
-        notFull.notify_all();
-        return std::nullopt;
-    }
-    std::unique_ptr<T> t = dequeue();
-    notFull.notify_all();
-    return std::optional<T>(*t);
-}
-
-template <class T>
-void LinkedBlockingQueue<T>::setBlockPush(bool blockPush) {
-    this->blockPushFlag = blockPush;
-    if (!blockPush) {
-        notFull.notify_all();
-    }
-}
-
-template <class T>
-bool LinkedBlockingQueue<T>::isBlockPush() {
-    return this->blockPushFlag.load();
-}
-
-template <class T>
-void LinkedBlockingQueue<T>::setBlockPop(bool blockPop) {
-    this->blockPopFlag = blockPop;
-    if (!blockPop) {
-        notEmpty.notify_all();
-    }
-}
-
-template <class T>
-bool LinkedBlockingQueue<T>::isBlockPop() {
-    return this->blockPopFlag.load();
-}
-
-template <class T>
-void LinkedBlockingQueue<T>::clear() {
-    if (size == 0) {
-        return;
-    }
-    std::unique_lock<std::mutex> popLock(popMu);
-    std::unique_lock<std::mutex> pushLock(pushMu);
-    Node *n = nullptr;
-    while (head != tail) {
-        n = head;
-        head = head->next;
-        delete(n);
-
-        if constexpr (std::is_pointer<T>::value) {
-            delete(*(head->pointer.get()));
+    void clearInner(void (*deleter)(const T&)) {
+        Node *n = nullptr;
+        while (head != tail) {
+            n = head;
+            head = head->next;
+            delete(n);
+            deleter(*(head->pointer.get()));
             head->pointer.reset();
-        } else {
-            head->pointer.reset();
+            size--;
         }
-        size--;
     }
-
-    notFull.notify_all();
-}
-
-template<class T>
-void LinkedBlockingQueue<T>::clear(void (*deleter)(T)) {
-    if (size == 0) {
-        return;
-    }
-    std::unique_lock<std::mutex> popLock(popMu);
-    std::unique_lock<std::mutex> pushLock(pushMu);
-    Node *n = nullptr;
-    while (head != tail) {
-        n = head;
-        head = head->next;
-        delete(n);
-        deleter(*(head->pointer.release()));
-        size--;
-    }
-    notFull.notify_all();
-}
-
+};
 
 #endif //_LINKEDBLOCKINGQUEUE_H_
