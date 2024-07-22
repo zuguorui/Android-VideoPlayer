@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory>
+#include <thread>
 #include "VideoFrame.h"
 #include "AudioFrame.h"
 #include "LinkedBlockingQueue.h"

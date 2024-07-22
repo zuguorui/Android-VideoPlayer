@@ -366,18 +366,20 @@ void Player::readStreamLoop() {
                 av_packet_free(&packet);
             }
         } else if (ret == AVERROR_EOF) {
+            LOGD(TAG, "readStreamLoop: meet EOS");
             av_packet_free(&packet);
             packet = nullptr;
             if (enableAudio) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
-                pw->flags |= STREAM_FLAG_EOF;
+                pw->flags |= STREAM_FLAG_EOS;
                 audioPacketQueue.forcePushBack(pw);
             }
             if (enableVideo) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
-                pw->flags |= STREAM_FLAG_EOF;
+                pw->flags |= STREAM_FLAG_EOS;
                 videoPacketQueue.forcePushBack(pw);
             }
+            break;
         } else if (ret < 0) {
             LOGE(TAG, "readStreamLoop: av_read_packet failed, err = %s", av_err2str(ret));
             av_packet_free(&packet);
@@ -430,10 +432,15 @@ void Player::decodeAudioLoop() {
             continue;
         }
 
-        if ((pw->flags & STREAM_FLAG_EOF) == STREAM_FLAG_EOF) {
+        if ((pw->flags & STREAM_FLAG_EOS) == STREAM_FLAG_EOS) {
+            LOGD(TAG, "decodeAudioLoop: meet EOS");
             playerContext.recyclePacketWrapper(pw);
             pw = nullptr;
-
+            audioFrame = playerContext.getEmptyAudioFrame();
+            audioFrame->flags |= STREAM_FLAG_EOS;
+            audioFrameQueue.forcePushBack(audioFrame);
+            audioFrame = nullptr;
+            break;
         }
 
         ret = audioDecoder->sendPacket(pw->avPacket);
@@ -548,6 +555,17 @@ void Player::decodeVideoLoop() {
             continue;
         }
 
+        if ((pw->flags & STREAM_FLAG_EOS) == STREAM_FLAG_EOS) {
+            LOGD(TAG, "decodeVideoLoop: meet EOS");
+            playerContext.recyclePacketWrapper(pw);
+            pw = nullptr;
+            videoFrame = playerContext.getEmptyVideoFrame();
+            videoFrame->flags |= STREAM_FLAG_EOS;
+            videoFrameQueue.forcePushBack(videoFrame);
+            videoFrame = nullptr;
+            break;
+        }
+
         int64_t startTime1 = getSystemClockCurrentMilliseconds();
         ret = videoDecoder->sendPacket(pw->avPacket);
         if (ret < 0) {
@@ -557,7 +575,7 @@ void Player::decodeVideoLoop() {
         //LOGD(TAG, "decodeVideoLoop: send one packet cost %ld ms", getSystemClockCurrentMilliseconds() - startTime1);
 
         while (true) {
-            int64_t startTime = getSystemClockCurrentMilliseconds();
+            //int64_t startTime = getSystemClockCurrentMilliseconds();
             frame = av_frame_alloc();
             ret = videoDecoder->receiveFrame(frame);
             if (ret < 0) {
@@ -653,6 +671,9 @@ void Player::syncLoop() {
     bool audioSeekFlag = false;
     bool videoSeekFlag = false;
 
+    bool audioEOSFlag = false;
+    bool videoEOSFlag = false;
+
     auto moveAudioFrame = [&]() -> bool {
         optional<AudioFrame *> tempAudioFrame = audioFrameQueue.popFront(false);
         if (tempAudioFrame.has_value()) {
@@ -727,7 +748,7 @@ void Player::syncLoop() {
             // 如果视频帧为null，说明需要获取新的了。
             // 如果视频流已经遇到了seek标志，那么就不再移动，等待其他流遇到seek。
             if (videoFrame == nullptr && !videoSeekFlag) {
-                // 移动一帧视频到cacheList里，如果失败，说明后面的视频还未解码好，或者音频队列被阻塞，导致视频无法
+                // 移动一帧视频到cacheList里，如果失败，说明后面的视频还未解码好，或者音频队列满，导致视频无法
                 // 继续解码
                 if (!moveVideoFrame()) {
                     // 如果audio队列已经满了，那可能是阻塞了。那就移动一帧音频。否则可能只是单纯还没解码好，就继续循环
@@ -755,16 +776,17 @@ void Player::syncLoop() {
                 continue;
             }
 
-            if (audioFrame == nullptr) {
-//                optional<AudioFrame *> frameOpt = audioFrameQueue.popFront();
-//                if (frameOpt.has_value()) {
-//                    audioFrame = frameOpt.value();
-//                } else {
-//                    break;
-//                }
+
+            if (audioFrame == nullptr && !audioEOSFlag) {
                 if (!syncAudioCacheList.empty()) {
                     audioFrame = syncAudioCacheList.front();
                     syncAudioCacheList.pop_front();
+                    audioEOSFlag = (audioFrame->flags & STREAM_FLAG_EOS) == STREAM_FLAG_EOS;
+                    if (audioEOSFlag) {
+                        playerContext.recycleAudioFrame(audioFrame);
+                        audioFrame = nullptr;
+                        LOGD(TAG, "syncLoop: audio meet EOS");
+                    }
                     //LOGD(TAG, "get a audioFrame, audioFrameQueue.size = %d", audioFrameQueue.getSize());
                 } else {
                     //LOGD(TAG, "audioFrame is null, waiting... videoFrameQueue.size = %d", videoFrameQueue.getSize());
@@ -772,16 +794,16 @@ void Player::syncLoop() {
                 }
             }
 
-            if (videoFrame == nullptr) {
-//                optional<VideoFrame *> frameOpt = videoFrameQueue.popFront();
-//                if (frameOpt.has_value()) {
-//                    videoFrame = frameOpt.value();
-//                } else {
-//                    break;
-//                }
+            if (videoFrame == nullptr && !videoEOSFlag) {
                 if (!syncVideoCacheList.empty()) {
                     videoFrame = syncVideoCacheList.front();
                     syncVideoCacheList.pop_front();
+                    videoEOSFlag = (videoFrame->flags & STREAM_FLAG_EOS) == STREAM_FLAG_EOS;
+                    if (videoEOSFlag) {
+                        playerContext.recycleVideoFrame(videoFrame);
+                        videoFrame = nullptr;
+                        LOGD(TAG, "syncLoop: video meet EOS");
+                    }
                     //LOGD(TAG, "get a video, videoFrameQueue.size = %d", videoFrameQueue.getSize());
                 } else {
                     //LOGD(TAG, "videoFrame is null, waiting... audioFrameQueue.size = %d", audioFrameQueue.getSize());
@@ -789,57 +811,75 @@ void Player::syncLoop() {
                 }
             }
 
-            if (lastAudioPts == -1) {
-                lastAudioPts = audioFrame->pts;
-            }
+            if (!audioEOSFlag && !videoEOSFlag) {
+                // 音频和视频流都正常
+                if (lastAudioPts == -1) {
+                    lastAudioPts = audioFrame->pts;
+                }
 
-            if (lastVideoPts == -1) {
-                lastVideoPts = videoFrame->pts;
-            }
+                if (lastVideoPts == -1) {
+                    lastVideoPts = videoFrame->pts;
+                }
 
-//            if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK
-//                    && (videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
-//                LOGD(TAG, "syncLoop, meet both audio and video seek frame");
-//                playerContext.recycleAudioFrame(audioFrame);
-//                audioFrame = nullptr;
-//                playerContext.recycleVideoFrame(videoFrame);
-//                videoFrame = nullptr;
-//                continue;
-//            } else if ((audioFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
-//                LOGD(TAG, "syncLoop, meet audio seek frame");
-//                playerContext.recycleVideoFrame(videoFrame);
-//                videoFrame = nullptr;
-//                continue;
-//            } else if ((videoFrame->flags & STREAM_FLAG_SEEK) == STREAM_FLAG_SEEK) {
-//                LOGD(TAG, "syncLoop, meet video seek frame");
-//                playerContext.recycleAudioFrame(audioFrame);
-//                audioFrame = nullptr;
-//                continue;
-//            }
+                int64_t audioOutputPts = audioFrame->getOutputPts();
+                if (videoFrame->pts <= audioOutputPts) {
+                    lastVideoPts = videoFrame->pts;
+                    videoOutput->write(videoFrame);
+                    videoFrame = nullptr;
+                } else {
+                    int64_t outputFrames = (videoFrame->pts + 3 - audioOutputPts) * 1.0f / 1000 * audioFrame->sampleRate;
+                    outputFrames = min((int64_t)(audioFrame->numFrames - audioFrame->outputStartIndex), outputFrames);
+                    audioFrame->outputFrameCount = outputFrames;
+                    lastAudioPts = audioOutputPts;
+                    audioOutput->write(audioFrame);
+                    audioFrame->outputStartIndex += audioFrame->outputFrameCount;
+                    if (audioFrame->outputStartIndex == audioFrame->numFrames) {
+                        playerContext.recycleAudioFrame(audioFrame);
+                        audioFrame = nullptr;
+                    }
 
-            int64_t audioOutputPts = audioFrame->getOutputPts();
-            if (videoFrame->pts <= audioOutputPts) {
-                lastVideoPts = videoFrame->pts;
-                videoOutput->write(videoFrame);
-                videoFrame = nullptr;
-            } else {
-                int64_t outputFrames = (videoFrame->pts + 3 - audioOutputPts) * 1.0f / 1000 * audioFrame->sampleRate;
-                outputFrames = min((int64_t)(audioFrame->numFrames - audioFrame->outputStartIndex), outputFrames);
-                audioFrame->outputFrameCount = outputFrames;
-                lastAudioPts = audioOutputPts;
+                }
+
+                if (stateListener != nullptr) {
+                    stateListener->progressChanged(lastAudioPts, false);
+                }
+
+            } else if (!audioEOSFlag) {
+                // 视频流已经EOS，只处理音频流。
+                audioFrame->outputFrameCount = audioFrame->numFrames - audioFrame->outputStartIndex;
+                lastAudioPts = audioFrame->getOutputPts();
                 audioOutput->write(audioFrame);
                 audioFrame->outputStartIndex += audioFrame->outputFrameCount;
-                if (audioFrame->outputStartIndex == audioFrame->numFrames) {
+                if (audioFrame->outputStartIndex >= audioFrame->numFrames) {
                     playerContext.recycleAudioFrame(audioFrame);
                     audioFrame = nullptr;
                 }
-
+                if (stateListener != nullptr) {
+                    stateListener->progressChanged(lastAudioPts, false);
+                }
+            } else if (!videoEOSFlag) {
+                // 音频流已经EOS，只处理视频流
+                int64_t now = getSystemClockCurrentMilliseconds();
+                if (lastVideoWriteTime > 0 && lastVideoPts > 0) {
+                    // LOGD(TAG, "syncLoop: frameInterval = %ld ms, writeInterval = %ld ms", videoFrame->pts - lastVideoPts, now - lastVideoWriteTime);
+                    if (now - lastVideoWriteTime > videoFrame->pts - lastVideoPts) {
+#ifdef EMANLE_PERFORMACE_MONITOR
+                        LOGW(TAG, "syncLoop, video frame delay, frameInterval = %ld ms, actualInterval = %ld ms", videoFrame->pts - lastVideoPts, now - lastVideoWriteTime);
+#endif
+                    } else {
+                        //int64_t sleepStart = getSystemClockCurrentMilliseconds();
+                        this_thread::sleep_for(chrono::microseconds(((videoFrame->pts - lastVideoPts) - (now - lastVideoWriteTime)) * 1000));
+                        //LOGD(TAG, "syncLoop: sleep %ld ms", getSystemClockCurrentMilliseconds() - sleepStart);
+                    }
+                }
+                videoOutput->write(videoFrame);
+                lastVideoPts = videoFrame->pts;
+                lastVideoWriteTime = getSystemClockCurrentMilliseconds();
+                videoFrame = nullptr;
+            } else {
+                LOGD(TAG, "syncLoop: both audio and video meet EOS, break");
+                break;
             }
-
-            if (stateListener != nullptr) {
-                stateListener->progressChanged(lastAudioPts, false);
-            }
-
         } else if (enableVideo) {
             if (videoFrame == nullptr) {
                 optional<VideoFrame *> frameOpt = videoFrameQueue.popFront();
@@ -856,6 +896,13 @@ void Player::syncLoop() {
                 lastVideoWriteTime = -1;
                 lastVideoPts = -1;
                 continue;
+            }
+
+            if ((videoFrame->flags & STREAM_FLAG_EOS) == STREAM_FLAG_EOS) {
+                LOGD(TAG, "syncLoop: meet video EOS");
+                playerContext.recycleVideoFrame(videoFrame);
+                videoFrame = nullptr;
+                break;
             }
 
             int64_t now = getSystemClockCurrentMilliseconds();
@@ -897,9 +944,15 @@ void Player::syncLoop() {
                 lastAudioWriteTime = -1;
                 continue;
             }
-            if (lastAudioPts > 0 && lastAudioPts > audioFrame->pts) {
-                LOGE(TAG, "syncLoop: lastAudioPts > audioFrame.pts");
+            if ((audioFrame->flags & STREAM_FLAG_EOS) == STREAM_FLAG_EOS) {
+                LOGD(TAG, "syncLoop: audio meet EOS");
+                playerContext.recycleAudioFrame(audioFrame);
+                audioFrame = nullptr;
+                break;
             }
+//            if (lastAudioPts > 0 && lastAudioPts > audioFrame->pts) {
+//                LOGE(TAG, "syncLoop: lastAudioPts > audioFrame.pts");
+//            }
             lastAudioPts = audioFrame->pts;
             audioFrame->outputFrameCount = audioFrame->numFrames;
             audioOutput->write(audioFrame);

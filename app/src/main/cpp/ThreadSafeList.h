@@ -2,10 +2,10 @@
 // Created by zu on 2024/7/21.
 //
 
-#ifndef ANDROID_VIDEOPLAYER_THREADSAFEDEQUE_H
-#define ANDROID_VIDEOPLAYER_THREADSAFEDEQUE_H
+#ifndef ANDROID_VIDEOPLAYER_THREADSAFELIST_H
+#define ANDROID_VIDEOPLAYER_THREADSAFELIST_H
 
-#include <deque>
+#include <list>
 #include <stdlib.h>
 #include <stdint.h>
 #include <atomic>
@@ -14,28 +14,28 @@
 #include <optional>
 #include <memory>
 
-#define TAG "ThreadSafeDeque"
+#define TAG "ThreadSafeList"
 
 // 安卓对泛型不允许分成h和cpp，所以源码都写在h文件里。
 template<typename T>
-class ThreadSafeDeque {
+class ThreadSafeList {
 public:
-    ThreadSafeDeque(ThreadSafeDeque &src) = delete;
-    ThreadSafeDeque(ThreadSafeDeque && src) = delete;
+    ThreadSafeList(ThreadSafeList &src) = delete;
+    ThreadSafeList(ThreadSafeList && src) = delete;
 
-    ThreadSafeDeque() {
+    ThreadSafeList() {
         init(-1);
     }
 
-    ThreadSafeDeque(int32_t capacity) {
+    ThreadSafeList(int32_t capacity) {
         init(capacity);
     }
 
-    ~ThreadSafeDeque() {
+    ~ThreadSafeList() {
         while (!mDeque.empty()) {
             T t = mDeque.front();
             mDeque.pop_front();
-            if (std::is_pointer<T>::value) {
+            if constexpr (std::is_pointer<T>::value) {
                 delete(t);
             }
         }
@@ -47,6 +47,14 @@ public:
 
     int32_t getSize() {
         return mDeque.size();
+    }
+
+    /**
+     * 队列是否已满。
+     * */
+    bool isFull() {
+        std::unique_lock<std::mutex> lock(mu);
+        return mDeque.size() >= capacity;
     }
 
     bool pushBack(const T& t, bool blocking = true) {
@@ -96,15 +104,14 @@ public:
     }
 
     void clear() {
+        std::unique_lock<std::mutex> lock(mu);
         if (mDeque.empty()) {
             return;
         }
-        std::unique_lock<std::mutex> popLock(popMu);
-        std::unique_lock<std::mutex> pushLock(pushMu);
         while (!mDeque.empty()) {
-            T& t = mDeque.front();
+            T t = mDeque.front();
             mDeque.pop_front();
-            if (std::is_pointer<T>::value) {
+            if constexpr (std::is_pointer<T>::value) {
                 delete(t);
             }
         }
@@ -112,13 +119,13 @@ public:
     }
 
 private:
-    std::deque<T> mDeque;
+    std::list<T> mDeque;
     int32_t capacity;
 
-    std::mutex popMu;
+    std::mutex mu;
+
     std::condition_variable notFull;
 
-    std::mutex pushMu;
     std::condition_variable notEmpty;
 
     std::atomic_bool blockPushFlag;
@@ -126,13 +133,12 @@ private:
 
     void init(int32_t capacity) {
         this->capacity = capacity;
-
         blockPopFlag = capacity > 0;
         blockPushFlag = capacity > 0;
     }
 
     bool push(const T &t, bool blocking, bool front) {
-        std::unique_lock<std::mutex> lock(pushMu);
+        std::unique_lock<std::mutex> lock(mu);
         if (blocking && blockPushFlag) {
             if (capacity > 0) {
                 // wait可能会在不满足条件的情况下被打断，因此仍然需要while来检测。
@@ -158,7 +164,7 @@ private:
     }
 
     void forcePush(const T& t, bool front) {
-        std::unique_lock<std::mutex> lock(pushMu);
+        std::unique_lock<std::mutex> lock(mu);
         if (front) {
             mDeque.push_front(t);
         } else {
@@ -168,7 +174,7 @@ private:
     }
 
     std::optional<T> pop(bool blocking, bool front) {
-        std::unique_lock<std::mutex> lock(popMu);
+        std::unique_lock<std::mutex> lock(mu);
         if (blocking && blockPopFlag) {
             while (mDeque.empty() && blockPopFlag) {
                 notEmpty.wait(lock);
@@ -180,18 +186,30 @@ private:
             return std::nullopt;
         }
 
-        T t;
+//        T t;
+//        if (front) {
+//            t = mDeque.front();
+//            mDeque.pop_front();
+//        } else {
+//            t = mDeque.back();
+//            mDeque.pop_back();
+//        }
+//
+//        notFull.notify_all();
+//
+//        return std::optional<T>(t);
+
+        std::optional<T> t = std::nullopt;
         if (front) {
-            t = mDeque.front();
+            t = std::optional<T>(mDeque.front());
             mDeque.pop_front();
         } else {
-            t = mDeque.back();
+            t = std::optional<T>(mDeque.back());
             mDeque.pop_back();
         }
-
         notFull.notify_all();
-        return std::optional<T>(t);
+        return t;
     }
 };
 
-#endif //ANDROID_VIDEOPLAYER_THREADSAFEDEQUE_H
+#endif //ANDROID_VIDEOPLAYER_THREADSAFELIST_H

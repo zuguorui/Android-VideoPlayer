@@ -61,7 +61,7 @@ struct AudioFrame {
     ~AudioFrame() {
         //LOGD(TAG, "~AudioFrame");
         if (avFrame) {
-            av_frame_unref(avFrame);
+            //av_frame_unref(avFrame);
             av_frame_free(&avFrame);
             avFrame = nullptr;
         }

@@ -14,7 +14,8 @@
 #include <memory>
 
 /**
- * @brief 线程安全的阻塞队列。队列空时，会阻塞pop，队列满时，会阻塞push。
+ * @brief 线程安全的FIFO阻塞队列。队列空时，会阻塞pop，队列满时，会阻塞push。
+ * 原理与list相同，元素都包装在node中，写与读不会相互阻塞。
  *
  * @tparam T
  */
@@ -42,6 +43,8 @@ public:
 
 
     ~LinkedBlockingQueue() {
+        std::unique_lock<std::mutex> pushLock(pushMu);
+        std::unique_lock<std::mutex> popLock(popMu);
         clearInner();
     }
 

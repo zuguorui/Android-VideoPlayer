@@ -5,7 +5,9 @@
 #ifndef ANDROID_VIDEOPLAYER_FLAGS_H
 #define ANDROID_VIDEOPLAYER_FLAGS_H
 
-#define STREAM_FLAG_EOF 1
+// stream结束标志
+#define STREAM_FLAG_EOS 1
+// stream seek标志
 #define STREAM_FLAG_SEEK (1 << 1)
 
 
