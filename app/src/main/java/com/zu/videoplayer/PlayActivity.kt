@@ -7,25 +7,30 @@ import android.os.Message
 import android.view.*
 import android.widget.SeekBar
 import kotlinx.android.synthetic.main.activity_play.*
-import java.util.concurrent.LinkedBlockingQueue
+import timber.log.Timber
+import java.util.concurrent.atomic.AtomicBoolean
 
-fun formatDuration(duration: Long): String
-{
+fun formatDuration(duration: Long): String {
     val totalSeconds: Int = (duration / 1000).toInt()
     val totalMinutes = totalSeconds / 60
     val seconds: Int = totalSeconds % 60
     val minutes: Int = totalMinutes % 60
     val hours: Int = totalMinutes / 60
 
-    var result = "${if (hours == 0) "" else String.format("%02d:", hours)}${String.format("%02d", minutes)}:${String.format("%02d", seconds)}"
+    var result = "${if (hours == 0) "" else String.format("%02d:", hours)}${
+        String.format(
+            "%02d",
+            minutes
+        )
+    }:${String.format("%02d", seconds)}"
 
     return result
 }
 
-class PlayActivity : AppCompatActivity(), PlayListener {
+class PlayActivity : AppCompatActivity() {
 
     private lateinit var surfaceView: SurfaceView
-    private var surfaceViewCallback: SurfaceHolder.Callback = object : SurfaceHolder.Callback{
+    private var surfaceViewCallback: SurfaceHolder.Callback = object : SurfaceHolder.Callback {
         override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
             nSetSize(width, height)
 
@@ -46,24 +51,47 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         }
     }
 
-    private var handler: Handler = Handler{
-        when(it.what)
-        {
+    private var handler: Handler = Handler {
+        when (it.what) {
             PROGRESS_UPDATE -> {
+                if (isSeeking) {
+                    return@Handler true
+                }
                 val ms: Long = it.obj as Long
                 val s: Int = (ms / 1000).toInt()
                 seek_pos.progress = s
                 tv_pos.text = formatDuration(ms)
             }
+
             PLAY_STATE_UPDATE -> {
-                isPlaying = it.obj as Boolean
-                if(isPlaying)
-                {
-                    btn_play.text = "暂停"
-                }
-                else
-                {
-                    btn_play.text = "播放"
+                when (it.arg1) {
+                    PLAY_STATE_START -> {
+                        Timber.d("PLAY_STATE_START")
+                        btn_play.text = "暂停"
+                        isPlaying = true
+                    }
+
+                    PLAY_STATE_PAUSE -> {
+                        Timber.d("PLAY_STATE_PAUSE")
+                        btn_play.text = "播放"
+                        isPlaying = false
+                    }
+
+                    PLAY_STATE_COMPLETE -> {
+                        Timber.d("PLAY_STATE_COMPLETE")
+                        btn_play.text = "播放"
+                        isPlaying = false
+                        nSeek(0)
+                    }
+
+                    PLAY_STATE_SEEK_START -> {
+                        Timber.d("PLAY_STATE_SEEK_START")
+                    }
+
+                    PLAY_STATE_SEEK_COMPLETE -> {
+                        Timber.d("PLAY_STATE_SEEK_COMPLETE")
+                        isSeeking = false
+                    }
                 }
             }
 
@@ -71,15 +99,36 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         return@Handler true
     }
 
+    private val playListener = object : PlayListener {
+        override fun onProgressChanged(positionMS: Long) {
+            handler.sendMessage(Message().apply {
+                what = PROGRESS_UPDATE
+                obj = positionMS
+            })
+        }
+
+        override fun onPlayStateChanged(playState: Int) {
+            handler.sendMessage(Message().apply {
+                what = PLAY_STATE_UPDATE
+                arg1 = playState
+            })
+        }
+    }
+
     private var filePath: String? = null
 
     private var isPlaying = false
+
+    private var isSeeking = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_play)
         filePath = intent.getStringExtra("path")
@@ -92,30 +141,25 @@ class PlayActivity : AppCompatActivity(), PlayListener {
 
     }
 
-    private fun initViews()
-    {
+    private fun initViews() {
         btn_play.setOnClickListener {
-            if(isPlaying)
-            {
+            if (isPlaying) {
                 nStop()
-            }
-            else
-            {
+            } else {
                 nStart()
             }
         }
 
-        seek_pos.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener{
+        seek_pos.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
 
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
-
+                isSeeking = true
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
-
                 //seekBar max is second, need translate to ms.
                 var progress = seekBar!!.progress
                 nSeek((progress * 1000).toLong())
@@ -125,7 +169,7 @@ class PlayActivity : AppCompatActivity(), PlayListener {
 
     override fun onResume() {
         super.onResume()
-        nSetPlayStateListener(this)
+        nSetPlayStateListener(playListener)
 
     }
 
@@ -141,8 +185,7 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         super.onDestroy()
     }
 
-    private fun addSurfaceView()
-    {
+    private fun addSurfaceView() {
         surfaceView = SurfaceView(this)
         var holder = surfaceView.holder
         holder.addCallback(surfaceViewCallback)
@@ -154,21 +197,6 @@ class PlayActivity : AppCompatActivity(), PlayListener {
         root_layout.addView(surfaceView, 0)
     }
 
-
-
-    override fun onProgressChanged(positionMS: Long, isPlayFinished: Boolean) {
-        handler.sendMessage(Message().apply {
-            what = PROGRESS_UPDATE
-            obj = positionMS
-        })
-    }
-
-    override fun onPlayStateChanged(isPlay: Boolean) {
-        handler.sendMessage(Message().apply {
-            what = PLAY_STATE_UPDATE
-            obj = isPlay
-        })
-    }
 
     external fun nInit()
     external fun nDestroy()
@@ -184,10 +212,11 @@ class PlayActivity : AppCompatActivity(), PlayListener {
     external fun nIsPlaying(): Boolean
 
 
-    companion object{
+    companion object {
         private val TAG = "PlayActivity"
         const val PROGRESS_UPDATE: Int = 1
         const val PLAY_STATE_UPDATE: Int = 2
+
         init {
             System.loadLibrary("native-lib")
         }

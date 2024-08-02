@@ -22,6 +22,7 @@ using namespace std;
 void printFFmpegSupportedCodec() {
     // 打印FFmpeg支持的codec
     void *opaque = nullptr;
+    
     while (true) {
         const AVCodec *c_temp = av_codec_iterate(&opaque);
         if (c_temp == nullptr) {
@@ -283,6 +284,7 @@ void Player::readStreamLoop() {
 
         if (seekFlag) {
             LOGD(TAG, "readStreamLoop: AV_TIME_BASE_Q = %lf", av_q2d(AV_TIME_BASE_Q));
+            notifyPlayState(PLAY_STATE_SEEK_START);
             if (enableVideo) {
                 LOGD(TAG, "readStreamLoop: videoStream timebase = %lf", av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
             }
@@ -659,9 +661,7 @@ void Player::syncLoop() {
     int64_t lastAudioPts = -1;
     int64_t lastVideoPts = -1;
 
-    if (stateListener != nullptr) {
-        stateListener->playStateChanged(true);
-    }
+    notifyPlayState(PLAY_STATE_START);
 
     AudioFrame *audioFrame = unPlayedAudioFrame;
     unPlayedAudioFrame = nullptr;
@@ -771,6 +771,7 @@ void Player::syncLoop() {
             if (audioSeekFlag && videoSeekFlag) {
                 audioSeekFlag = false;
                 videoSeekFlag = false;
+                notifyPlayState(PLAY_STATE_SEEK_COMPLETE);
             } else if (audioSeekFlag || videoSeekFlag)  {
                 // 如果只有一个流获取到了seek标志，那么就要继续等待另外的流也获取到seek。
                 continue;
@@ -840,9 +841,7 @@ void Player::syncLoop() {
 
                 }
 
-                if (stateListener != nullptr) {
-                    stateListener->progressChanged(lastAudioPts, false);
-                }
+                notifyPlayProgress(lastAudioPts);
 
             } else if (!audioEOSFlag) {
                 // 视频流已经EOS，只处理音频流。
@@ -854,9 +853,7 @@ void Player::syncLoop() {
                     playerContext.recycleAudioFrame(audioFrame);
                     audioFrame = nullptr;
                 }
-                if (stateListener != nullptr) {
-                    stateListener->progressChanged(lastAudioPts, false);
-                }
+                notifyPlayProgress(lastAudioPts);
             } else if (!videoEOSFlag) {
                 // 音频流已经EOS，只处理视频流
                 int64_t now = getSystemClockCurrentMilliseconds();
@@ -900,6 +897,7 @@ void Player::syncLoop() {
 
             if ((videoFrame->flags & STREAM_FLAG_EOS) == STREAM_FLAG_EOS) {
                 LOGD(TAG, "syncLoop: meet video EOS");
+                videoEOSFlag = true;
                 playerContext.recycleVideoFrame(videoFrame);
                 videoFrame = nullptr;
                 break;
@@ -923,9 +921,7 @@ void Player::syncLoop() {
             lastVideoWriteTime = getSystemClockCurrentMilliseconds();
             videoFrame = nullptr;
 
-            if (stateListener != nullptr) {
-                stateListener->progressChanged(lastVideoPts, false);
-            }
+            notifyPlayProgress(lastVideoPts);
         } else if (enableAudio) {
             if (audioFrame == nullptr) {
                 //LOGD(TAG, "syncLoop: audioFrameQueue.size = %d", audioFrameQueue.getSize());
@@ -946,6 +942,7 @@ void Player::syncLoop() {
             }
             if ((audioFrame->flags & STREAM_FLAG_EOS) == STREAM_FLAG_EOS) {
                 LOGD(TAG, "syncLoop: audio meet EOS");
+                audioEOSFlag = true;
                 playerContext.recycleAudioFrame(audioFrame);
                 audioFrame = nullptr;
                 break;
@@ -958,9 +955,7 @@ void Player::syncLoop() {
             audioOutput->write(audioFrame);
             playerContext.recycleAudioFrame(audioFrame);
             audioFrame = nullptr;
-            if (stateListener != nullptr) {
-                stateListener->progressChanged(lastAudioPts, false);
-            }
+            notifyPlayProgress(lastAudioPts);
         } else {
             LOGE(TAG, "syncLoop, both audio and video disabled, break");
             break;
@@ -975,10 +970,20 @@ void Player::syncLoop() {
     if (videoFrame) {
         unPlayedVideoFrame = videoFrame;
     }
-
-    if (stateListener != nullptr) {
-        stateListener->playStateChanged(false);
+    if (enableAudio && enableVideo) {
+        if (audioEOSFlag && videoEOSFlag) {
+            notifyPlayState(PLAY_STATE_COMPLETE);
+        } else {
+            notifyPlayState(PLAY_STATE_PAUSE);
+        }
+    } else {
+        if (audioEOSFlag || videoEOSFlag) {
+            notifyPlayState(PLAY_STATE_COMPLETE);
+        } else {
+            notifyPlayState(PLAY_STATE_PAUSE);
+        }
     }
+
     LOGI(TAG, "syncLoop: end");
 }
 
@@ -1255,3 +1260,15 @@ IDecoder *Player::findDecoder(AVCodecParameters *params) {
     return decoder;
 }
 
+
+void Player::notifyPlayState(int state) {
+    if (stateListener != nullptr) {
+        stateListener->playStateChanged(state);
+    }
+}
+
+void Player::notifyPlayProgress(int64_t ptsMS) {
+    if (stateListener != nullptr) {
+        stateListener->progressChanged(ptsMS);
+    }
+}

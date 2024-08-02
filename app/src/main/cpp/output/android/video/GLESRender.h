@@ -10,7 +10,7 @@
 #include <float.h>
 #include <iostream>
 #include "android/native_window.h"
-#include "GLES3/gl3.h"
+#include "GLES3/gl31.h"
 #include "GLES3/gl3platform.h"
 #include "Shader.h"
 #include "EGLWindow.h"

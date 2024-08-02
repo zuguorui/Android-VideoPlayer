@@ -16,9 +16,8 @@ class JavaStateListener: public IPlayStateListener {
 public:
     JavaStateListener(JNIEnv *env, jobject listener);
     ~JavaStateListener();
-//    void infoGet(int64_t duration, int32_t picBufferLen);
-    void progressChanged(int64_t currentProgress, bool isPlayFinished) override;
-    void playStateChanged(bool isPlay) override;
+    void progressChanged(int64_t currentProgress) override;
+    void playStateChanged(int state) override;
 private:
 //    JNIEnv *env = NULL;
     JavaVM *vm = NULL;

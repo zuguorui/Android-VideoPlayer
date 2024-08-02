@@ -77,6 +77,8 @@ public:
 
     int64_t getCurrentPtsMS();
 
+    int getPlayState();
+
     bool seek(int64_t ptsMS);
 
     bool setScreenSize(int width, int height);
@@ -127,8 +129,6 @@ private:
     std::atomic_bool stopDecodeAudioFlag = false;
     std::atomic_bool stopDecodeVideoFlag = false;
     std::atomic_bool stopSyncFlag = false;
-
-
 
     std::mutex readStreamMu;
     std::mutex decodeVideoMu;
@@ -186,6 +186,9 @@ private:
     void stopSyncThread();
 
     IDecoder *findDecoder(AVCodecParameters *params);
+
+    void notifyPlayState(int state);
+    void notifyPlayProgress(int64_t ptsMS);
 };
 
 

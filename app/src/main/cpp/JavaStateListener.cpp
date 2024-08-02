@@ -17,30 +17,24 @@ JavaStateListener::JavaStateListener(JNIEnv *env, jobject listener) {
 //    this->env = env;
     env->GetJavaVM(&vm);
     this->listener = env->NewGlobalRef(listener);
-//    jclass cls = env->FindClass("com/zu/ffmpegaudioplayer/MainActivity");
     jclass cls = env->GetObjectClass(listener);
-//    this->infoGetMethod = env->GetMethodID(cls, "onInfoGet", "(JI)V");
-    this->progressChangedMethod = env->GetMethodID(cls, "onProgressChanged", "(JZ)V");
-    this->playStateChangedMethod = env->GetMethodID(cls, "onPlayStateChanged", "(Z)V");
+    this->progressChangedMethod = env->GetMethodID(cls, "onProgressChanged", "(J)V");
+    this->playStateChangedMethod = env->GetMethodID(cls, "onPlayStateChanged", "(I)V");
 }
 
 JavaStateListener::~JavaStateListener() {
-    if(vm != NULL)
-    {
+    if (vm != NULL) {
         JNIEnv *env;
         bool needDetach = false;
-        if(vm->GetEnv((void **)&env, JNI_VERSION_1_6) == JNI_EDETACHED)
-        {
+        if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) == JNI_EDETACHED) {
             needDetach = true;
-            if(vm->AttachCurrentThread(&env, 0) != 0)
-            {
+            if (vm->AttachCurrentThread(&env, 0) != 0) {
                 LOGE("Error to attach env when finalize");
                 return;
             }
         }
         env->DeleteGlobalRef(listener);
-        if(needDetach)
-        {
+        if (needDetach) {
             vm->DetachCurrentThread();
         }
 
@@ -71,51 +65,43 @@ JavaStateListener::~JavaStateListener() {
 //    }
 //}
 
-void JavaStateListener::progressChanged(int64_t currentProgress, bool isPlayFinished) {
+void JavaStateListener::progressChanged(int64_t currentProgress) {
     //LOGD("JavaStateListener: progressChanged, position = %lld", currentProgress);
-    if(vm == NULL || listener == NULL || progressChangedMethod == NULL)
-    {
+    if (vm == NULL || listener == NULL || progressChangedMethod == NULL) {
         return;
     }
 
     JNIEnv *env;
     bool needDetach = false;
-    if(vm->GetEnv((void **)&env, JNI_VERSION_1_6) == JNI_EDETACHED)
-    {
+    if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) == JNI_EDETACHED) {
         needDetach = true;
-        if(vm->AttachCurrentThread(&env, 0) != 0)
-        {
+        if (vm->AttachCurrentThread(&env, 0) != 0) {
             LOGE("Error to attach env when progressChanged");
             return;
         }
     }
-    env->CallVoidMethod(listener, progressChangedMethod, currentProgress, isPlayFinished);
-    if(needDetach)
-    {
+    env->CallVoidMethod(listener, progressChangedMethod, currentProgress);
+    if (needDetach) {
         vm->DetachCurrentThread();
     }
 }
 
-void JavaStateListener::playStateChanged(bool isPlay) {
+void JavaStateListener::playStateChanged(int state) {
     //LOGD("JavaStateListener: playStateChanged, isPlay = %d", isPlay);
-    if(vm == NULL || listener == NULL || playStateChangedMethod == NULL)
-    {
+    if (vm == NULL || listener == NULL || playStateChangedMethod == NULL) {
         return;
     }
     JNIEnv *env;
     bool needDetach = false;
-    if(vm->GetEnv((void **)&env, JNI_VERSION_1_6) == JNI_EDETACHED)
-    {
+    if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) == JNI_EDETACHED) {
         needDetach = true;
-        if(vm->AttachCurrentThread(&env, 0) != 0)
-        {
+        if (vm->AttachCurrentThread(&env, 0) != 0) {
             LOGE("Error to attach env when playStateChanged");
             return;
         }
     }
-    env->CallVoidMethod(listener, playStateChangedMethod, isPlay);
-    if(needDetach)
-    {
+    env->CallVoidMethod(listener, playStateChangedMethod, state);
+    if (needDetach) {
         vm->DetachCurrentThread();
     }
 }

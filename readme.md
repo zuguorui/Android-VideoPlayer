@@ -1,11 +1,20 @@
 # 基于FFmpeg的Android视频播放器
 
-基于FFmpeg6.0。支持Android的NdkMediaCodec，不必从Native将数据拷贝到Java层。支持av1_mediacodec硬解。
-
-
+基于FFmpeg6.0。支持Android的NdkMediaCodec，不比走jni调用。支持av1_mediacodec硬解。
 
 软解支持aom、fdk-aac、mp3lame、x264、x265。相应第三方库的Android构建都有对应的仓库。
 
-
-
 代码支持结构支持多平台，平台相关解码器定义在`platform.h`。音视频输入输出接口位于`Factory`中。
+
+## 更新日志
+
+**2024.7.23**
+
+1. 修复退出播放器时阻塞的问题。
+2. 修复了内存泄漏。
+3. 修复单独播放音频或视频时占用内存过大的问题。
+4. 修复了播放完毕后崩溃的问题。
+5. 优化了播放状态回调。
+6. 修复了解码器在第二次打开之后不正常的问题。
+7. 修复了seek时卡顿的问题。
+8. 修复了仅有视频轨时播放速度不正常的问题。
