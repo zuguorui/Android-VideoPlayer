@@ -2,26 +2,26 @@
 // Created by 祖国瑞 on 2022/12/6.
 //
 
-#include "Shader.h"
+#include "RenderProgram.h"
 #include "Log.h"
 
 using namespace std;
 
-#define TAG "Shader"
+#define TAG "RenderProgram"
 
-Shader::Shader() {
+RenderProgram::RenderProgram() {
 
 }
 
-Shader::Shader(const char *vertexShaderCode, const char *fragmentShaderCode) {
-    compileShader(vertexShaderCode, fragmentShaderCode);
+RenderProgram::RenderProgram(const char *vertexShaderCode, const char *fragmentShaderCode) {
+    compile(vertexShaderCode, fragmentShaderCode);
 }
 
-Shader::~Shader() {
+RenderProgram::~RenderProgram() {
     release();
 }
 
-bool Shader::compileShader(const char *vertexShaderCode, const char *fragmentShaderCode) {
+bool RenderProgram::compile(const char *vertexShaderCode, const char *fragmentShaderCode) {
 
     release();
 
@@ -44,8 +44,8 @@ bool Shader::compileShader(const char *vertexShaderCode, const char *fragmentSha
         glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
         if (!success) {
             glGetShaderInfoLog(vertexShader, LOG_BUFFER_SIZE, nullptr, infoLog);
-            LOGE(TAG, "compile vertex shader failed, log: %s", infoLog);
-            throw "compile vertex shader failed";
+            LOGE(TAG, "compile vertex renderProgram failed, log: %s", infoLog);
+            throw "compile vertex renderProgram failed";
         }
 
         fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -54,8 +54,8 @@ bool Shader::compileShader(const char *vertexShaderCode, const char *fragmentSha
         glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
         if (!success) {
             glGetShaderInfoLog(fragmentShader, LOG_BUFFER_SIZE, nullptr, infoLog);
-            LOGE(TAG, "compile fragment shader failed, log: %s", infoLog);
-            throw "compile fragment shader failed";
+            LOGE(TAG, "compile fragment renderProgram failed, log: %s", infoLog);
+            throw "compile fragment renderProgram failed";
         }
 
         ID = glCreateProgram();
@@ -67,8 +67,8 @@ bool Shader::compileShader(const char *vertexShaderCode, const char *fragmentSha
         glGetProgramiv(ID, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(ID, LOG_BUFFER_SIZE, nullptr, infoLog);
-            LOGE(TAG, "link program failed, log: %s", infoLog);
-            throw "link program failed";
+            LOGE(TAG, "link renderProgram failed, log: %s", infoLog);
+            throw "link renderProgram failed";
         }
     } catch (const char* msg) {
         LOGE(TAG, "%s", msg);
@@ -83,81 +83,81 @@ bool Shader::compileShader(const char *vertexShaderCode, const char *fragmentSha
         glDeleteShader(fragmentShader);
     }
     if (result) {
-        LOGD(TAG, "shader compile success");
+        LOGD(TAG, "renderProgram compile success");
     }
     return result;
 }
 
-void Shader::release() {
+void RenderProgram::release() {
     if (ID > 0) {
         glDeleteProgram(ID);
     }
     ID = 0;
 }
 
-void Shader::use() {
+void RenderProgram::use() {
     if (ID > 0) {
         glUseProgram(ID);
     }
 }
 
-bool Shader::isReady() {
+bool RenderProgram::isReady() {
     return ID > 0;
 }
 
-GLuint Shader::getProgramID() {
+GLuint RenderProgram::getProgramID() {
     return ID;
 }
 
-void Shader::setBool(const std::string &name, bool value) const {
+void RenderProgram::setBool(const std::string &name, bool value) const {
     if (ID > 0) {
         glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
     }
 }
 
-void Shader::setInt(const std::string &name, int value) const {
+void RenderProgram::setInt(const std::string &name, int value) const {
     if (ID > 0) {
         glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
     }
 }
 
-void Shader::setFloat(const std::string &name, float value) const {
+void RenderProgram::setFloat(const std::string &name, float value) const {
     if (ID > 0) {
         glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
     }
 }
 
-void Shader::setVec2(const std::string &name, float x, float y) {
+void RenderProgram::setVec2(const std::string &name, float x, float y) {
     if (ID > 0) {
         glUniform2f(glGetUniformLocation(ID, name.c_str()), x, y);
     }
 }
 
-void Shader::setVec2(const std::string &name, const float *value) {
+void RenderProgram::setVec2(const std::string &name, const float *value) {
     if (ID > 0) {
         glUniform2fv(glGetUniformLocation(ID, name.c_str()), 1, value);
     }
 }
 
-void Shader::setVec3(const std::string &name, float x, float y, float z) {
+void RenderProgram::setVec3(const std::string &name, float x, float y, float z) {
     if (ID > 0) {
         glUniform3f(glGetUniformLocation(ID, name.c_str()), x, y, z);
     }
 }
 
-void Shader::setVec3(const std::string &name, const float *value) {
+void RenderProgram::setVec3(const std::string &name, const float *value) {
     if (ID > 0) {
         glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, value);
     }
 }
 
-void Shader::setVec4(const std::string &name, float x, float y, float z, float w) {
+void RenderProgram::setVec4(const std::string &name, float x, float y, float z, float w) {
     if (ID > 0) {
         glUniform4f(glGetUniformLocation(ID, name.c_str()), x, y, z, w);
     }
 }
 
-void Shader::setVec4(const std::string &name, const float *value) {
+void RenderProgram::setVec4(const std::string &name, const float *value) {
     if (ID > 0) {
         glUniform4fv(glGetUniformLocation(ID, name.c_str()), 1, value);
     }

@@ -572,7 +572,7 @@ enum AVCodecID {
     AV_CODEC_ID_FIRST_UNKNOWN = 0x18000,           ///< A dummy ID pointing at the start of various fake codecs.
     AV_CODEC_ID_TTF = 0x18000,
 
-    AV_CODEC_ID_SCTE_35, ///< Contain timestamp estimated through PCR of program stream.
+    AV_CODEC_ID_SCTE_35, ///< Contain timestamp estimated through PCR of renderProgram stream.
     AV_CODEC_ID_EPG,
     AV_CODEC_ID_BINTEXT,
     AV_CODEC_ID_XBIN,

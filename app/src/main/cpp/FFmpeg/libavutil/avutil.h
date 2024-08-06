@@ -53,7 +53,7 @@
  * parts of the public API, reordering public struct members, etc. The minor
  * version number is incremented for backward compatible API changes or major
  * new features - e.g. adding a new public function or a new decoder. The micro
- * version number is incremented for smaller changes that a calling program
+ * version number is incremented for smaller changes that a calling renderProgram
  * might still want to check for - e.g. changing behavior in a previously
  * unspecified situation.
  *
@@ -64,10 +64,10 @@
  * explicitly declared as not part of the public API). Documented behavior will
  * not change.
  *
- * In other words, any correct program that works with a given FFmpeg snapshot
+ * In other words, any correct renderProgram that works with a given FFmpeg snapshot
  * should work just as well without any changes with any later snapshot with the
- * same major versions. This applies to both rebuilding the program against new
- * FFmpeg versions or to replacing the dynamic FFmpeg libraries that a program
+ * same major versions. This applies to both rebuilding the renderProgram against new
+ * FFmpeg versions or to replacing the dynamic FFmpeg libraries that a renderProgram
  * links against.
  *
  * However, new public symbols may be added and new members may be appended to

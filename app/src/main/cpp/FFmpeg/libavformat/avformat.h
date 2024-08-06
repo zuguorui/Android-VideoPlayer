@@ -67,7 +67,7 @@
  * @section lavf_options Passing options to (de)muxers
  * It is possible to configure lavf muxers and demuxers using the @ref avoptions
  * mechanism. Generic (format-independent) libavformat options are provided by
- * AVFormatContext, they can be examined from a user program by calling
+ * AVFormatContext, they can be examined from a user renderProgram by calling
  * av_opt_next() / av_opt_find() on an allocated AVFormatContext (or its AVClass
  * from avformat_get_class()). Private (format-specific) options are provided by
  * AVFormatContext.priv_data if and only if AVInputFormat.priv_class /
@@ -143,7 +143,7 @@
  * out to be something different than raw video, those options will not be
  * recognized by the demuxer and therefore will not be applied. Such unrecognized
  * options are then returned in the options dictionary (recognized options are
- * consumed). The calling program can handle such unrecognized options as it
+ * consumed). The calling renderProgram can handle such unrecognized options as it
  * wishes, e.g.
  * @code
  * AVDictionaryEntry *e;
@@ -1030,7 +1030,7 @@ int64_t    av_stream_get_end_pts(const AVStream *st);
 typedef struct AVProgram {
     int            id;
     int            flags;
-    enum AVDiscard discard;        ///< selects which program to discard and which to feed to the caller
+    enum AVDiscard discard;        ///< selects which renderProgram to discard and which to feed to the caller
     unsigned int   *stream_index;
     unsigned int   nb_stream_indexes;
     AVDictionary *metadata;
@@ -2035,12 +2035,12 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options);
  * Find the programs which belong to a given stream.
  *
  * @param ic    media file handle
- * @param last  the last found program, the search will start after this
- *              program, or from the beginning if it is NULL
+ * @param last  the last found renderProgram, the search will start after this
+ *              renderProgram, or from the beginning if it is NULL
  * @param s     stream index
  *
- * @return the next program which belongs to s, NULL if no program is found or
- *         the last program is not among the programs of ic.
+ * @return the next renderProgram which belongs to s, NULL if no renderProgram is found or
+ *         the last renderProgram is not among the programs of ic.
  */
 AVProgram *av_find_program_from_stream(AVFormatContext *ic, AVProgram *last, int s);
 
@@ -2059,7 +2059,7 @@ void av_program_add_stream_index(AVFormatContext *ac, int progid, unsigned int i
  * @param wanted_stream_nb  user-requested stream number,
  *                          or -1 for automatic selection
  * @param related_stream    try to find a stream related (eg. in the same
- *                          program) to this one, or -1 if none
+ *                          renderProgram) to this one, or -1 if none
  * @param decoder_ret       if non-NULL, returns the decoder for the
  *                          selected stream
  * @param flags             flags; none are currently defined

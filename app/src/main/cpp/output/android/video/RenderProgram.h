@@ -2,24 +2,24 @@
 // Created by 祖国瑞 on 2022/12/6.
 //
 
-#ifndef ANDROID_VIDEOPLAYER_SHADER_H
-#define ANDROID_VIDEOPLAYER_SHADER_H
+#ifndef ANDROID_VIDEOPLAYER_RENDERPROGRAM_H
+#define ANDROID_VIDEOPLAYER_RENDERPROGRAM_H
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <string>
 
-#include "GLES3/gl3.h"
-#include "GLES3/gl3platform.h"
+#include <GLES3/gl31.h>
+#include <GLES3/gl3platform.h>
 
-class Shader {
+class RenderProgram {
 public:
-    Shader();
-    Shader(const char *vertexShaderCode, const char *fragmentShaderCode);
-    ~Shader();
+    RenderProgram();
+    RenderProgram(const char *vertexShaderCode, const char *fragmentShaderCode);
+    ~RenderProgram();
 
-    bool compileShader(const char *vertexShaderCode, const char *fragmentShaderCode);
+    bool compile(const char *vertexShaderCode, const char *fragmentShaderCode);
 
     bool isReady();
 
@@ -47,4 +47,4 @@ private:
 };
 
 
-#endif //ANDROID_VIDEOPLAYER_SHADER_H
+#endif //ANDROID_VIDEOPLAYER_RENDERPROGRAM_H

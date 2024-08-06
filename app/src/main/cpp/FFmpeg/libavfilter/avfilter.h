@@ -1302,7 +1302,7 @@ int avfilter_graph_segment_create_filters(AVFilterGraphSegment *seg, int flags);
  *
  * If any options could not be found, this function will continue processing all
  * other filters and finally return AVERROR_OPTION_NOT_FOUND (unless another
- * error happens). The calling program may then deal with unapplied options as
+ * error happens). The calling renderProgram may then deal with unapplied options as
  * it wishes.
  *
  * Any creation-pending filters (see avfilter_graph_segment_create_filters())

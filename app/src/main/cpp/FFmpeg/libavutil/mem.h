@@ -39,7 +39,7 @@
  * Utilities for manipulating memory.
  *
  * FFmpeg has several applications of memory that are not required of a typical
- * program. For example, the computing-heavy components like video decoding and
+ * renderProgram. For example, the computing-heavy components like video decoding and
  * encoding can be sped up significantly through the use of aligned memory.
  *
  * However, for each of FFmpeg's applications of memory, there might not be a

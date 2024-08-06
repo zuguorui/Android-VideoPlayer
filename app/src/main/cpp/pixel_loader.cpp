@@ -400,7 +400,7 @@ bool read_yuv_planner(AVFrame *frame, AVPixelFormat format, int64_t width, int64
     // GL textures will convert uint16 to float by
     // deviding UINT16_MAX. pixels is always not full
     // 16bit depth, which will make values very small in
-    // GL shader. To avoid this, convert pixel max to
+    // GL renderProgram. To avoid this, convert pixel max to
     // UINT16_MAX.
 
     int shiftBits = compUseBits - compValidBits;

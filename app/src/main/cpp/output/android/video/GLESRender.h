@@ -12,11 +12,14 @@
 #include "android/native_window.h"
 #include "GLES3/gl31.h"
 #include "GLES3/gl3platform.h"
-#include "Shader.h"
+#include "RenderProgram.h"
 #include "EGLWindow.h"
 #include "ShaderScripts.h"
 #include "pixel_loader.h"
 #include "SizeMode.h"
+#include "render_logic/YUV420P_RenderLogic.h"
+#include "render_logic/NV21_RenderLogic.h"
+#include "render_logic/NV12_RenderLogic.h"
 
 
 #include "VideoFrame.h"
@@ -48,12 +51,8 @@ public:
 
 private:
     AVPixelFormat format = AVPixelFormat::AV_PIX_FMT_NONE;
-    PixelType pixelType = PixelType::None;
-    int yuvCompDepth = 0;
     PixelLayout pixelLayout = PixelLayout::None;
-    bool glSupportFormat = false;
-    AVColorSpace colorSpace = AVColorSpace::AVCOL_SPC_NB;
-    bool isHDR = false;
+    PixelType pixelType = PixelType::None;
 
     int screenWidth = 0;
     int screenHeight = 0;
@@ -63,60 +62,11 @@ private:
     int frameWidth = 0;
     int frameHeight = 0;
 
-    float vertices[20];
-
-    GLuint glInternalFormat = GL_RGB;
-    GLuint glDataType = GL_UNSIGNED_BYTE;
-    GLuint glDataFormat = GL_RGB;
+    int orientation = 0;
 
     EGLWindow eglWindow;
-    Shader shader;
 
-    uint8_t *pix_y = nullptr;
-    int64_t pix_y_size = -1;
-    uint8_t *pix_u = nullptr;
-    int64_t pix_u_size = -1;
-    uint8_t *pix_v = nullptr;
-    int64_t pix_v_size = -1;
-
-
-    GLuint tex_y = 0;
-    GLuint tex_u = 0;
-    GLuint tex_v = 0;
-
-    GLuint tex_rgb = 0;
-
-    GLuint VAO = 0;
-    GLuint VBO = 0;
-    GLuint EBO = 0;
-
-    void updateVertices();
-
-    void createYUVPixelBuffer(int64_t yBufSize, int64_t uBufSize, int64_t vBufSize);
-
-    void deleteYUVPixelBuffer();
-
-
-    void createYUVTex(VideoFrame *frame);
-
-    void deleteYUVTex();
-
-    void createRGBTex(VideoFrame *frame);
-
-    void deleteRGBTex();
-
-    void prepareVertices();
-
-    void deleteVertices();
-
-    class RenderConfig {
-    public:
-        int pixelFormat = AV_PIX_FMT_NONE;
-        int width = 0;
-        int height = 0;
-        
-        void render();
-    };
+    IRenderLogic *renderLogic = nullptr;
 
 };
 
