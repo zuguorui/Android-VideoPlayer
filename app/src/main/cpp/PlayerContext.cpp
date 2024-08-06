@@ -84,3 +84,23 @@ void PlayerContext::recyclePacketWrapper(PacketWrapper *packetWrapper) {
     packetWrapper->reset();
     recycledPacketWrapperQueue.pushBack(packetWrapper);
 }
+
+
+void PlayerContext::post(Runnable &&runnable) {
+    handlerThread.post(std::forward<Runnable>(runnable));
+}
+
+template<class Rep, class Period>
+void PlayerContext::postDelayed(Runnable &&runnable, std::chrono::duration<Rep, Period> &&delay) {
+    handlerThread.postDelayed(std::forward<Runnable>(runnable), delay);
+}
+
+template<class Clock, class Duration>
+void
+PlayerContext::postAtTime(Runnable &&runnable, std::chrono::time_point<Clock, Duration> &&timePoint) {
+    handlerThread.postAtTime(std::forward<Runnable>(runnable), timePoint);
+}
+
+void PlayerContext::removeAll(Runnable &&runnable) {
+    handlerThread.removeAll(std::forward<Runnable>(runnable));
+}

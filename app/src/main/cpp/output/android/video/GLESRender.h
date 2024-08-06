@@ -109,9 +109,18 @@ private:
 
     void deleteVertices();
 
-
+    class RenderConfig {
+    public:
+        int pixelFormat = AV_PIX_FMT_NONE;
+        int width = 0;
+        int height = 0;
+        
+        void render();
+    };
 
 };
+
+
 
 
 #endif //ANDROID_VIDEOPLAYER_GLESRENDER_H

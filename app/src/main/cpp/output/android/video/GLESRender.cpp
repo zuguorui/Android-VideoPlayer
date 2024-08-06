@@ -4,7 +4,7 @@
 
 #include "GLESRender.h"
 #include "Log.h"
-#include "Util.h"
+#include "utils.h"
 
 #define TAG "GLESRender"
 
@@ -495,7 +495,9 @@ void GLESRender::updateVertices() {
             prepareVertices();
         }
     }
+}
 
+void GLESRender::RenderConfig::render() {
 
 }
 

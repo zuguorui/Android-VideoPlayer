@@ -3,7 +3,7 @@
 //
 
 #include "Player.h"
-#include "Util.h"
+#include "utils.h"
 #include "Log.h"
 #include <list>
 #include "PacketWrapper.h"
@@ -972,12 +972,14 @@ void Player::syncLoop() {
     }
     if (enableAudio && enableVideo) {
         if (audioEOSFlag && videoEOSFlag) {
+            playerContext.post(bind(&Player::pause, this));
             notifyPlayState(PLAY_STATE_COMPLETE);
         } else {
             notifyPlayState(PLAY_STATE_PAUSE);
         }
     } else {
         if (audioEOSFlag || videoEOSFlag) {
+            playerContext.post(bind(&Player::pause, this));
             notifyPlayState(PLAY_STATE_COMPLETE);
         } else {
             notifyPlayState(PLAY_STATE_PAUSE);
@@ -1126,6 +1128,7 @@ void Player::stopSyncThread() {
 }
 
 bool Player::play() {
+    LOGD(TAG, "play");
     startReadStreamThread();
     startDecodeAudioThread();
     startDecodeVideoThread();
@@ -1134,6 +1137,7 @@ bool Player::play() {
 }
 
 void Player::pause() {
+    LOGD(TAG, "pause");
     stopReadStreamThread();
     stopDecodeAudioThread();
     stopDecodeVideoThread();

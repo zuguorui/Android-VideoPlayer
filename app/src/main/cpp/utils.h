@@ -2,8 +2,8 @@
 // Created by 祖国瑞 on 2022/9/22.
 //
 
-#ifndef ANDROID_VIDEOPLAYER_UTIL_H
-#define ANDROID_VIDEOPLAYER_UTIL_H
+#ifndef ANDROID_VIDEOPLAYER_UTILS_H
+#define ANDROID_VIDEOPLAYER_UTILS_H
 
 #include <chrono>
 
@@ -24,4 +24,10 @@ static int64_t getSystemClockCurrentMilliseconds() {
     return std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
 }
 
-#endif //ANDROID_VIDEOPLAYER_UTIL_H
+static int64_t getSystemClockCurrentMicroseconds() {
+    return std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
+}
+
+
+
+#endif //ANDROID_VIDEOPLAYER_UTILS_H
