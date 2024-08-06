@@ -45,7 +45,6 @@ public:
             }
         }
 
-
     }
 
     virtual void setFrameSize(int width, int height) {

@@ -59,6 +59,7 @@ void NV21_RenderLogic::render(VideoFrame *frame) {
     glBindTexture(GL_TEXTURE_2D, yTex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, frameWidth, frameHeight, GL_RED, GL_UNSIGNED_BYTE,
                     nullptr);
+    glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -67,6 +68,7 @@ void NV21_RenderLogic::render(VideoFrame *frame) {
     glBindTexture(GL_TEXTURE_2D, uvTex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, frameWidth / 2, frameHeight / 2, GL_RG, GL_UNSIGNED_BYTE,
                     nullptr);
+    glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 

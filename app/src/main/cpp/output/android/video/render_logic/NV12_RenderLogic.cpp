@@ -40,18 +40,19 @@ void NV12_RenderLogic::render(VideoFrame *frame) {
     int64_t yCount = pixelCount;
     int64_t uvCount = pixelCount / 2;
 
+
     // 将数据拷贝到PBO里
     // y
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, yBuffer);
-    void *ref = glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, pixelCount, GL_MAP_WRITE_BIT);
-    memcpy(ref, frame->avFrame->data[0], pixelCount);
+    uint8_t *ref = (uint8_t *)glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, yCount, GL_MAP_WRITE_BIT);
+    memcpy(ref, frame->avFrame->data[0], yCount);
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
     // uv
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uvBuffer);
-    ref = glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, pixelCount / 2, GL_MAP_WRITE_BIT);
-    memcpy(ref, frame->avFrame->data[1], pixelCount / 2);
+    ref = (uint8_t *)glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, uvCount, GL_MAP_WRITE_BIT);
+    memcpy(ref, frame->avFrame->data[1], uvCount);
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -61,6 +62,7 @@ void NV12_RenderLogic::render(VideoFrame *frame) {
     glBindTexture(GL_TEXTURE_2D, yTex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, frameWidth, frameHeight, GL_RED, GL_UNSIGNED_BYTE,
                     nullptr);
+    glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
@@ -69,6 +71,7 @@ void NV12_RenderLogic::render(VideoFrame *frame) {
     glBindTexture(GL_TEXTURE_2D, uvTex);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, frameWidth / 2, frameHeight / 2, GL_RG, GL_UNSIGNED_BYTE,
                     nullptr);
+    glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
