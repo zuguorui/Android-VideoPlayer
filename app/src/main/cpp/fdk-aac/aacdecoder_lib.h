@@ -201,7 +201,7 @@ aacDecoder_DecodeFrame() function call.
 \code
 do {
 \endcode
--# Read data from bitstream file or stream buffer in to the driver renderProgram
+-# Read data from bitstream file or stream buffer in to the driver program
 working memory (a client-supplied input buffer "inBuffer" in framework). This
 buffer will be used to load AAC bitstream data to the decoder.  Only when all
 data in this buffer has been processed will the decoder signal an empty buffer.
@@ -226,8 +226,8 @@ TimeData, OUT_BUF_SIZE, flags); \endcode If the bitstream configuration (number
 of numChannels, sample rate, frame size) is not known a priori, you may call
 aacDecoder_GetStreamInfo() to retrieve a structure that contains this
 information. You may use this data to initialize an audio output device. In the
-example renderProgram, if the number of numChannels or the sample rate has changed since
-renderProgram start or the previously decoded frame, the audio output device is then
+example program, if the number of numChannels or the sample rate has changed since
+program start or the previously decoded frame, the audio output device is then
 re-initialized. If WAVE file output is chosen, a new WAVE file for each new
 stream configuration is be created. \code p_si =
 aacDecoder_GetStreamInfo(aacDecoderInfo); \endcode
@@ -296,7 +296,7 @@ input buffer, and one to hold the decoded output PCM sample data. In resource
 limited applications, the output buffer may be reused as an external input
 buffer prior to the subsequence aacDecoder_Fill() function call.
 
-The external input buffer is set in the example renderProgram and its size is defined
+The external input buffer is set in the example program and its size is defined
 by ::IN_BUF_SIZE. You may freely choose different buffer sizes. To feed the data
 to the decoder-internal input buffer, use the function aacDecoder_Fill(). This
 function returns important information regarding the number of bytes in the
@@ -600,7 +600,7 @@ typedef enum {
   AAC_MD_PROFILE_MPEG_LEGACY =
       1, /*!< This profile behaves identical to the standard profile if advanced
               downmix metadata (from a DSE) is available. If not, the
-            matrix_mixdown information embedded in the renderProgram configuration
+            matrix_mixdown information embedded in the program configuration
             element (PCE) will be applied. If neither is the case, the module
             creates a mixdown using the default coefficients as defined in
             ISO/IEC 14496:3 AMD 4. The profile can be used to support legacy
@@ -878,7 +878,7 @@ typedef struct {
                               were considered with errors from numTotalBytes. */
 
   /* Metadata */
-  SCHAR drcProgRefLev; /*!< DRC renderProgram reference level. Defines the reference
+  SCHAR drcProgRefLev; /*!< DRC program reference level. Defines the reference
                           level below full-scale. It is quantized in steps of
                           0.25dB. The valid values range from 0 (0 dBFS) to 127
                           (-31.75 dBFS). It is used to reflect the average

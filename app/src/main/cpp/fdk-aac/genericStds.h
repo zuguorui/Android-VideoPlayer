@@ -363,7 +363,7 @@ typedef enum {
   66 /*!< An input file (not a system file) did not exist or was not readable. \
       */
 #define FDK_EXITCODE_UNAVAILABLE                                              \
-  69 /*!< A service is unavailable. This can occur if a support renderProgram or    \
+  69 /*!< A service is unavailable. This can occur if a support program or    \
         file does not exist. This can also be used as a catchall message when \
         something you wanted to do doesn't work, but you don't know why. */
 #define FDK_EXITCODE_SOFTWARE                                                  \
