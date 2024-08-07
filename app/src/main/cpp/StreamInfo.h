@@ -29,6 +29,7 @@ struct StreamInfo {
     int32_t height = -1;
     float fps = -1;
     AVPixelFormat pixelFormat = AVPixelFormat::AV_PIX_FMT_NONE;
+    int rotate = 0;
 
 };
 

@@ -126,6 +126,7 @@ void GLESRender::refresh(VideoFrame *videoFrame) {
     eglWindow.makeCurrent();
 
     renderLogic->setFrameSize(videoFrame->width, videoFrame->height);
+    renderLogic->setRotation(videoFrame->rotation);
     renderLogic->render(videoFrame);
 
     eglWindow.swapBuffer();

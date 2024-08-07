@@ -12,7 +12,7 @@
 extern "C" {
 #include "FFmpeg/libavcodec/avcodec.h"
 #include "FFmpeg/libavutil/hwcontext.h"
-
+#include "FFmpeg/libavutil/display.h"
 }
 
 #define TAG "Player"
@@ -176,7 +176,20 @@ bool Player::openFile(string pathStr) {
             trackInfo.height = stream->codecpar->height;
             trackInfo.fps = (float) av_q2d(stream->avg_frame_rate);
             trackInfo.pixelFormat = static_cast<AVPixelFormat>(stream->codecpar->format);
+
+            if (stream->nb_side_data > 0) {
+                for (int i = 0; i < stream->nb_side_data; i++) {
+                    AVPacketSideData &sd = stream->side_data[i];
+                    if (sd.type == AV_PKT_DATA_DISPLAYMATRIX) {
+                        int rotate = round(av_display_rotation_get((const int32_t *)sd.data));
+                        LOGD(TAG, "videoStream %d rotate = %d", i, rotate);
+                        trackInfo.rotate = rotate;
+                    }
+                }
+            }
+
             videoStreamMap[i] = trackInfo;
+
             LOGD(TAG, "videoStream %d: pixelFormat = %d, width = %d, height = %d, fps = %f", i, stream->codecpar->format, trackInfo.width, trackInfo.height, trackInfo.fps);
         }
     }
@@ -298,26 +311,6 @@ void Player::readStreamLoop() {
             avformat_seek_file(formatCtx, -1, INT64_MIN, pts, INT64_MAX, AVSEEK_FLAG_BACKWARD);
             LOGD(TAG, "readStreamLoop: seek cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
 
-//            if (enableVideo && enableAudio) {
-//                int64_t pts = (int64_t) (seekPtsMS / 1000.0f * AV_TIME_BASE);
-//                int64_t startTime = getSystemClockCurrentMilliseconds();
-//                av_seek_frame(formatCtx, -1, pts, AVSEEK_FLAG_BACKWARD);
-//                LOGD(TAG, "readStreamLoop: seek cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
-//            } else if (enableVideo) {
-//                int64_t pts = (int64_t)(seekPtsMS / 1000 / av_q2d(formatCtx->streams[videoStreamIndex]->time_base));
-//                int64_t startTime = getSystemClockCurrentMilliseconds();
-//                av_seek_frame(formatCtx, videoStreamIndex, pts, AVSEEK_FLAG_BACKWARD);
-//                LOGD(TAG, "readStreamLoop: seek cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
-//            } else {
-//                double timeBase = av_q2d(formatCtx->streams[audioStreamIndex]->time_base);
-//                int64_t pts = (int64_t)(seekPtsMS / 1000 / timeBase);
-//                int64_t offset = 10 * timeBase;
-//                int64_t startTime = getSystemClockCurrentMilliseconds();
-//                //av_seek_frame(formatCtx, audioStreamIndex, pts, AVSEEK_FLAG_BACKWARD);
-//                avformat_seek_file(formatCtx, audioStreamIndex, INT64_MIN, pts, INT64_MAX, AVSEEK_FLAG_BACKWARD);
-//                LOGD(TAG, "readStreamLoop: seek cost %ld ms", getSystemClockCurrentMilliseconds() - startTime);
-//            }
-
 
             // put a empty packet width flag STREAM_FLAG_SEEK
             if (enableAudio) {
@@ -339,30 +332,30 @@ void Player::readStreamLoop() {
 
         ret = av_read_frame(formatCtx, packet);
 
+        if (packet->side_data_elems > 0) {
+            for (int i = 0; i < packet->side_data_elems; i++) {
+                AVPacketSideData sd = packet->side_data[i];
+                if (sd.type == AV_PKT_DATA_DISPLAYMATRIX) {
+                    double rotation = av_display_rotation_get((int32_t *)sd.data);
+                    LOGD(TAG, "packet rotation = %lf", rotation);
+                }
+            }
+        }
+
         if (ret == 0) {
             if (packet->stream_index == audioStreamIndex && enableAudio) {
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->setParams(packet);
                 audioPacketQueue.pushBack(pw);
-//                if (enableVideo && videoPacketQueue.getSize() == 0) {
-//                    audioPacketQueue.forcePushBack(pw);
-//                } else {
-//                    if (!audioPacketQueue.pushBack(pw)) {
-//                        audioPacketQueue.forcePushBack(pw);
-//                    }
-//                }
+
 
             } else if (packet->stream_index == videoStreamIndex && enableVideo) {
+
                 PacketWrapper *pw = playerContext.getEmptyPacketWrapper();
                 pw->setParams(packet);
+                pw->rotate = videoStreamMap[videoStreamIndex].rotate;
                 videoPacketQueue.pushBack(pw);
-//                if (enableAudio && audioPacketQueue.getSize() == 0) {
-//                    videoPacketQueue.forcePushBack(pw);
-//                } else {
-//                    if (!videoPacketQueue.pushBack(pw)) {
-//                        videoPacketQueue.forcePushBack(pw);
-//                    }
-//                }
+
             } else {
                 av_packet_unref(packet);
                 av_packet_free(&packet);
@@ -589,6 +582,7 @@ void Player::decodeVideoLoop() {
             videoFrame = playerContext.getEmptyVideoFrame();
             videoFrame->setParams(frame, AVPixelFormat(frame->format),
                                   formatCtx->streams[videoStreamIndex]->time_base);
+            videoFrame->rotation = pw->rotate;
 
 #ifdef ENABLE_PERFORMANCE_MONITOR
             int64_t now = getSystemClockCurrentMilliseconds();

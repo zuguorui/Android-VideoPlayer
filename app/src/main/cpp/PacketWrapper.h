@@ -16,6 +16,7 @@ extern "C" {
 struct PacketWrapper {
     AVPacket *avPacket = nullptr;
     int32_t flags = 0;
+    int rotate = 0;
 
     PacketWrapper() {
         flags = 0;

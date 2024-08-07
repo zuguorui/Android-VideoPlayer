@@ -29,7 +29,7 @@ public:
 
         if (this->screenWidth != screenWidth || this->screenHeight != screenHeight
             || this->frameWidth != frameWidth || this->frameHeight != frameHeight
-            || this->sizeMode != sizeMode || this->orientation != orientation) {
+            || this->sizeMode != sizeMode || this->rotation != orientation) {
 
             bool frameSizeSame = this->frameWidth == frameWidth && this->frameHeight == frameHeight;
 
@@ -37,7 +37,7 @@ public:
             this->screenHeight = screenHeight;
             this->frameWidth = frameWidth;
             this->frameHeight = frameHeight;
-            this->orientation = orientation;
+            this->rotation = orientation;
             this->sizeMode = sizeMode;
             updateVertex();
             if (!frameSizeSame) {
@@ -71,9 +71,9 @@ public:
         }
     }
 
-    virtual void setOrientation(int degree) {
-        if (orientation != degree) {
-            orientation = degree;
+    virtual void setRotation(int degree) {
+        if (rotation != degree) {
+            rotation = degree;
             updateVertex();
         }
     };
@@ -84,8 +84,8 @@ public:
 
     }
 
-    int getOrientation() {
-        return orientation;
+    int getRotation() {
+        return rotation;
     }
 
     int getScreenWidth() {
@@ -109,14 +109,14 @@ protected:
     int screenHeight = 1080;
     int screenWidth = 1920;
     SizeMode sizeMode = SizeMode::FIT;
-    int orientation = 0;
+    int rotation = 0;
 
     GLuint VAO = 0, VBO = 0, EBO = 0;
 
     virtual void updateVertex() {
         deleteVertex();
         float vertexData[20];
-        compute_vertex(screenWidth, screenHeight, frameWidth, frameHeight, orientation, sizeMode, vertexData);
+        compute_vertex(screenWidth, screenHeight, frameWidth, frameHeight, rotation, sizeMode, vertexData);
         create_vertex_objects(VAO, VBO, EBO, vertexData, EBO_indices);
     }
 

@@ -6,12 +6,32 @@
 #define ANDROID_VIDEOPLAYER_UTILS_H
 
 #include <chrono>
+#include <stdlib.h>
+#include <vector>
 
 extern "C" {
 #include "FFmpeg/libavutil/frame.h"
 #include "FFmpeg/libavcodec/packet.h"
 }
 
+/**
+ * 循环移动数组里的元素。
+ * step：移动步长，正数向右移动，负数向左移动
+ * */
+template<typename T>
+void cycle_move(T *tList, int count, int step) {
+    step = (step % count + count) % count;
+
+    std::vector<T> temp(step);
+
+    std::copy(tList + count - step, tList + count, temp.begin());
+
+    for (int i = count - 1; i >= step; i--) {
+        std::swap(tList[i], tList[i - step]);
+    }
+
+    std::copy(temp.begin(), temp.end(), tList);
+}
 
 static int64_t getSystemClockCurrentMilliseconds() {
     return std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count();

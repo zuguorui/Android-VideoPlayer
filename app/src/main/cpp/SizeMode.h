@@ -7,7 +7,7 @@
 
 enum SizeMode {
     FIT,
-    FULL,
+    SCALE_FULL,
 };
 
 #endif //ANDROID_VIDEOPLAYER_SIZEMODE_H

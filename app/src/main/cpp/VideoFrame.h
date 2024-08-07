@@ -13,6 +13,7 @@
 extern "C" {
 #include "FFmpeg/libavformat/avformat.h"
 #include "FFmpeg/libavutil/avutil.h"
+#include "FFmpeg/libavutil/display.h"
 }
 
 
@@ -27,6 +28,8 @@ struct VideoFrame {
     int64_t durationMS = -1;
     AVRational timeBase;
     int32_t flags = 0;
+    // 视频方向相对于它应该显示的方向旋转了多少度。校正的话，取该值的负值
+    int rotation = 0;
 
     VideoFrame() {
 
@@ -48,6 +51,7 @@ struct VideoFrame {
         this->durationMS = src.durationMS;
         this->timeBase = src.timeBase;
         this->flags = src.flags;
+        this->rotation = src.rotation;
     }
 
     ~VideoFrame() {
@@ -78,6 +82,7 @@ struct VideoFrame {
         pts = -1;
         durationMS = -1;
         flags = 0;
+        rotation = 0;
     }
 
 private:
@@ -89,6 +94,20 @@ private:
         height = avFrame->height;
         pts = avFrame->pts * av_q2d(timeBase) * 1000;
         durationMS = avFrame->pkt_duration * av_q2d(timeBase) * 1000;
+        if (avFrame->nb_side_data > 0) {
+            for (int i = 0; i < avFrame->nb_side_data; i++) {
+                AVFrameSideData *sideData = avFrame->side_data[i];
+                if (sideData->type == AV_FRAME_DATA_DISPLAYMATRIX) {
+                    rotation = round(av_display_rotation_get((int32_t *)(sideData->data)));
+                    // 取整，只支持90的倍数。
+                    rotation = rotation / 90 * 90;
+                }
+            }
+        }
+        //LOGD(TAG, "rotation = %d", rotation);
+        if (avFrame->nb_side_data > 0) {
+            LOGD(TAG, "frame side_data > 0");
+        }
     }
 
 };
