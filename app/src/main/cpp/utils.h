@@ -12,6 +12,7 @@
 extern "C" {
 #include "FFmpeg/libavutil/frame.h"
 #include "FFmpeg/libavcodec/packet.h"
+#include "FFmpeg/libavcodec/avcodec.h"
 }
 
 /**
@@ -132,6 +133,44 @@ static const char* av_get_pix_fmt_name(AVPixelFormat format) {
         default:
             return "unknown" + format;
     }
+}
+
+#define STR_EQUAL(A, B) ( strcmp(A, B) == 0 )
+
+/**
+ * 将android MediaFormat中的MIMETYPE_*映射为FFmpeg的codecID。
+ * */
+static AVCodecID get_codec_id_by_mimetype(const char* mimeType) {
+    if (STR_EQUAL(mimeType, "video/x-vnd.on2.vp8")) {
+        return AVCodecID::AV_CODEC_ID_VP8;
+    } else if (STR_EQUAL(mimeType, "video/x-vnd.on2.vp9")) {
+        return AVCodecID::AV_CODEC_ID_VP9;
+    } else if (STR_EQUAL(mimeType, "video/av01")) {
+        return AVCodecID::AV_CODEC_ID_AV1;
+    } else if (STR_EQUAL(mimeType, "video/avc")) {
+        return AVCodecID::AV_CODEC_ID_H264;
+    } else if (STR_EQUAL(mimeType, "video/hevc")) {
+        return AVCodecID::AV_CODEC_ID_HEVC;
+    } else if (STR_EQUAL(mimeType, "video/mp4v-es")) {
+        return AVCodecID::AV_CODEC_ID_MPEG4;
+    } else if (STR_EQUAL(mimeType, "video/3gpp")) {
+        return AVCodecID::AV_CODEC_ID_H263;
+    } else if (STR_EQUAL(mimeType, "video/mpeg2")) {
+        return AVCodecID::AV_CODEC_ID_MPEG2VIDEO;
+    } else if (STR_EQUAL(mimeType, "audio/3gpp")) {
+        return AVCodecID::AV_CODEC_ID_AMR_NB;
+    } else if (STR_EQUAL(mimeType, "audio/amr-wb")) {
+        return AVCodecID::AV_CODEC_ID_AMR_WB;
+    } else if (STR_EQUAL(mimeType, "audio/mp4a-latm")) {
+        return AVCodecID::AV_CODEC_ID_AAC;
+    } else if (STR_EQUAL(mimeType, "audio/flac")) {
+        return AVCodecID::AV_CODEC_ID_FLAC;
+    } else if (STR_EQUAL(mimeType, "audio/ac3")) {
+        return AVCodecID::AV_CODEC_ID_AC3;
+    } else {
+        return AVCodecID::AV_CODEC_ID_NONE;
+    }
+
 }
 
 #endif //ANDROID_VIDEOPLAYER_UTILS_H

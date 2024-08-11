@@ -14,13 +14,13 @@ extern "C" {
 
 #define HW_DEC_COUNT 7
 
-#define HW_DEC_H264 "h264_mediacodec"
-#define HW_DEC_HEVC "hevc_mediacodec"
-#define HW_DEC_VP8 "vp8_mediacodec"
-#define HW_DEC_VP9 "vp9_mediacodec"
-#define HW_DEC_AV1 "av1_mediacodec"
-#define HW_DEC_MPEG2 "mpeg2_mediacodec"
-#define HW_DEC_MPEG4 "mpeg4_mediacodec"
+#define HW_CODEC_H264 "h264_mediacodec"
+#define HW_CODEC_HEVC "hevc_mediacodec"
+#define HW_CODEC_VP8 "vp8_mediacodec"
+#define HW_CODEC_VP9 "vp9_mediacodec"
+#define HW_CODEC_AV1 "av1_mediacodec"
+#define HW_CODEC_MPEG2 "mpeg2_mediacodec"
+#define HW_CODEC_MPEG4 "mpeg4_mediacodec"
 
 const static AVCodecID HW_DECODERS[HW_DEC_COUNT] = {
         AVCodecID::AV_CODEC_ID_H264,
@@ -32,14 +32,14 @@ const static AVCodecID HW_DECODERS[HW_DEC_COUNT] = {
         AVCodecID::AV_CODEC_ID_MPEG4
 };
 
-const static const char* HW_DECODER_NAMES[HW_DEC_COUNT] = {
-        HW_DEC_H264,
-        HW_DEC_HEVC,
-        HW_DEC_VP8,
-        HW_DEC_VP9,
-        HW_DEC_AV1,
-        HW_DEC_MPEG2,
-        HW_DEC_MPEG4
+static const char* HW_CODEC_NAMES[HW_DEC_COUNT] = {
+        HW_CODEC_H264,
+        HW_CODEC_HEVC,
+        HW_CODEC_VP8,
+        HW_CODEC_VP9,
+        HW_CODEC_AV1,
+        HW_CODEC_MPEG2,
+        HW_CODEC_MPEG4
 };
 
 #elif defined(OS_IOS)
@@ -50,7 +50,7 @@ const static const char* HW_DECODER_NAMES[HW_DEC_COUNT] = {
 
 #endif
 
-static bool supportHWDec(AVCodecID codecId) {
+static bool supportHWCodec(AVCodecID codecId) {
     for (AVCodecID id : HW_DECODERS) {
         if (id == codecId) {
             return true;
@@ -59,10 +59,10 @@ static bool supportHWDec(AVCodecID codecId) {
     return false;
 }
 
-static const char* getHWDecName(AVCodecID codecId) {
+static const char* getHWCodecName(AVCodecID codecId) {
     for (int i = 0; i < HW_DEC_COUNT; i++) {
         if (HW_DECODERS[i] == codecId) {
-            return HW_DECODER_NAMES[i];
+            return HW_CODEC_NAMES[i];
         }
     }
     return nullptr;

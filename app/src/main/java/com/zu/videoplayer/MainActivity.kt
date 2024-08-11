@@ -9,13 +9,14 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.permissionx.guolindev.PermissionX
 import com.zu.videoplayer.adapter.VideoFileAdapter
 import com.zu.videoplayer.bean.VideoBean
+import com.zu.videoplayer.databinding.ActivityMainBinding
 import com.zu.videoplayer.util.loadVideoFiles
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
-import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,44 +24,46 @@ class MainActivity : AppCompatActivity() {
         private val TAG = "MainActivity"
     }
 
-    private var videoList: ArrayList<VideoBean>? = null
-        set(value){
-            field = value
-            adapter.data = value
-        }
 
-    private var adapter = VideoFileAdapter()
-
+    private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        rv_files.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
-        rv_files.adapter = adapter
-        adapter.itemClickListener = {
-            val path = videoList!![it].path
-            var intent = Intent(this, PlayActivity::class.java)
-            intent.putExtra("path", path)
-            startActivity(intent)
-        }
-        if (checkPermission()) {
-            Observable.fromCallable {
-                loadVideoFiles(this)
-            }.subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe {
-                    videoList = it
-                }
-        }
+//        PermissionX.init(this)
+//            .permissions(
+//                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+//                Manifest.permission.READ_EXTERNAL_STORAGE,
+//                Manifest.permission.INTERNET)
+//            .request(null)
+
+        checkPermission()
+
+        initViews()
     }
 
+    private fun initViews() {
+        binding.btnPlayLocal.setOnClickListener {
+            val intent = Intent(this, FileListActivity::class.java)
+            startActivity(intent)
+        }
+
+        binding.btnFfmpegMux.setOnClickListener {
+            val intent = Intent(this, FFmpegMuxActivity::class.java)
+            startActivity(intent)
+        }
+    }
 
     fun listPermissions(): ArrayList<String>
     {
         var result = ArrayList<String>()
         result.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         result.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        result.add(Manifest.permission.INTERNET)
+        result.add(Manifest.permission.CAMERA)
+        result.add(Manifest.permission.RECORD_AUDIO)
         return result
     }
 
@@ -95,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when(requestCode){
             33 -> {
                 for(i in grantResults.indices)
@@ -106,15 +110,16 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "permission ${permissions[i]} granted")
                     }
                 }
-                Observable.fromCallable {
-                    loadVideoFiles(this)
-                }.subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe {
-                        videoList = it
-                    }
+//                Observable.fromCallable {
+//                    loadVideoFiles(this)
+//                }.subscribeOn(Schedulers.io())
+//                    .observeOn(AndroidSchedulers.mainThread())
+//                    .subscribe {
+//                        videoList = it
+//                    }
             }
         }
     }
+
 
 }

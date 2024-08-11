@@ -6,9 +6,12 @@ import android.os.Handler
 import android.os.Message
 import android.view.*
 import android.widget.SeekBar
-import kotlinx.android.synthetic.main.activity_play.*
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import com.zu.videoplayer.databinding.ActivityPlayBinding
 import timber.log.Timber
-import java.util.concurrent.atomic.AtomicBoolean
 
 fun formatDuration(duration: Long): String {
     val totalSeconds: Int = (duration / 1000).toInt()
@@ -30,23 +33,26 @@ fun formatDuration(duration: Long): String {
 class PlayActivity : AppCompatActivity() {
 
     private lateinit var surfaceView: SurfaceView
+
+    private lateinit var binding: ActivityPlayBinding
+
     private var surfaceViewCallback: SurfaceHolder.Callback = object : SurfaceHolder.Callback {
-        override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
+        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             nSetSize(width, height)
 
         }
 
-        override fun surfaceDestroyed(holder: SurfaceHolder?) {
+        override fun surfaceDestroyed(holder: SurfaceHolder) {
 //            nReleaseSurface()
         }
 
-        override fun surfaceCreated(holder: SurfaceHolder?) {
+        override fun surfaceCreated(holder: SurfaceHolder) {
             nSetSurface(holder!!.surface)
             nOpenFile(filePath!!)
             runOnUiThread {
                 var duration = nGetDuration()
-                seek_pos.max = (duration / 1000).toInt()
-                tv_duration.text = formatDuration(duration)
+                binding.seekPos.max = (duration / 1000).toInt()
+                binding.tvDuration.text = formatDuration(duration)
             }
         }
     }
@@ -59,27 +65,27 @@ class PlayActivity : AppCompatActivity() {
                 }
                 val ms: Long = it.obj as Long
                 val s: Int = (ms / 1000).toInt()
-                seek_pos.progress = s
-                tv_pos.text = formatDuration(ms)
+                binding.seekPos.progress = s
+                binding.tvPos.text = formatDuration(ms)
             }
 
             PLAY_STATE_UPDATE -> {
                 when (it.arg1) {
                     PLAY_STATE_START -> {
                         Timber.d("PLAY_STATE_START")
-                        btn_play.text = "暂停"
+                        binding.btnPlay.text = "暂停"
                         isPlaying = true
                     }
 
                     PLAY_STATE_PAUSE -> {
                         Timber.d("PLAY_STATE_PAUSE")
-                        btn_play.text = "播放"
+                        binding.btnPlay.text = "播放"
                         isPlaying = false
                     }
 
                     PLAY_STATE_COMPLETE -> {
                         Timber.d("PLAY_STATE_COMPLETE")
-                        btn_play.text = "播放"
+                        binding.btnPlay.text = "播放"
                         isPlaying = false
                         nSeek(0)
                     }
@@ -123,18 +129,32 @@ class PlayActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        enableEdgeToEdge()
+        binding = ActivityPlayBinding.inflate(layoutInflater)
 
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN
-        )
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        setContentView(R.layout.activity_play)
+        setContentView(binding.root)
+
+        window.navigationBarColor = 0x60000000.toInt()
+        window.statusBarColor = 0x60000000.toInt()
+
+
+        // 控制system bars隐藏及外观
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.navigationBars())
+            hide(WindowInsetsCompat.Type.statusBars())
+            // 控制状态栏色彩。light代表适配浅色界面，那么状态栏文本就是深色的
+            // isAppearanceLightStatusBars = false
+            // 控制system bars的行为。什么时候隐藏的bars会出现。这里是如果在bar区域滑动，则短暂出现，然后消失。
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
+
+
         filePath = intent.getStringExtra("path")
 
         nInit()
-        btn_play.text = "播放"
+        binding.btnPlay.text = "播放"
         addSurfaceView()
 
         initViews()
@@ -142,7 +162,7 @@ class PlayActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        btn_play.setOnClickListener {
+        binding.btnPlay.setOnClickListener {
             if (isPlaying) {
                 nStop()
             } else {
@@ -150,7 +170,7 @@ class PlayActivity : AppCompatActivity() {
             }
         }
 
-        seek_pos.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.seekPos.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
 
             }
@@ -194,7 +214,7 @@ class PlayActivity : AppCompatActivity() {
         layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
         layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
         surfaceView.layoutParams = layoutParams
-        root_layout.addView(surfaceView, 0)
+        binding.rootLayout.addView(surfaceView, 0)
     }
 
 

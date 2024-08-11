@@ -18,6 +18,7 @@ endif ()
 
 file(GLOB CPP_FILES
         "src/main/cpp/*.cpp",
+        "src/main/cpp/recorder/*.cpp",
         "src/main/cpp/output/android/video/*.cpp",
         "src/main/cpp/output/android/audio/*.cpp",
         "src/main/cpp/output/android/video/render_logic/*.cpp"
@@ -25,6 +26,7 @@ file(GLOB CPP_FILES
 
 include_directories("src/main/cpp/FFmpeg/")
 include_directories("src/main/cpp/")
+include_directories("src/main/cpp/recorder/")
 include_directories("src/main/cpp/iconv/")
 include_directories("src/main/cpp/output/")
 

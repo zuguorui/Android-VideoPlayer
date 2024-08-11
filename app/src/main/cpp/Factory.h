@@ -10,8 +10,8 @@
 #define ANDROID_VIDEOPLAYER_FACTORY_H
 
 #include "PlayerContext.h"
-#include "IDecoder.h"
-#include "FFmpegDecoder.h"
+#include "ICodec.h"
+#include "FFmpegCodec.h"
 #include "output/IAudioOutput.h"
 #include "output/IVideoOutput.h"
 

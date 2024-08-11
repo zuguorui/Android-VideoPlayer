@@ -2,6 +2,7 @@ package com.zu.videoplayer.util
 
 import android.content.Context
 import android.database.Cursor
+import android.os.Build
 import android.provider.MediaStore
 import android.util.SparseArray
 import androidx.core.database.getIntOrNull
@@ -13,45 +14,57 @@ import java.util.Deque
 fun loadVideoFiles(context: Context): ArrayList<VideoBean> {
     var result = ArrayList<VideoBean>()
     var contentResolver = context.contentResolver
-    var cursor: Cursor? = contentResolver.query(
-        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+    val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        MediaStore.Video.Media.getContentUri(
+            MediaStore.VOLUME_EXTERNAL_PRIMARY
+        )
+    } else {
+        MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+    }
+    var cursor: Cursor = contentResolver.query(
+        uri,
         null,
         null,
         null,
         MediaStore.Video.Media.DEFAULT_SORT_ORDER
-    )
-    if (cursor?.moveToFirst() ?: false) {
-        do {
-            var path =
-                cursor!!.getString(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.DATA))
-            var name =
-                cursor!!.getString(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME))
-            var videoBean = VideoBean(name, path).apply {
-                duration =
-                    cursor!!.getInt(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION))
-                size = cursor!!.getInt(cursor!!.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE))
-            }
-            result.add(videoBean)
-        } while (cursor!!.moveToNext())
+    ) ?: return result
+    while (cursor.moveToNext()) {
+        var path =
+            cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA))
+        var name =
+            cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME))
+        var videoBean = VideoBean(name, path).apply {
+            duration =
+                cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION))
+            size = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE))
+        }
+        result.add(videoBean)
     }
-    cursor?.close()
+    cursor.close()
 
-//    loadVideoFromMovieFolder()?.let {
-//        result.addAll(it)
-//    }
+
+    val movieList = loadVideoFromMovieFolder()
+
+    for (movie in movieList) {
+        if (!result.contains(movie)) {
+            result.add(movie)
+        }
+    }
+
     return result
 }
 
-fun loadVideoFromMovieFolder(): ArrayList<VideoBean>? {
+fun loadVideoFromMovieFolder(): ArrayList<VideoBean> {
+    var result = ArrayList<VideoBean>()
     var folder = File("/sdcard/Movies")
     if (!folder.exists()) {
         folder.mkdirs()
-        return null
+        return result
     }
     var files = folder.listFiles { file ->
         file.isFile
     }
-    var result = ArrayList<VideoBean>()
+
     for (file in files) {
         var name = file.name
         when {

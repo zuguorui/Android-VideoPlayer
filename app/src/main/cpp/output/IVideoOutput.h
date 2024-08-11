@@ -16,7 +16,8 @@ class IVideoOutput {
 public:
     IVideoOutput(PlayerContext *playerContext) {
         this->playerCtx = playerContext;
-    };
+    }
+    virtual ~IVideoOutput() {}
     virtual bool setFormat(AVPixelFormat pixelFormat, AVColorSpace colorSpace, bool isHDR) = 0;
     virtual bool create(void *surface) = 0;
     virtual void release() = 0;

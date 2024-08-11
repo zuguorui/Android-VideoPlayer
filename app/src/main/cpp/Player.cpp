@@ -244,7 +244,7 @@ bool Player::openFile(string pathStr) {
 /*
  * find a suitable stream and get a decoder for it
  * */
-void Player::findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder,
+void Player::findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, ICodec **decoder,
                                            int *streamIndex) {
     if (!formatCtx) {
         return;
@@ -1249,9 +1249,9 @@ void Player::releaseVideoOutput() {
     videoOutput = nullptr;
 }
 
-IDecoder *Player::findDecoder(AVCodecParameters *params) {
-    FFmpegDecoder *decoder = new FFmpegDecoder();
-    if (!decoder->init(params, PreferCodecType::NONE)) {
+ICodec *Player::findDecoder(AVCodecParameters *params) {
+    FFmpegCodec *decoder = new FFmpegCodec();
+    if (!decoder->init(params, PreferCodecType::NONE, false)) {
         delete decoder;
         decoder = nullptr;
     }

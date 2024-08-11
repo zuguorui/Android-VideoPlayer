@@ -18,6 +18,8 @@ public:
         this->playerCtx = playerContext;
     }
 
+    virtual ~IAudioOutput() {}
+
     virtual bool create(int sampleRate, int channels, AVSampleFormat sampleFormat) = 0;
 
     virtual void release() = 0;

@@ -11,9 +11,10 @@ extern "C" {
 }
 #include "Log.h"
 
-#define TAG "PacketWrapper"
 
 struct PacketWrapper {
+    const char* TAG = "PacketWrapper";
+
     AVPacket *avPacket = nullptr;
     int32_t flags = 0;
     int rotate = 0;

@@ -17,8 +17,8 @@
 #include "VideoFrame.h"
 #include "AudioFrame.h"
 #include "PlayerContext.h"
-#include "IDecoder.h"
-#include "FFmpegDecoder.h"
+#include "ICodec.h"
+#include "FFmpegCodec.h"
 #include "output/IVideoOutput.h"
 #include "output/IAudioOutput.h"
 #include "StreamInfo.h"
@@ -91,8 +91,8 @@ public:
 
 
 private:
-    IDecoder *videoDecoder = nullptr;
-    IDecoder *audioDecoder = nullptr;
+    ICodec *videoDecoder = nullptr;
+    ICodec *audioDecoder = nullptr;
 
     PlayerContext playerContext;
 
@@ -159,7 +159,7 @@ private:
     bool createVideoOutput();
     void releaseVideoOutput();
 
-    void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, IDecoder **decoder, int *streamIndex);
+    void findAvailableStreamAndDecoder(std::map<int, StreamInfo> &streams, ICodec **decoder, int *streamIndex);
 
     static void decodeAudioCallback(void *context);
     void decodeAudioLoop();
@@ -185,7 +185,7 @@ private:
     void startSyncThread();
     void stopSyncThread();
 
-    IDecoder *findDecoder(AVCodecParameters *params);
+    ICodec *findDecoder(AVCodecParameters *params);
 
     void notifyPlayState(int state);
     void notifyPlayProgress(int64_t ptsMS);
