@@ -46,14 +46,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun initViews() {
         binding.btnPlayLocal.setOnClickListener {
+            App.task = Task.PLAY_LOCAL_FILE
             val intent = Intent(this, FileListActivity::class.java)
             startActivity(intent)
         }
 
+        binding.btnPlayStream.setOnClickListener {
+            App.task = Task.PLAY_STREAM
+            val intent = Intent(this, SettingActivity::class.java)
+            intent.putExtra(SettingActivity.KEY_SETTING_FLAGS, SettingActivity.SETTING_FLAG_SET_PULL_STREAM_URL)
+            startActivity(intent)
+        }
+
         binding.btnFfmpegMux.setOnClickListener {
+            App.task = Task.NATIVE_ENCODE_FFMPEG_MUX
             val intent = Intent(this, FFmpegMuxActivity::class.java)
             startActivity(intent)
         }
+
     }
 
     fun listPermissions(): ArrayList<String>

@@ -43,6 +43,36 @@ int FFmpegMuxer::addStream(AVCodecParameters *parameters) {
     return streamParameters.size() - 1;
 }
 
+
+void FFmpegMuxer::setCSD(uint8_t *buffer, int size, int streamIndex) {
+    LOGD(TAG, "setCSD for stream %d", streamIndex);
+    if (streamIndex >= streamParameters.size()) {
+        throw "streamIndex out of range";
+    }
+    AVCodecParameters *parameters = streamParameters[streamIndex];
+    if (parameters->extradata) {
+        av_free(parameters->extradata);
+    }
+    parameters->extradata = (uint8_t *)av_malloc(size);
+    memcpy(parameters->extradata, buffer, size);
+    parameters->extradata_size = size;
+
+    // 如果已经启动了，为了应对中途CSD可能变化的情况，这里也同步更新一下formatContext里的信息
+    if (formatContext && streamIndex < formatContext->nb_streams) {
+        unique_lock<recursive_mutex> lock(sendDataMu);
+
+        AVStream *stream = formatContext->streams[streamIndex];
+        parameters = stream->codecpar;
+        if (parameters->extradata) {
+            av_free(parameters->extradata);
+        }
+        parameters->extradata = (uint8_t *)av_malloc(size);
+        memcpy(parameters->extradata, buffer, size);
+        parameters->extradata_size = size;
+    }
+}
+
+
 bool FFmpegMuxer::start() {
     auto releaseResource = [&]() {
         if (formatContext) {
@@ -73,15 +103,22 @@ bool FFmpegMuxer::start() {
             LOGE(TAG, "add stream failed");
             return false;
         }
+
         stream->index = i;
         stream->id = i;
         AVCodecParameters *parameters = streamParameters[i];
         avcodec_parameters_copy(stream->codecpar, parameters);
+        if (stream->codecpar->extradata != nullptr) {
+            LOGI(TAG, "stream %d has extra data", i);
+        } else {
+            LOGE(TAG, "stream %d miss extra data", i);
+        }
     }
 
     if (formatContext->oformat->flags & AVFMT_GLOBALHEADER) {
         formatContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
+
     avformat_write_header(formatContext, nullptr);
     return true;
 }
@@ -93,7 +130,6 @@ void FFmpegMuxer::stop() {
     av_interleaved_write_frame(formatContext, nullptr);
     av_write_trailer(formatContext);
     avformat_free_context(formatContext);
-    av_free(formatContext);
     formatContext = nullptr;
     if (tempPacket) {
         av_packet_free(&tempPacket);
@@ -121,7 +157,7 @@ void FFmpegMuxer::sendPacket(AVPacket *packet) {
     av_interleaved_write_frame(formatContext, packet);
 }
 
-void FFmpegMuxer::sendData(uint8_t *data, int size, int pts, int streamIndex) {
+void FFmpegMuxer::sendData(uint8_t *data, int size, int pts, bool keyFrame, int streamIndex) {
     unique_lock<recursive_mutex> lock(sendDataMu);
     if (size <= 0) {
         return;
@@ -136,6 +172,11 @@ void FFmpegMuxer::sendData(uint8_t *data, int size, int pts, int streamIndex) {
     tempPacket->size = size;
     tempPacket->stream_index = streamIndex;
     tempPacket->pts = pts;
+    tempPacket->flags = 0;
+    // 如果是I帧，带上标志。这样ffmpeg的rtmp会在该帧附加SPS/PPS
+    if (keyFrame) {
+        tempPacket->flags |= AV_PKT_FLAG_KEY;
+    }
     sendPacket(tempPacket);
 }
 

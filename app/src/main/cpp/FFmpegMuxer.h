@@ -39,9 +39,14 @@ public:
 
     int addStream(AVCodecParameters *parameters);
 
+    /**
+     * 添加CSD（Codec Specific Data）数据，例如H264的SPS/PPS等
+     * */
+    void setCSD(uint8_t *buffer, int size, int streamIndex);
+
     void sendPacket(AVPacket *packet);
 
-    void sendData(uint8_t *data, int size, int ptsMS, int streamIndex);
+    void sendData(uint8_t *data, int size, int ptsMS, bool keyFrame, int streamIndex);
 
 private:
     AVFormatContext *formatContext = nullptr;

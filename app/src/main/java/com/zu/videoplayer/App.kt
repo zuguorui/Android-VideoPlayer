@@ -15,5 +15,7 @@ class App: Application() {
     companion object {
         lateinit var context: Context
             private set
+
+        var task = Task.PLAY_LOCAL_FILE
     }
 }

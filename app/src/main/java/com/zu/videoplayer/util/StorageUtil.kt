@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import com.zu.videoplayer.R
 import timber.log.Timber
 import java.io.File
 
@@ -18,7 +19,8 @@ import java.io.File
 
 fun createPictureUri(context: Context, name: String, isPending: Boolean = false): Uri? {
     val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-    val folderPath = "$DCIM/CameraUtil/picture/"
+    val appName = context.getString(R.string.app_name)
+    val folderPath = "$DCIM/$appName/picture/"
     val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
     val contentValues = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, name)
@@ -54,7 +56,8 @@ fun createPictureUri(context: Context, name: String, isPending: Boolean = false)
 
 fun createVideoUri(context: Context, name: String, isPending: Boolean = false): Pair<Uri?, String> {
     val DCIM = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-    val folderPath = "$DCIM/Android-VideoPlayer/video/"
+    val appName = context.getString(R.string.app_name)
+    val folderPath = "$DCIM/$appName/video/"
     val relativePath = folderPath.substring(folderPath.indexOf("DCIM"))
     val contentValues = ContentValues().apply {
         put(MediaStore.Video.Media.DISPLAY_NAME, name)

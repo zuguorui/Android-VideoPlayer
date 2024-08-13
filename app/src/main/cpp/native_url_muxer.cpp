@@ -111,6 +111,7 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_zu_videoplayer_muxer_FFmpegUrlMuxer_nSendData(JNIEnv *env, jobject thiz, jobject buffer,
                                                  jint offset, jint count, jlong pts,
+                                                 jboolean key_frame,
                                                  jint stream_index) {
     int64_t id;
     FFmpegUrlMuxer *muxer = getBoundMuxer(env, thiz, id);
@@ -119,14 +120,14 @@ Java_com_zu_videoplayer_muxer_FFmpegUrlMuxer_nSendData(JNIEnv *env, jobject thiz
     }
 
     uint8_t *data = (uint8_t *)env->GetDirectBufferAddress(buffer);
-    muxer->sendData(data + offset, count, pts, stream_index);
+    muxer->sendData(data + offset, count, pts, key_frame, stream_index);
 }
 
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_zu_videoplayer_muxer_FFmpegUrlMuxer_nAddAudioStream(JNIEnv *env, jobject thiz,
                                                              jstring mime_type, jint sample_rate,
-                                                             jint channels) {
+                                                             jint channels, jint bit_rate) {
     int64_t id;
     FFmpegUrlMuxer *muxer = getBoundMuxer(env, thiz, id);
     if (!muxer) {
@@ -148,6 +149,7 @@ Java_com_zu_videoplayer_muxer_FFmpegUrlMuxer_nAddAudioStream(JNIEnv *env, jobjec
     parameters->codec_id = codecId;
     parameters->sample_rate = sample_rate;
     parameters->format = AVSampleFormat::AV_SAMPLE_FMT_S16;
+    parameters->bit_rate = bit_rate;
     av_channel_layout_default(&parameters->ch_layout, channels);
 
     return muxer->addStream(parameters);
@@ -160,7 +162,7 @@ Java_com_zu_videoplayer_muxer_FFmpegUrlMuxer_nAddVideoStream(JNIEnv *env, jobjec
                                                              jstring mime_type, jdouble fps,
                                                              jint width, jint height,
                                                              jint pixel_fmt, jint profile,
-                                                             jint level) {
+                                                             jint level, jint bit_rate) {
     int64_t id;
     FFmpegUrlMuxer *muxer = getBoundMuxer(env, thiz, id);
     if (!muxer) {
@@ -185,6 +187,20 @@ Java_com_zu_videoplayer_muxer_FFmpegUrlMuxer_nAddVideoStream(JNIEnv *env, jobjec
     parameters->height = height;
     parameters->profile = profile;
     parameters->level = level;
+    parameters->bit_rate = bit_rate;
 
     return muxer->addStream(parameters);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_zu_videoplayer_muxer_FFmpegUrlMuxer_nSetCSD(JNIEnv *env, jobject thiz, jobject buffer,
+                                                     jint offset, jint size, jint stream_index) {
+    int64_t id;
+    FFmpegUrlMuxer *muxer = getBoundMuxer(env, thiz, id);
+    if (!muxer) {
+        return;
+    }
+    uint8_t *data = (uint8_t *)env->GetDirectBufferAddress(buffer);
+    muxer->setCSD(data + offset, size, stream_index);
 }

@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.zu.videoplayer.camera.OpenCameraMethod
@@ -27,6 +28,12 @@ val Context.setting: DataStore<Preferences> by preferencesDataStore(name = "sett
 
 private val KEY_OPEN_CAMERA_METHOD = stringPreferencesKey("specify_camera_method")
 private val KEY_HIGH_SPEED_PREVIEW_EXTRA_SURFACE = booleanPreferencesKey("high_speed_preview_extra_surface")
+private val KEY_FILE_OUTPUT_TYPE = intPreferencesKey("file_output_type")
+private val KEY_PUSH_STREAM_URL = stringPreferencesKey("push_stream_url")
+private val KEY_PULL_STREAM_URL = stringPreferencesKey("pull_stream_url")
+
+const val FILE_OUTPUT_TYPE_FILE = 0
+const val FILE_OUTPUT_TYPE_STREAM = 1
 
 object Settings {
     var openCameraMethod = OpenCameraMethod.IN_CONFIGURATION
@@ -48,6 +55,33 @@ object Settings {
             }
         }
 
+    var fileOutputType: Int = FILE_OUTPUT_TYPE_FILE
+        set(value) {
+            val diff = field != value
+            field = value
+            if (diff) {
+                saveData(KEY_FILE_OUTPUT_TYPE, value)
+            }
+        }
+
+    var pushStreamUrl: String = ""
+        set(value) {
+            val diff = field != value
+            field = value
+            if (diff) {
+                saveData(KEY_PUSH_STREAM_URL, value)
+            }
+        }
+
+    var pullStreamUrl: String = ""
+        set(value) {
+            val diff = field != value
+            field = value
+            if (diff) {
+                saveData(KEY_PULL_STREAM_URL, value)
+            }
+        }
+
     init {
         Timber.d("init start")
         // 阻塞加载配置
@@ -57,11 +91,18 @@ object Settings {
                 openCameraMethod = preference[KEY_OPEN_CAMERA_METHOD]?.let{ name ->
                     Timber.d("read openCameraMethod = $name")
                     OpenCameraMethod.valueOf(name)
-                } ?: OpenCameraMethod.DIRECTLY
+                } ?: openCameraMethod
 
                 highSpeedPreviewExtraSurface = preference[KEY_HIGH_SPEED_PREVIEW_EXTRA_SURFACE]?.let {
                     it
-                } ?: true
+                } ?: highSpeedPreviewExtraSurface
+
+                fileOutputType = preference[KEY_FILE_OUTPUT_TYPE] ?: fileOutputType
+
+                pushStreamUrl = preference[KEY_PUSH_STREAM_URL] ?: pushStreamUrl
+
+                pullStreamUrl = preference[KEY_PULL_STREAM_URL] ?: pullStreamUrl
+
             }
             Timber.d("init, runBlocking end")
         }

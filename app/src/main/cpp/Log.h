@@ -20,15 +20,15 @@ extern "C" {
 static void ffmpegLogCallback(void *ctx, int level, const char *fmt, va_list args)
 {
     if(level == AV_LOG_ERROR) {
-        LOGE("FFmpeg", fmt, args);
+        __android_log_vprint(ANDROID_LOG_ERROR, "FFmpeg", fmt, args);
     } else if (level == AV_LOG_INFO) {
-        LOGI("FFmpeg", fmt, args);
+        __android_log_vprint(ANDROID_LOG_INFO, "FFmpeg", fmt, args);
     } else if (level == AV_LOG_VERBOSE) {
-        LOGV("FFmpeg", fmt, args);
+        __android_log_vprint(ANDROID_LOG_VERBOSE, "FFmpeg", fmt, args);
     } else if (level == AV_LOG_WARNING) {
-        LOGW("FFmpeg", fmt, args);
+        __android_log_vprint(ANDROID_LOG_WARN, "FFmpeg", fmt, args);
     } else {
-        LOGD("FFmpeg", fmt, args);
+        __android_log_vprint(ANDROID_LOG_DEBUG, "FFmpeg", fmt, args);
     }
 }
 

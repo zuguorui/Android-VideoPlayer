@@ -37,4 +37,14 @@
         app:layout_constraintBottom_toBottomOf="parent"
         android:text="设置"
         android:id="@+id/btn_setting"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@id/btn_start"
+        app:layout_constraintTop_toBottomOf="@id/gl1"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:text="切换"
+        android:id="@+id/btn_switch_camera"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

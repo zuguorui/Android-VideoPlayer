@@ -2,26 +2,21 @@ package com.zu.videoplayer
 
 import android.annotation.SuppressLint
 import android.content.ContentValues
-import android.hardware.camera2.CameraCaptureSession
+import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.CaptureResult
-import android.hardware.camera2.TotalCaptureResult
 import android.media.ImageReader
 import android.media.MediaCodec
-import android.media.MediaCodecInfo
 import android.media.MediaFormat
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.zu.videoplayer.audio.AudioInput
 import com.zu.videoplayer.camera.BaseCameraLogic
 import com.zu.videoplayer.camera.Camera2PreviewView
@@ -57,6 +52,8 @@ class FFmpegMuxActivity : AppCompatActivity() {
     private var currentSize: Size? = null
     private var currentFps: FPS? = null
 
+    private var isFrontCamera = true
+
     // record components
 
     private var audioStreamIndex = -1
@@ -65,7 +62,7 @@ class FFmpegMuxActivity : AppCompatActivity() {
     private var audioStartPts = -1L
     private var videoStartPts = -1L
 
-    // 第一帧数据的时间戳
+    // 第一帧数据的时间戳，用来同步音视频输出，避免错位
     private var firstAudioFrameTS = AtomicLong(-1)
     private var firstVideoFrameTS = AtomicLong(-1)
 
@@ -78,7 +75,9 @@ class FFmpegMuxActivity : AppCompatActivity() {
             if (firstAudioFrameTS.get() == -1L) {
                 firstAudioFrameTS.set(System.currentTimeMillis())
                 if (firstVideoFrameTS.get() != -1L) {
-                    Timber.d("video before audio ${firstAudioFrameTS.get() - firstVideoFrameTS.get()} ms")
+                    Timber.w("video before audio ${firstAudioFrameTS.get() - firstVideoFrameTS.get()} ms")
+                    // 第一帧音频拿到了，如果视频已经出数据了，就可以开始mux了
+                    muxer.start()
                 }
             }
             // 视频有数据之后再开始推送音频
@@ -89,11 +88,37 @@ class FFmpegMuxActivity : AppCompatActivity() {
                 audioStartPts = info.presentationTimeUs
             }
             info.presentationTimeUs -= audioStartPts
-            muxer.sendData(buffer, info.offset, info.size, info.presentationTimeUs, audioStreamIndex)
+            val keyFrame = (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) == MediaCodec.BUFFER_FLAG_KEY_FRAME
+            muxer.sendData(buffer, info.offset, info.size, info.presentationTimeUs, keyFrame, audioStreamIndex)
         }
 
         override fun onOutputFormatChanged(format: MediaFormat) {
             audioStartPts = -1L
+
+            // 编码器启动，通知外部编码器参数。先添加Stream后添加CSD
+
+            if (audioStreamIndex >= 0) {
+                var csd0 = format.getByteBuffer("csd-0")
+                var csd1 = format.getByteBuffer("csd-1")
+                Timber.i("audio outputFormatChanged: %s", format.toString())
+
+                var csdCapacity = (csd0?.remaining() ?: 0) + (csd1?.remaining() ?: 0)
+                val csd = ByteBuffer.allocateDirect(csdCapacity)
+                if (csd0 != null) {
+                    csd.put(csd0)
+                }
+                if (csd1 != null) {
+                    csd.put(csd1)
+                }
+                csd.rewind()
+                muxer.setCSD(csd, 0, csdCapacity, audioStreamIndex)
+            } else {
+                Timber.e("audioStreamIndex < 0")
+            }
+        }
+
+        override fun onFinish() {
+            Timber.d("audio encoder finish")
         }
     }
 
@@ -102,10 +127,8 @@ class FFmpegMuxActivity : AppCompatActivity() {
             if (firstVideoFrameTS.get() == -1L) {
                 firstVideoFrameTS.set(System.currentTimeMillis())
                 if (firstAudioFrameTS.get() != -1L) {
-                    Timber.d("audio before video ${firstVideoFrameTS.get() - firstAudioFrameTS.get()} ms")
-                }
-                if ((info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) == 0 && (info.flags and MediaCodec.BUFFER_FLAG_SYNC_FRAME) == 0) {
-                    Timber.e("first frame but not key frame")
+                    Timber.w("audio before video ${firstVideoFrameTS.get() - firstAudioFrameTS.get()} ms")
+                    muxer.start()
                 }
             }
 
@@ -113,40 +136,65 @@ class FFmpegMuxActivity : AppCompatActivity() {
                 return
             }
 
+            val keyFrame = (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) == MediaCodec.BUFFER_FLAG_KEY_FRAME
+
             if (videoStartPts == -1L) {
                 videoStartPts = info.presentationTimeUs
             }
             info.presentationTimeUs -= videoStartPts
-            muxer.sendData(buffer, info.offset, info.size, info.presentationTimeUs, videoStreamIndex)
+            muxer.sendData(buffer, info.offset, info.size, info.presentationTimeUs, keyFrame, videoStreamIndex)
         }
 
         override fun onOutputFormatChanged(format: MediaFormat) {
             videoStartPts = -1L
+
+            if (videoStreamIndex >= 0) {
+                var csd0 = format.getByteBuffer("csd-0")
+                var csd1 = format.getByteBuffer("csd-1")
+                Timber.i("video outputFormatChanged: %s", format.toString())
+                val profile = format.getIntegerSafe(MediaFormat.KEY_PROFILE)
+                val level = format.getIntegerSafe(MediaFormat.KEY_LEVEL)
+                Timber.i("video profile = %d, level = %d", profile, level)
+
+                var csdCapacity = (csd0?.remaining() ?: 0) + (csd1?.remaining() ?: 0)
+                val csd = ByteBuffer.allocateDirect(csdCapacity)
+                if (csd0 != null) {
+                    csd.put(csd0)
+                }
+                if (csd1 != null) {
+                    csd.put(csd1)
+                }
+                csd.rewind()
+                muxer.setCSD(csd, 0, csdCapacity, videoStreamIndex)
+            } else {
+                Timber.e("videoStreamIndex < 0")
+            }
+        }
+
+        override fun onFinish() {
+            Timber.d("video encoder finish")
         }
     }
 
     private val audioInput = AudioInput().apply {
         dataCallback = audioInputCallback
     }
-    private var videoEncoder = VideoEncoder().apply {
-        callback = videoEncoderCallback
-    }
-    private var audioEncoder = AudioEncoder().apply {
-        callback = audioEncodeCallback
-    }
+    private var videoEncoder = VideoEncoder()
+
+    private var audioEncoder = AudioEncoder()
+
     private var muxer = FFmpegUrlMuxer()
 
     private val surfaceStateListener = object : PreviewViewImplementation.SurfaceStateListener {
         override fun onSurfaceCreated(surface: Surface) {
             Timber.d("surfaceCreated: Thread = ${Thread.currentThread().name}")
-            selectCameraConfig()
+            selectCameraConfig(isFrontCamera)
             openCamera()
         }
 
         override fun onSurfaceSizeChanged(surface: Surface, surfaceWidth: Int, surfaceHeight: Int) {
             val surfaceSize = Size(surfaceWidth, surfaceHeight)
             Timber.d("surfaceChanged: surfaceSize = $surfaceSize, ratio = ${surfaceSize.toRational()}")
-
         }
 
         override fun onSurfaceDestroyed(surface: Surface) {
@@ -159,6 +207,8 @@ class FFmpegMuxActivity : AppCompatActivity() {
         set(value) {
             field = value
             binding.btnStart.text = if (value) "停止" else "开始"
+            binding.btnSetting.isEnabled = !value
+            binding.btnSwitchCamera.isEnabled = !value
         }
 
     private var recordParams: RecorderParams? = null
@@ -171,6 +221,11 @@ class FFmpegMuxActivity : AppCompatActivity() {
 
         initCameraLogic()
         initViews()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        stopRecord()
     }
 
     private fun initCameraLogic() {
@@ -226,11 +281,25 @@ class FFmpegMuxActivity : AppCompatActivity() {
                 startRecord()
             }
         }
+
+        binding.btnSetting.setOnClickListener {
+            val intent = Intent(this, SettingActivity::class.java)
+            intent.putExtra(SettingActivity.KEY_SETTING_FLAGS, SettingActivity.SETTING_FLAG_FILE_OUTPUT_LOCATION)
+            startActivity(intent)
+        }
+
+        binding.btnSwitchCamera.setOnClickListener {
+            closeCamera()
+            selectCameraConfig(!isFrontCamera)
+            openCamera()
+        }
     }
 
-    private fun selectCameraConfig() {
-        val frontCamera = cameraInfoMap.values.stream().filter {
-            it.lensFacing == CameraCharacteristics.LENS_FACING_BACK
+    private fun selectCameraConfig(isFront: Boolean) {
+        isFrontCamera = isFront
+        val facing = if (isFront) CameraCharacteristics.LENS_FACING_FRONT else CameraCharacteristics.LENS_FACING_BACK
+        val camera = cameraInfoMap.values.stream().filter {
+            it.lensFacing == facing
         }.sorted { o1, o2 ->
             if (o1.cameraID >= o2.cameraID) {
                 1
@@ -239,7 +308,7 @@ class FFmpegMuxActivity : AppCompatActivity() {
             }
         }.findFirst().get()
 
-        currentCameraID = frontCamera.cameraID
+        currentCameraID = camera.cameraID
 
         val sizeList = arrayListOf(
             Size(1920, 1080),
@@ -249,8 +318,8 @@ class FFmpegMuxActivity : AppCompatActivity() {
         )
 
         for (size in sizeList) {
-            val imageReaderSizeList = frontCamera.classSizeMap[ImageReader::class.java]!!
-            val previewSizeList = frontCamera.classSizeMap[SurfaceHolder::class.java]!!
+            val imageReaderSizeList = camera.classSizeMap[ImageReader::class.java]!!
+            val previewSizeList = camera.classSizeMap[SurfaceHolder::class.java]!!
             if (imageReaderSizeList.contains(size) && previewSizeList.contains(size)) {
                 currentSize = size
                 break
@@ -264,7 +333,7 @@ class FFmpegMuxActivity : AppCompatActivity() {
 
         binding.preview.previewSize = size
 
-        currentFps = frontCamera.fpsRanges.filter {
+        currentFps = camera.fpsRanges.filter {
             it.lower == it.upper
         }.maxByOrNull {
             it.lower
@@ -297,7 +366,12 @@ class FFmpegMuxActivity : AppCompatActivity() {
     private fun startRecord() {
         //stopRecord()
 
+        audioEncoder.callback = audioEncodeCallback
+        videoEncoder.callback = videoEncoderCallback
+
         val fmt = "flv"
+
+        val pushStream = Settings.fileOutputType == FILE_OUTPUT_TYPE_STREAM && Settings.pushStreamUrl.isNotBlank()
 
         firstAudioFrameTS.set(-1)
         firstVideoFrameTS.set(-1)
@@ -320,20 +394,25 @@ class FFmpegMuxActivity : AppCompatActivity() {
         val timeStamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(Date(System.currentTimeMillis()))
         val title = "${size.width}x${size.height}@${fps.value}FPS.$timeStamp.$fmt"
 
-        val saveUriPair = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            createVideoUri(this, title)
+        var saveUri: Uri? = null
+        var savePath: String? = null
+
+        if (!pushStream) {
+            val saveUriPair = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                createVideoUri(this, title)
+            } else {
+                null
+            }
+
+            saveUriPair?.let {
+                saveUri = it.first
+                savePath = it.second
+            } ?: run {
+                savePath = createVideoPath(title)
+            }
         } else {
-            null
+            savePath = Settings.pushStreamUrl
         }
-
-        val saveUri = saveUriPair?.first
-
-        val savePath = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            createVideoPath(title)
-        } else {
-            null
-        }
-
 
         val params = RecorderParams(
             title = title,
@@ -364,41 +443,33 @@ class FFmpegMuxActivity : AppCompatActivity() {
         }
         muxer.init()
         muxer.setOutputFormat("flv")
+        muxer.setUrl(savePath!!)
 
         audioEncoder.config?.let {
-            audioStreamIndex = muxer.addAudioStream(it.mimeType, it.sampleRate, it.channels)
+            audioStreamIndex = muxer.addAudioStream(it.mimeType, it.sampleRate, it.channels, it.bitrate)
         } ?: run {
             Timber.e("audio encoder config is null")
             return
         }
 
         if (audioStreamIndex < 0) {
-            Timber.e("audioStreamIndex < 0")
+            Timber.e("add audio stream failed")
+            return
         }
 
         videoEncoder.config?.let {
-            videoStreamIndex = muxer.addVideoStream(it.mimeType, it.fps.toDouble(), it.width, it.height, it.colorFormat, it.profile, it.level)
+            videoStreamIndex = muxer.addVideoStream(it.mimeType, it.fps.toDouble(), it.width, it.height, it.colorFormat, it.profile, it.level, it.bitrate)
+            Timber.d("video profile = %d, level = %d", it.profile, it.level)
         } ?: run {
             Timber.e("video encoder config is null")
             return
         }
 
         if (videoStreamIndex < 0) {
-            Timber.e("videoStreamIndex < 0")
-        }
-
-        Timber.d("audioStreamIndex = $audioStreamIndex, videoStreamIndex = $videoStreamIndex")
-
-        if (saveUriPair != null) {
-            muxer.setUrl(saveUriPair.second)
-        } else {
-            muxer.setUrl(savePath!!)
-        }
-
-        if (!muxer.start()) {
-            Timber.e("muxer start failed")
+            Timber.e("add video stream failed")
             return
         }
+
 
         videoEncoder.start()
         if (videoEncoder.state != EncoderState.STARTED) {
@@ -420,7 +491,9 @@ class FFmpegMuxActivity : AppCompatActivity() {
     }
 
     private fun stopRecord() {
-
+        if (!recording) {
+            return
+        }
         val previousParams = recordParams
         recordParams = null
         cameraLogic.closeSession()
@@ -430,6 +503,7 @@ class FFmpegMuxActivity : AppCompatActivity() {
         videoEncoder.stop()
         audioEncoder.release()
         videoEncoder.release()
+        Timber.d("muxer finish")
         muxer.stop()
         cameraLogic.createSession()
         previousParams?.let { params ->

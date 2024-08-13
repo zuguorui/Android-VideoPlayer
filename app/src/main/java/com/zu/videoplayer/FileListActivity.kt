@@ -37,7 +37,7 @@ class FileListActivity : AppCompatActivity() {
         adapter.itemClickListener = {
             val path = videoList!![it].path
             var intent = Intent(this, PlayActivity::class.java)
-            intent.putExtra("path", path)
+            intent.putExtra("url", path)
             startActivity(intent)
         }
 

@@ -5,6 +5,10 @@
 #include "FFmpegUrlMuxer.h"
 #include "Log.h"
 
+#define TAG "FFmpegUrlMuxer"
+
+using namespace std;
+
 FFmpegUrlMuxer::FFmpegUrlMuxer() {
     av_log_set_callback(ffmpegLogCallback);
 }
@@ -28,17 +32,20 @@ int FFmpegUrlMuxer::addStream(AVCodecParameters *parameters) {
     return muxer.addStream(parameters);
 }
 
-void FFmpegUrlMuxer::sendData(uint8_t *data, int size, int64_t pts, int streamIndex) {
-    muxer.sendData(data, size, pts, streamIndex);
+void FFmpegUrlMuxer::setCSD(uint8_t *buffer, int size, int streamIndex) {
+    muxer.setCSD(buffer, size, streamIndex);
+}
+
+void FFmpegUrlMuxer::sendData(uint8_t *data, int size, int64_t pts, bool keyFrame, int streamIndex) {
+    muxer.sendData(data, size, pts, keyFrame, streamIndex);
 }
 
 bool FFmpegUrlMuxer::start() {
     auto releaseResource = [&]() {
-        if (ioContext) {
-            avio_context_free(&ioContext);
-            ioContext = nullptr;
-        }
+
     };
+    LOGD(TAG, "open, url = %s", url);
+    avformat_network_init();
     if (avio_open(&ioContext, url, AVIO_FLAG_WRITE) < 0) {
         releaseResource();
         return false;
@@ -53,8 +60,7 @@ bool FFmpegUrlMuxer::start() {
 
 void FFmpegUrlMuxer::stop() {
     muxer.stop();
-    avio_context_free(&ioContext);
-    ioContext = nullptr;
+    avio_closep(&ioContext);
 }
 
 

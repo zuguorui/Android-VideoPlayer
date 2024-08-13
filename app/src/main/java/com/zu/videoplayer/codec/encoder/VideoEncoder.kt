@@ -1,5 +1,6 @@
 package com.zu.videoplayer.codec.encoder
 
+import android.hardware.camera2.CameraCharacteristics
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
@@ -47,6 +48,10 @@ class VideoEncoder: BaseEncoder("VideoEncoder") {
         format.setFloat(MediaFormat.KEY_CAPTURE_RATE, params.inputFps.toFloat())
         format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        format.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
+        format.setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel6)
+        val rotation = computeRotation(params.sensorOrientation, params.viewOrientation, params.facing)
+        format.setInteger(MediaFormat.KEY_ROTATION, rotation)
         try {
             encoder = MediaCodec.createEncoderByType(mimeType)
             encoder?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -88,9 +93,10 @@ class VideoEncoder: BaseEncoder("VideoEncoder") {
 
     // 计算视频比特率
     // https://zidivo.com/blog/video-bitrate-guide/
-    private val videoQuality = 1
+    private val videoQuality = 0.1
     private fun computeVideoBitRate(width: Int, height: Int, frameRate: Int, pixelSize: Int): Int {
-        return (0.07 * width * height * pixelSize * frameRate * videoQuality).toInt()
+        //return (0.07 * width * height * 0.6 * pixelSize * frameRate * videoQuality).toInt()
+        return 250000
     }
 
     class Config {
@@ -121,6 +127,13 @@ class VideoEncoder: BaseEncoder("VideoEncoder") {
             profile = format.getIntegerSafe(MediaFormat.KEY_PROFILE)
             level = format.getIntegerSafe(MediaFormat.KEY_LEVEL)
         }
+    }
+
+    fun computeRotation(sensorOrientation: Int, viewOrientation: Int, cameraFacing: Int): Int {
+        val isFront = cameraFacing == CameraCharacteristics.LENS_FACING_FRONT
+        val rotationSign = if (isFront) -1 else 1
+        val rotation = (sensorOrientation - viewOrientation * rotationSign + 360) % 360
+        return rotation
     }
 
 }

@@ -26,6 +26,12 @@
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="播放流"
+                android:id="@+id/btn_play_stream"
+                android:layout_margin="5dp"/>
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:text="FFmpeg mux"
                 android:textAllCaps="false"
                 android:id="@+id/btn_ffmpeg_mux"

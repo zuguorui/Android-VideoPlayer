@@ -10,10 +10,10 @@ import java.nio.ByteBuffer
  * @description
  */
 abstract class EncoderCallback {
-    fun onStart() {}
-    fun onStop() {}
-    fun onError() {}
-    fun onFinish() {}
+    open fun onStart() {}
+    open fun onStop() {}
+    open fun onError() {}
+    open fun onFinish() {}
     abstract fun onOutputBufferAvailable(buffer: ByteBuffer, info: MediaCodec.BufferInfo)
     abstract fun onOutputFormatChanged(format: MediaFormat)
 }

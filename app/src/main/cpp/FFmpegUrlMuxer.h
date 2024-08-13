@@ -17,11 +17,13 @@ public:
 
     int addStream(AVCodecParameters *parameters);
 
+    void setCSD(uint8_t *buffer, int size, int streamIndex);
+
     bool start();
 
     void stop();
 
-    void sendData(uint8_t *data, int size, int64_t pts, int streamIndex);
+    void sendData(uint8_t *data, int size, int64_t pts, bool keyFrame, int streamIndex);
 
 private:
     FFmpegMuxer muxer;

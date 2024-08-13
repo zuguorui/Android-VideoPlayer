@@ -1,20 +1,25 @@
 package com.zu.videoplayer
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Message
 import android.view.*
 import android.widget.SeekBar
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
+import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.zu.videoplayer.databinding.ActivityPlayBinding
 import timber.log.Timber
+import kotlin.math.round
 
 fun formatDuration(duration: Long): String {
-    val totalSeconds: Int = (duration / 1000).toInt()
+    val totalSeconds: Int = round(duration.toFloat() / 1000).toInt()
     val totalMinutes = totalSeconds / 60
     val seconds: Int = totalSeconds % 60
     val minutes: Int = totalMinutes % 60
@@ -64,7 +69,7 @@ class PlayActivity : AppCompatActivity() {
                     return@Handler true
                 }
                 val ms: Long = it.obj as Long
-                val s: Int = (ms / 1000).toInt()
+                val s: Int = round(ms.toFloat() / 1000).toInt()
                 binding.seekPos.progress = s
                 binding.tvPos.text = formatDuration(ms)
             }
@@ -121,6 +126,7 @@ class PlayActivity : AppCompatActivity() {
         }
     }
 
+
     private var filePath: String? = null
 
     private var isPlaying = false
@@ -151,7 +157,7 @@ class PlayActivity : AppCompatActivity() {
 
 
 
-        filePath = intent.getStringExtra("path")
+        filePath = intent.getStringExtra("url")
 
         nInit()
         binding.btnPlay.text = "播放"
@@ -199,11 +205,22 @@ class PlayActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        Timber.d("onDestroy")
         nStop()
-
         nDestroy()
         super.onDestroy()
     }
+
+    override fun onBackPressed() {
+        if (App.task == Task.PLAY_STREAM) {
+            val intent = Intent(this, MainActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(intent)
+        } else {
+            super.onBackPressed()
+        }
+    }
+
 
     private fun addSurfaceView() {
         surfaceView = SurfaceView(this)
