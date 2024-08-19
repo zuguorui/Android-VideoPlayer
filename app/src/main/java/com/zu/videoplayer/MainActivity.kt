@@ -1,6 +1,7 @@
 package com.zu.videoplayer
 
 import android.Manifest
+import android.app.ActivityManager.AppTask
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
@@ -61,6 +62,12 @@ class MainActivity : AppCompatActivity() {
         binding.btnFfmpegMux.setOnClickListener {
             App.task = Task.NATIVE_ENCODE_FFMPEG_MUX
             val intent = Intent(this, FFmpegMuxActivity::class.java)
+            startActivity(intent)
+        }
+
+        binding.btnRtmpLivePush.setOnClickListener {
+            App.task = Task.RTMP_LIVE_PUSH
+            val intent = Intent(this, RtmpPushActivity::class.java)
             startActivity(intent)
         }
 

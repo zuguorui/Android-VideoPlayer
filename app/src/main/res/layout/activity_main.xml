@@ -36,6 +36,14 @@
                 android:textAllCaps="false"
                 android:id="@+id/btn_ffmpeg_mux"
                 android:layout_margin="5dp"/>
+
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="RTMP直播推流"
+                android:textAllCaps="false"
+                android:id="@+id/btn_rtmp_live_push"
+                android:layout_margin="5dp"/>
         </LinearLayout>
     </ScrollView>
 

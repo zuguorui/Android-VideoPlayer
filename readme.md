@@ -6,6 +6,38 @@
 
 代码支持结构支持多平台，平台相关解码器定义在`platform.h`。音视频输入输出接口位于`Factory`中。
 
+
+## 关键模块
+
+### Player
+
+使用FFmpeg进行解码及控制播放的逻辑。
+
+### cpp/output
+
+与操作系统相关的音视频输出。Android端的视频渲染使用OpenGL ES。
+
+### FFmpegCodec
+
+对FFmpeg的codec操作的包装。集成了操作硬件codec的能力。
+
+### FFmpegMuxer
+
+使用FFmpeg进行mux的基础逻辑。不包括io的部分。
+
+### FFmpegUrlMuxer
+
+在FFmpegMuxer的基础上，自定义了输出，可以选择将mux输出推流或者保存为文件。基于FFmpeg的AVIOContext实现。输入则依赖于Android上层的音视频编码器。
+
+### RtmpPusher
+
+在FFmpegMuxer的基础上，自定义AVIOContext，然后将FFmpeg输出手动通过librtmp推流。相比FFmpegUrlMuxer，这部分更多是手动处理FFmpeg与RTMP的交互。
+
+### java/encoder
+
+android端的MediaCodec编码。
+
+
 ## 更新日志
 
 - 修复退出播放器时阻塞的问题。
@@ -21,4 +53,5 @@
 - 修改GL的渲染逻辑，对于YUV420P、NV21和NV12这几种常见格式，将直接送入着色器而不需要预处理。提升性能表现。
 - 升级到OpenGL ES 3.1，可以支持计算着色器以应对可能出现的更复杂的格式。
 - 修复某些文件在metadata里指定旋转方向不生效的问题。
-- 增加FFmpeg mux，并通过自定义AVIOContext，可选录像保存为文件或者推流到rtmp。
+- 增加FFmpegUrlMuxer，并通过自定义AVIOContext，可选录像保存为文件或者推流到rtmp。
+- 增加RTMP相关库。增加RtmpPusher，手动处理AVIOContext和RTMP交互。

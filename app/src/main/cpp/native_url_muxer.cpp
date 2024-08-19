@@ -18,7 +18,7 @@ using namespace std;
 
 map<int64_t, FFmpegUrlMuxer *> muxerMap;
 
-FFmpegUrlMuxer *getBoundMuxer(JNIEnv *env, jobject thiz, int64_t &id) {
+FFmpegUrlMuxer *getBoundMuxer(JNIEnv *env, jobject &thiz, int64_t &id) {
     jclass clazz = env->GetObjectClass(thiz);
     jfieldID fieldID = env->GetFieldID(clazz, "nativeObjectID", "J");
     id = env->GetLongField(thiz, fieldID);

@@ -30,7 +30,7 @@ class SettingActivity : AppCompatActivity() {
                     finish()
                 }
                 else -> {
-
+                    finish()
                 }
             }
         }
@@ -50,12 +50,20 @@ class SettingActivity : AppCompatActivity() {
             fragments.add(fragment)
             transaction.add(R.id.fragment_container, fragment)
         }
+
+        if ((flag and SETTING_FLAG_SET_PUSH_STREAM_URL) != 0) {
+            val fragment = SetPushStreamUrlFragment()
+            fragments.add(fragment)
+            transaction.add(R.id.fragment_container, fragment)
+        }
+
         transaction.commitAllowingStateLoss()
     }
 
     companion object {
         const val SETTING_FLAG_FILE_OUTPUT_LOCATION = 1
         const val SETTING_FLAG_SET_PULL_STREAM_URL = 1 shl 1
+        const val SETTING_FLAG_SET_PUSH_STREAM_URL = 1 shl 2
 
         const val KEY_SETTING_FLAGS = "key_setting_flags"
     }

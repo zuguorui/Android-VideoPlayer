@@ -22,6 +22,7 @@ file(GLOB CPP_FILES
         "src/main/cpp/output/android/video/*.cpp",
         "src/main/cpp/output/android/audio/*.cpp",
         "src/main/cpp/output/android/video/render_logic/*.cpp"
+        "src/main/cpp/librtmp/*.c"
         )
 
 include_directories("src/main/cpp/FFmpeg/")
@@ -29,6 +30,8 @@ include_directories("src/main/cpp/")
 include_directories("src/main/cpp/recorder/")
 include_directories("src/main/cpp/iconv/")
 include_directories("src/main/cpp/output/")
+include_directories("src/main/cpp/librtmp/")
+include_directories("src/main/cpp/openssl/")
 
 
 
@@ -92,4 +95,6 @@ target_link_libraries( # Specifies the target library.
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libswresample.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libswscale.so
         ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libpostproc.so
+        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libcrypto.so
+        ${CMAKE_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libssl.so
         )
