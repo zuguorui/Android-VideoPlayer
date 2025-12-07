@@ -18,6 +18,7 @@ import com.zu.videoplayer.util.loadVideoFiles
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
+import timber.log.Timber
 
 class MainActivity : AppCompatActivity() {
 
@@ -43,6 +44,33 @@ class MainActivity : AppCompatActivity() {
         checkPermission()
 
         initViews()
+
+        Timber.d("onCreate")
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Timber.d("onStart")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Timber.d("onResume")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Timber.d("onPause")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Timber.d("onStop")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Timber.d("onDestroy")
     }
 
     private fun initViews() {

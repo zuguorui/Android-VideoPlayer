@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.zu.videoplayer.databinding.ActivitySettingBinding
+import timber.log.Timber
 
 class SettingActivity : AppCompatActivity() {
 
@@ -35,6 +36,32 @@ class SettingActivity : AppCompatActivity() {
             }
         }
         initFragments()
+        Timber.d("onCreate")
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Timber.d("onStart")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Timber.d("onResume")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Timber.d("onPause")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Timber.d("onStop")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Timber.d("onDestroy")
     }
 
     private fun initFragments() {
