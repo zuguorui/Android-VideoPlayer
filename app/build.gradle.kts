@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.zu.newprojectdemo"
+        applicationId = "com.zu.videoplayer"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

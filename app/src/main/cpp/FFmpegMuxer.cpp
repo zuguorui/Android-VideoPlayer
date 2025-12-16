@@ -4,10 +4,36 @@
 
 #include "FFmpegMuxer.h"
 #include "Log.h"
+#include "BufferBitReader.h"
+#include "h264_nal.h"
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+
+
 
 #define TAG "FFmpegMuxer"
 
 using namespace std;
+
+void print_hex(const uint8_t* data, int size) {
+    if (!data || size <= 0) {
+        return;
+    }
+
+    std::ostringstream oss;
+    oss << std::hex << std::uppercase << std::setfill('0');
+
+    for (int i = 0; i < size; ++i) {
+        oss << std::setw(2) << static_cast<int>(data[i]);
+        if (i != size - 1) {
+            oss << " ";
+        }
+    }
+
+    string s = oss.str();
+    LOGD(TAG, "%s", s.c_str());
+}
 
 FFmpegMuxer::FFmpegMuxer() {
 
@@ -49,6 +75,7 @@ void FFmpegMuxer::setCSD(uint8_t *buffer, int size, int streamIndex) {
     if (streamIndex >= streamParameters.size()) {
         throw "streamIndex out of range";
     }
+    print_hex(buffer, size);
     AVCodecParameters *parameters = streamParameters[streamIndex];
     if (parameters->extradata) {
         av_free(parameters->extradata);
@@ -178,6 +205,14 @@ void FFmpegMuxer::sendData(uint8_t *data, int size, int pts, bool keyFrame, int 
         tempPacket->flags |= AV_PKT_FLAG_KEY;
     }
     sendPacket(tempPacket);
+
+//    BufferBitReader reader(data, size);
+//    NAL *nal = nullptr;
+//    LOGI(TAG, "send data begin, data size = %d, pts = %d, start code = %02X %02X %02X %02X", size, pts, data[0], data[1], data[2], data[3]);
+//    while ((nal = parse_nal(reader)) != nullptr) {
+//        LOGI(TAG, "nal_unit_type = %d", nal->nal_unit_type);
+//    }
+//    LOGI(TAG, "send data end");
 }
 
 bool FFmpegMuxer::isStarted() {

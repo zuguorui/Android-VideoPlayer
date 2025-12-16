@@ -34,6 +34,8 @@ import com.zu.videoplayer.muxer.FFmpegUrlMuxer
 import com.zu.videoplayer.util.createVideoPath
 import com.zu.videoplayer.util.createVideoUri
 import timber.log.Timber
+import java.io.File
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -47,6 +49,9 @@ class FFmpegMuxActivity : AppCompatActivity() {
     }
 
     private lateinit var cameraLogic: BaseCameraLogic
+
+    private var rawFile: File? = null
+    private var rawFileStream: OutputStream? = null
 
     private var currentCameraID: String? = null
     private var currentSize: Size? = null
@@ -138,6 +143,14 @@ class FFmpegMuxActivity : AppCompatActivity() {
 
             val keyFrame = (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) == MediaCodec.BUFFER_FLAG_KEY_FRAME
 
+            rawFileStream?.let {
+                buffer.rewind()
+                val array = ByteArray(buffer.remaining())
+                buffer.get(array)
+                it.write(array)
+            }
+
+            buffer.rewind()
             if (videoStartPts == -1L) {
                 videoStartPts = info.presentationTimeUs
             }
@@ -483,6 +496,16 @@ class FFmpegMuxActivity : AppCompatActivity() {
             return
         }
 
+//        val rawFilePath = getExternalFilesDir(null)!!.path + "/" + timeStamp + "_${params.outputFps}FPS_${params.resolution.width}x${params.resolution.height}.h264"
+//        val rawTempFile = File(rawFilePath)
+//        rawTempFile.parentFile?.let {
+//            if (!it.exists()) {
+//                it.mkdirs()
+//            }
+//        }
+//        rawFile = rawTempFile
+//        rawFileStream = rawFile!!.outputStream()
+
         recordParams = params
         cameraLogic.closeSession()
         audioInput.start()
@@ -520,6 +543,11 @@ class FFmpegMuxActivity : AppCompatActivity() {
         audioStreamIndex = -1
         videoStreamIndex = -1
         recording = false
+        if (rawFileStream != null) {
+            rawFileStream?.close()
+            rawFileStream = null
+            rawFile = null
+        }
     }
 
 

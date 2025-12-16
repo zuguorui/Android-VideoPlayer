@@ -23,6 +23,7 @@ file(GLOB CPP_FILES
         "src/main/cpp/output/android/audio/*.cpp",
         "src/main/cpp/output/android/video/render_logic/*.cpp"
         "src/main/cpp/librtmp/*.c"
+        "src/main/cpp/h264_analyze/*.cpp"
         )
 
 include_directories("src/main/cpp/FFmpeg/")
@@ -32,6 +33,7 @@ include_directories("src/main/cpp/iconv/")
 include_directories("src/main/cpp/output/")
 include_directories("src/main/cpp/librtmp/")
 include_directories("src/main/cpp/openssl/")
+include_directories("src/main/cpp/h264_analyze/")
 
 
 
